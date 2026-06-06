@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'AuraNotes — Smart AI Voice Notes & Real-time News',
+  title: 'Catatan Pintar',
   description: 'Catatan suara cerdas yang diformat otomatis oleh AI (Gemini 3.5 Flash) dan disinkronkan di seluruh perangkat Anda menggunakan Supabase, dilengkapi berita terkini secara real-time.',
 };
 
