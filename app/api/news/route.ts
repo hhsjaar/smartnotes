@@ -1,0 +1,218 @@
+import { NextResponse } from 'next/server';
+
+interface CacheEntry {
+  data: any;
+  timestamp: number;
+}
+
+// Global in-memory cache for aggregated news categories
+const newsCache: Record<string, CacheEntry> = {};
+const CACHE_TTL = 5 * 60 * 1000; // Cache TTL of 5 minutes
+
+interface FeedConfig {
+  url: string;
+  source: string;
+}
+
+const CATEGORY_FEEDS: Record<string, FeedConfig[]> = {
+  'Semua': [
+    { url: 'https://www.antaranews.com/rss/terkini.xml', source: 'Antara News' },
+    { url: 'https://www.cnbcindonesia.com/rss', source: 'CNBC Indonesia' },
+    { url: 'https://news.detik.com/rss', source: 'Detikcom' },
+    { url: 'https://rss.tempo.co/nasional', source: 'Tempo.co' }
+  ],
+  'Teknologi': [
+    { url: 'https://www.cnbcindonesia.com/tech/rss', source: 'CNBC Indonesia' },
+    { url: 'https://www.antaranews.com/rss/tekno.xml', source: 'Antara News' },
+    { url: 'https://rss.tempo.co/tekno', source: 'Tempo.co' }
+  ],
+  'Bisnis': [
+    { url: 'https://www.cnbcindonesia.com/market/rss', source: 'CNBC Indonesia' },
+    { url: 'https://www.antaranews.com/rss/ekonomi.xml', source: 'Antara News' },
+    { url: 'https://rss.tempo.co/bisnis', source: 'Tempo.co' }
+  ],
+  'Politik': [
+    { url: 'https://www.antaranews.com/rss/politik.xml', source: 'Antara News' },
+    { url: 'https://news.detik.com/rss', source: 'Detikcom' },
+    { url: 'https://rss.tempo.co/nasional', source: 'Tempo.co' }
+  ],
+  'Kesehatan': [
+    { url: 'https://www.antaranews.com/rss/lifestyle.xml', source: 'Antara News' },
+    { url: 'https://www.cnbcindonesia.com/lifestyle/rss', source: 'CNBC Indonesia' },
+    { url: 'https://rss.tempo.co/gaya-hidup', source: 'Tempo.co' }
+  ],
+  'Hiburan': [
+    { url: 'https://www.antaranews.com/rss/hiburan.xml', source: 'Antara News' },
+    { url: 'https://www.cnbcindonesia.com/lifestyle/rss', source: 'CNBC Indonesia' },
+    { url: 'https://rss.tempo.co/seleb', source: 'Tempo.co' }
+  ],
+  'Olahraga': [
+    { url: 'https://www.antaranews.com/rss/olahraga.xml', source: 'Antara News' },
+    { url: 'https://rss.tempo.co/olahraga', source: 'Tempo.co' },
+    { url: 'https://rss.tempo.co/bola', source: 'Tempo.co' }
+  ],
+};
+
+const cleanCDATA = (str: string) => {
+  return str.replace(/<!\[CDATA\[/gi, '').replace(/\]\]>/gi, '').trim();
+};
+
+const decodeEntities = (html: string) => {
+  return html
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&rsquo;/g, "'")
+    .replace(/&lsquo;/g, "'")
+    .replace(/&ldquo;/g, '"')
+    .replace(/&rdquo;/g, '"')
+    .replace(/&nbsp;/g, ' ');
+};
+
+async function fetchAndParseFeed(feed: FeedConfig, category: string): Promise<any[]> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500); // 3.5s timeout per feed to avoid locking
+    
+    const res = await fetch(feed.url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+      next: { revalidate: 60 } // Cache fetch for 1 minute
+    });
+    
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      return [];
+    }
+
+    const xmlText = await res.text();
+    const items: any[] = [];
+    const parts = xmlText.split('<item>');
+    
+    for (let i = 1; i < parts.length; i++) {
+      const part = parts[i];
+      
+      const titleExtract = part.match(/<title>([\s\S]*?)<\/title>/i);
+      const linkExtract = part.match(/<link>([\s\S]*?)<\/link>/i);
+      const descExtract = part.match(/<description>([\s\S]*?)<\/description>/i);
+      const dateExtract = part.match(/<pubDate>([\s\S]*?)<\/pubDate>/i);
+      
+      let title = titleExtract ? cleanCDATA(titleExtract[1]) : '';
+      let url = linkExtract ? cleanCDATA(linkExtract[1]) : '';
+      let summary = descExtract ? cleanCDATA(descExtract[1]) : '';
+      let pubDateStr = dateExtract ? cleanCDATA(dateExtract[1]) : '';
+      
+      // Clean HTML tags from summary
+      summary = summary.replace(/<[^>]*>/g, '').trim();
+      
+      title = decodeEntities(title);
+      summary = decodeEntities(summary);
+      
+      let dateObj = new Date();
+      if (pubDateStr) {
+        const d = new Date(pubDateStr);
+        if (!isNaN(d.getTime())) {
+          dateObj = d;
+        }
+      }
+      
+      if (title && url) {
+        items.push({
+          title: title.trim(),
+          source: feed.source,
+          url: url.trim(),
+          summary: summary.length > 220 ? summary.substring(0, 220).trim() + '...' : summary.trim(),
+          category: category,
+          pubDate: dateObj.getTime(), // store timestamp for sorting
+        });
+      }
+      
+      if (items.length >= 40) break; // limit to 40 items per feed to combine
+    }
+    return items;
+  } catch (error) {
+    console.warn(`Failed to fetch feed ${feed.url}:`, error);
+    return [];
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const category = searchParams.get('category') || 'Semua';
+    const refresh = searchParams.get('refresh') === 'true';
+
+    const cacheKey = category;
+    const now = Date.now();
+
+    // Serve cached aggregated data if available and fresh, unless a refresh is forced
+    if (!refresh && newsCache[cacheKey] && (now - newsCache[cacheKey].timestamp < CACHE_TTL)) {
+      console.log(`[Cache Hit] Serving cached aggregated news for category: ${category}`);
+      return NextResponse.json(newsCache[cacheKey].data);
+    }
+
+    const feeds = CATEGORY_FEEDS[category] || CATEGORY_FEEDS['Semua'];
+    
+    // Fetch all feeds in parallel
+    const feedResults = await Promise.allSettled(
+      feeds.map(feed => fetchAndParseFeed(feed, category))
+    );
+    
+    let allItems: any[] = [];
+    for (const result of feedResults) {
+      if (result.status === 'fulfilled') {
+        allItems = allItems.concat(result.value);
+      }
+    }
+    
+    // Sort all merged items by publication date descending
+    allItems.sort((a, b) => b.pubDate - a.pubDate);
+    
+    // Format the timestamp to a human-readable relative/absolute date string and keep top 120
+    const finalItems = allItems.slice(0, 120).map(item => {
+      const d = new Date(item.pubDate);
+      const diffMs = Date.now() - item.pubDate;
+      const diffMin = Math.floor(diffMs / (60 * 1000));
+      const diffHr = Math.floor(diffMs / (60 * 60 * 1000));
+      
+      let time = 'Baru saja';
+      if (diffMin < 60) {
+        time = diffMin <= 0 ? 'Baru saja' : `${diffMin} menit yang lalu`;
+      } else if (diffHr < 24) {
+        time = `${diffHr} jam yang lalu`;
+      } else {
+        time = d.toLocaleDateString('id-ID', {
+          day: 'numeric',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      }
+      
+      return {
+        title: item.title,
+        source: item.source,
+        url: item.url,
+        summary: item.summary,
+        category: item.category,
+        time: time,
+      };
+    });
+
+    // Cache the aggregated news list
+    newsCache[cacheKey] = {
+      data: finalItems,
+      timestamp: now,
+    };
+
+    return NextResponse.json(finalItems);
+  } catch (error: any) {
+    console.error('API RSS News Error:', error);
+    return NextResponse.json({ error: error.message || 'Terjadi kesalahan internal server' }, { status: 500 });
+  }
+}

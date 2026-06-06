@@ -1,0 +1,467 @@
+.editorContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  border-radius: var(--border-radius-lg);
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.noSelect {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-dark);
+  text-align: center;
+  gap: 12px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+}
+
+.titleArea {
+  flex: 1;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffffff;
+  outline: none;
+  border: none;
+  background: transparent;
+  width: 100%;
+}
+
+.titleInput {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: var(--border-radius-sm);
+  width: 100%;
+  outline: none;
+}
+
+.titleInput:focus {
+  border-color: var(--primary);
+}
+
+.metadata {
+  display: flex;
+  gap: 15px;
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.contentWrapper {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  flex: 1;
+}
+
+@media (max-width: 1024px) {
+  .contentWrapper {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mainContent {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: relative;
+}
+
+.textarea {
+  width: 100%;
+  flex: 1;
+  min-height: 350px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-md);
+  padding: 16px;
+  color: #e2e8f0;
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+}
+
+.textarea:focus {
+  border-color: var(--primary);
+}
+
+.previewArea {
+  width: 100%;
+  min-height: 350px;
+  background: rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-md);
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.sidebarPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.panelCard {
+  border-radius: var(--border-radius-md);
+  padding: 16px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.02);
+  position: relative;
+}
+
+.panelTitle {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.summaryText {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.todoList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.todoItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.todoCheckbox {
+  margin-top: 3px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.todoCompleted {
+  text-decoration: line-through;
+  color: var(--text-dark);
+}
+
+.tagsEditContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tagsList {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.addTagRow {
+  display: flex;
+  gap: 8px;
+}
+
+.tagInput {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  color: #fff;
+  font-size: 0.8rem;
+  padding: 6px 10px;
+  border-radius: var(--border-radius-sm);
+  flex: 1;
+  outline: none;
+}
+
+.tagInput:focus {
+  border-color: var(--primary);
+}
+
+.tagRemoveBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-dark);
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.tagRemoveBtn:hover {
+  color: var(--error);
+}
+
+.backBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 8px;
+  margin-right: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+}
+
+.backBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--glass-border);
+  color: #fff;
+}
+
+/* Action Icon Buttons for Mobile / Pills for Desktop */
+.actionIconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.editBtn {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+.editBtn:hover {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.saveBtn {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+}
+.saveBtn:hover {
+  background: rgba(34, 197, 94, 0.25);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.deleteBtn {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+.deleteBtn:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* Sub Tab Navigation inside Editor */
+.subTabBar {
+  display: flex;
+  width: 100%;
+  border-bottom: 1px solid var(--glass-border);
+  margin-bottom: 16px;
+  gap: 4px;
+}
+
+.subTab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-dark);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.subTab:hover {
+  color: #fff;
+}
+
+.activeSubTab {
+  color: #fff;
+  border-bottom-color: var(--primary);
+  background: rgba(255, 255, 255, 0.02);
+  border-top-left-radius: var(--border-radius-sm);
+  border-top-right-radius: var(--border-radius-sm);
+}
+
+.mobileTabContent {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1;
+}
+
+.mobileSummaryTab,
+.mobileTodosTab {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.emptyTabState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-dark);
+  gap: 14px;
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--border-radius-md);
+  background: rgba(255, 255, 255, 0.01);
+  margin-top: 10px;
+}
+
+.emptyTabState p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Media Queries for Mobile Responsiveness */
+@media (max-width: 768px) {
+  .editorContainer {
+    padding: 16px 14px;
+    border-radius: 0;
+  }
+  
+  .header {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+  }
+
+  .title {
+    font-size: 1.25rem;
+  }
+
+  .titleInput {
+    font-size: 1.25rem;
+    padding: 6px 10px;
+  }
+
+  .metadata {
+    font-size: 0.75rem;
+    margin-top: 4px;
+    gap: 10px;
+  }
+
+  .actionIconBtn {
+    padding: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .textarea {
+    min-height: 280px;
+    font-size: 0.9rem;
+    padding: 12px;
+  }
+
+  .previewArea {
+    min-height: 280px;
+    padding: 12px;
+  }
+}
+
+/* Copy Button Styling */
+.copyBtn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.2s ease;
+}
+
+.copyBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.copyBtn svg {
+  flex-shrink: 0;
+}
+
+/* Markdown Lists & Quotes Styling */
+.previewArea ul {
+  list-style-type: disc;
+  padding-left: 20px;
+  margin-bottom: 16px;
+}
+
+.previewArea ol {
+  list-style-type: decimal;
+  padding-left: 20px;
+  margin-bottom: 16px;
+}
+
+.previewArea li {
+  margin-bottom: 8px;
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.previewArea blockquote {
+  border-left: 4px solid var(--primary);
+  padding: 8px 0 8px 16px;
+  margin: 16px 0;
+  color: var(--text-muted);
+  font-style: italic;
+  background: rgba(255, 255, 255, 0.01);
+}
+

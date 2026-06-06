@@ -1,0 +1,23 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Note {
+  id         String   @id @default(uuid())
+  title      String   @default("Catatan Baru")
+  content    String   @default("")
+  summary    String   @default("")
+  tags       String[] @default([])
+  todo_list  Json     @default("[]")
+  created_at DateTime @default(now())
+
+  @@map("notes")
+}
