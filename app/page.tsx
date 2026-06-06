@@ -36,6 +36,8 @@ export default function Home() {
   const [isLoadingNotes, setIsLoadingNotes] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileView, setMobileView] = useState<'list' | 'editor'>('list');
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -45,6 +47,34 @@ export default function Home() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // PWA Install Event Handler
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBanner(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setShowInstallBanner(false);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`PWA install outcome: ${outcome}`);
+    setDeferredPrompt(null);
+    setShowInstallBanner(false);
+  };
 
   // Load notes from Supabase
   const loadNotes = async () => {
@@ -275,6 +305,17 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
   if (isMobile) {
     return (
       <div className={styles.mobileLayout}>
+        {showInstallBanner && (
+          <div className={styles.installBanner}>
+            <div className={styles.installBannerContent}>
+              <span>💡 Pasang <strong>AuraNotes</strong> di layar utama HP Anda untuk akses offline cepat!</span>
+              <div className={styles.installBannerActions}>
+                <button className={styles.installBtn} onClick={handleInstallClick}>Instal</button>
+                <button className={styles.closeInstallBtn} onClick={() => setShowInstallBanner(false)}>Tutup</button>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Top Header Bar */}
         <header className={styles.mobileHeader}>
           <div className={styles.mobileLogo}>SMART NOTES</div>
@@ -409,6 +450,17 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
   return (
     <div className={styles.layout}>
+      {showInstallBanner && (
+        <div className={styles.installBanner}>
+          <div className={styles.installBannerContent}>
+            <span>💡 Pasang <strong>AuraNotes</strong> di komputer Anda agar lebih cepat diakses & mendukung offline!</span>
+            <div className={styles.installBannerActions}>
+              <button className={styles.installBtn} onClick={handleInstallClick}>Instal Sekarang</button>
+              <button className={styles.closeInstallBtn} onClick={() => setShowInstallBanner(false)}>Tutup</button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Sidebar navigation */}
       <aside className={styles.sidebar}>
         <div className={styles.brand}>
