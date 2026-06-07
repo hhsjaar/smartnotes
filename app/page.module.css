@@ -298,15 +298,11 @@
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  padding-bottom: 80px; /* space for bottom nav */
 }
 
 /* Bottom Navigation */
 .bottomNav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  width: 100%;
   height: 64px;
   background: rgba(13, 20, 38, 0.7);
   backdrop-filter: blur(15px);
@@ -316,6 +312,7 @@
   align-items: center;
   z-index: 900;
   padding-bottom: env(safe-area-inset-bottom);
+  flex-shrink: 0;
 }
 
 .bottomNavItem {

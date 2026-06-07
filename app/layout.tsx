@@ -43,24 +43,45 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="apple-touch-icon" href="/icons/apple-icon.png" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js').then(
-                    function(reg) {
-                      console.log('SW registered with scope:', reg.scope);
-                    },
-                    function(err) {
-                      console.log('SW registration failed:', err);
+        {process.env.NODE_ENV === 'production' ? (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                if ('serviceWorker' in navigator) {
+                  window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/sw.js').then(
+                      function(reg) {
+                        console.log('SW registered with scope:', reg.scope);
+                      },
+                      function(err) {
+                        console.log('SW registration failed:', err);
+                      }
+                    );
+                  });
+                }
+              `
+            }}
+          />
+        ) : (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                if ('serviceWorker' in navigator) {
+                  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    for (let registration of registrations) {
+                      registration.unregister().then(function(success) {
+                        if (success) {
+                          console.log('[Dev] Service Worker unregistered successfully to prevent HMR loop.');
+                          window.location.reload();
+                        }
+                      });
                     }
-                  );
-                });
-              }
-            `
-          }}
-        />
+                  });
+                }
+              `
+            }}
+          />
+        )}
       </head>
       <body>{children}</body>
     </html>
