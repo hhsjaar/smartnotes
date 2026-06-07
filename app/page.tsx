@@ -308,7 +308,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
         {showInstallBanner && (
           <div className={styles.installBanner}>
             <div className={styles.installBannerContent}>
-              <span>💡 Pasang <strong>AuraNotes</strong> di layar utama HP Anda untuk akses offline cepat!</span>
+              <span>💡 Pasang <strong>CatatanPintar</strong> di layar utama HP Anda untuk akses offline cepat!</span>
               <div className={styles.installBannerActions}>
                 <button className={styles.installBtn} onClick={handleInstallClick}>Instal</button>
                 <button className={styles.closeInstallBtn} onClick={() => setShowInstallBanner(false)}>Tutup</button>
@@ -453,7 +453,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
       {showInstallBanner && (
         <div className={styles.installBanner}>
           <div className={styles.installBannerContent}>
-            <span>💡 Pasang <strong>AuraNotes</strong> di komputer Anda agar lebih cepat diakses & mendukung offline!</span>
+            <span>💡 Pasang <strong>CatatanPintar</strong> di komputer Anda agar lebih cepat diakses & mendukung offline!</span>
             <div className={styles.installBannerActions}>
               <button className={styles.installBtn} onClick={handleInstallClick}>Instal Sekarang</button>
               <button className={styles.closeInstallBtn} onClick={() => setShowInstallBanner(false)}>Tutup</button>

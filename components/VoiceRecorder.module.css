@@ -287,3 +287,63 @@
   from { height: 6px; }
   to { height: 28px; }
 }
+
+@media (max-width: 768px) {
+  .container {
+    gap: 12px;
+  }
+
+  .recorderCard {
+    padding: 16px 12px;
+  }
+
+  .header {
+    margin-bottom: 12px;
+  }
+
+  .title {
+    font-size: 1rem;
+  }
+
+  .recordButtonContainer {
+    margin: 16px 0;
+  }
+
+  .recordBtn {
+    width: 76px;
+    height: 76px;
+  }
+
+  .recordBtn svg {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .statusText {
+    font-size: 0.8rem;
+    height: auto;
+    min-height: 20px;
+  }
+
+  .transcriptArea {
+    min-height: 90px;
+    max-height: 150px;
+    font-size: 0.85rem;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+
+  .actions {
+    justify-content: center;
+    gap: 8px;
+  }
+  
+  .fileUploadArea {
+    padding: 14px;
+    gap: 8px;
+  }
+
+  .fileUploadText {
+    font-size: 0.75rem;
+  }
+}

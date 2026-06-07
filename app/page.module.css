@@ -433,9 +433,14 @@
 }
 
 .mobileEditorContainer,
-.mobileRecorderContainer,
 .mobileNewsContainer {
   height: 100%;
+}
+
+.mobileRecorderContainer {
+  height: auto;
+  min-height: 100%;
+  width: 100%;
 }
 
 /* PWA Install Banner */

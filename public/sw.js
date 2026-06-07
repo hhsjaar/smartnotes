@@ -1,4 +1,4 @@
-const CACHE_NAME = 'auranotes-cache-v1';
+const CACHE_NAME = 'catatanpintar-cache-v1';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',

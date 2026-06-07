@@ -1,6 +1,6 @@
 {
   "name": "Catatan Pintar",
-  "short_name": "AuraNotes",
+  "short_name": "CatatanPintar",
   "description": "Catatan suara cerdas yang diformat otomatis oleh AI (Gemini 3.5 Flash) dan disinkronkan di seluruh perangkat Anda menggunakan Neon PostgreSQL.",
   "start_url": "/",
   "display": "standalone",
