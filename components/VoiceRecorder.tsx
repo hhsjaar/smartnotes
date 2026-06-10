@@ -13,6 +13,42 @@ interface FormattedNote {
   todo_list: string[];
 }
 
+function mergeTranscripts(accumulated: string, current: string): string {
+  const accClean = accumulated.trim();
+  const currClean = current.trim();
+  
+  if (!accClean) return currClean;
+  if (!currClean) return accClean;
+
+  const accWords = accClean.split(/\s+/);
+  const currWords = currClean.split(/\s+/);
+
+  const maxOverlap = Math.min(accWords.length, currWords.length);
+  let overlapLength = 0;
+
+  for (let len = 1; len <= maxOverlap; len++) {
+    let match = true;
+    for (let i = 0; i < len; i++) {
+      const accWord = accWords[accWords.length - len + i].toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"");
+      const currWord = currWords[i].toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"");
+      if (accWord !== currWord) {
+        match = false;
+        break;
+      }
+    }
+    if (match) {
+      overlapLength = len;
+    }
+  }
+
+  if (overlapLength > 0) {
+    const nonOverlapping = currWords.slice(overlapLength).join(' ');
+    return nonOverlapping ? `${accClean} ${nonOverlapping}` : accClean;
+  }
+
+  return `${accClean} ${currClean}`;
+}
+
 interface VoiceRecorderProps {
   onFormatted: (note: FormattedNote) => void;
 }
@@ -75,8 +111,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
         finalTranscript = finalTranscript.trim();
         currentFinalRef.current = finalTranscript;
 
-        // Combine previously accumulated text with current session's final and interim text
-        const totalFinal = (accumulatedTextRef.current + ' ' + finalTranscript).trim();
+        // Combine previously accumulated text with current session's final and interim text using overlap resolution
+        const totalFinal = mergeTranscripts(accumulatedTextRef.current, finalTranscript);
         const display = (totalFinal + ' ' + interimTranscript).trim();
         
         setTranscript(display);
@@ -100,10 +136,10 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
       rec.onend = () => {
         // Automatically restart if isRecording is still true (handles timeouts/pauses)
         if (isRecordingRef.current) {
-          // Save the final text of the session that just ended
+          // Save the final text of the session that just ended, removing overlaps
           const prevAccumulated = accumulatedTextRef.current;
           const currentFinal = currentFinalRef.current;
-          accumulatedTextRef.current = (prevAccumulated + ' ' + currentFinal).trim();
+          accumulatedTextRef.current = mergeTranscripts(prevAccumulated, currentFinal);
           currentFinalRef.current = ''; // Reset for the next session
           
           // Use a small timeout to let the SpeechRecognition instance fully clean up before starting again.
