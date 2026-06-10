@@ -92,6 +92,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
       rec.lang = language;
 
       rec.onresult = (event: any) => {
+        if (recognitionRef.current !== rec) return;
+
         let interimTranscript = '';
         let finalTranscript = '';
 
@@ -115,6 +117,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
       };
 
       rec.onerror = (event: any) => {
+        if (recognitionRef.current !== rec) return;
+
         console.error('Speech recognition error:', event.error);
         if (event.error === 'not-allowed') {
           setErrorMsg('Izin mikrofon ditolak. Silakan aktifkan izin mikrofon di pengaturan browser Anda.');
@@ -130,6 +134,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
       };
 
       rec.onend = () => {
+        if (recognitionRef.current !== rec) return;
+
         // Automatically restart if isRecording is still true (handles timeouts/pauses)
         if (isRecordingRef.current) {
           // Save the final text of the session that just ended, removing overlaps
@@ -167,6 +173,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
     recognitionRef.current = initialRec;
 
     return () => {
+      isRecordingRef.current = false;
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
