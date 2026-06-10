@@ -383,4 +383,75 @@
   }
 }
 
+.typeSelector {
+  display: flex;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-full);
+  padding: 2px;
+  gap: 2px;
+}
+
+.typeBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 4px 14px;
+  border-radius: var(--border-radius-full);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.typeBtn:hover {
+  color: #fff;
+}
+
+.activeTypeBtn {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 0 8px var(--primary-glow);
+}
+
+.voiceBtn {
+  background: transparent;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  padding: 4px 10px;
+  border-radius: var(--border-radius-full);
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: auto;
+}
+
+.voiceBtn:hover {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 0 8px var(--primary-glow);
+}
+
+.voiceBtnActive {
+  background: var(--primary) !important;
+  color: #fff !important;
+  box-shadow: 0 0 8px var(--primary-glow);
+}
+
+.viralBadge {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
 

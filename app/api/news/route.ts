@@ -146,13 +146,14 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category') || 'Semua';
     const refresh = searchParams.get('refresh') === 'true';
+    const type = searchParams.get('type') || 'terkini'; // 'terkini' | 'hari_ini'
 
-    const cacheKey = category;
+    const cacheKey = `${category}_${type}`;
     const now = Date.now();
 
     // Serve cached aggregated data if available and fresh, unless a refresh is forced
     if (!refresh && newsCache[cacheKey] && (now - newsCache[cacheKey].timestamp < CACHE_TTL)) {
-      console.log(`[Cache Hit] Serving cached aggregated news for category: ${category}`);
+      console.log(`[Cache Hit] Serving cached aggregated news for category: ${category}, type: ${type}`);
       return NextResponse.json(newsCache[cacheKey].data);
     }
 
@@ -173,8 +174,76 @@ export async function GET(request: Request) {
     // Sort all merged items by publication date descending
     allItems.sort((a, b) => b.pubDate - a.pubDate);
     
-    // Format the timestamp to a human-readable relative/absolute date string and keep top 120
-    const finalItems = allItems.slice(0, 120).map(item => {
+    let selectedItems = allItems;
+
+    if (type === 'hari_ini' && allItems.length > 0) {
+      // Get the top 40 candidates to evaluate for virality/hype
+      const candidateItems = allItems.slice(0, 40);
+      const apiKey = process.env.GEMINI_API_KEY;
+
+      if (apiKey) {
+        try {
+          const simplifiedList = candidateItems.map((item, idx) => ({
+            id: idx,
+            title: item.title,
+            summary: item.summary,
+            source: item.source
+          }));
+
+          const prompt = `Anda adalah editor berita senior di Indonesia. Tugas Anda adalah menyusun daftar berita paling viral, paling hangat diperbincangkan (hype), dan paling penting bagi masyarakat Indonesia dalam 24 jam terakhir.
+          
+Dari daftar berita berikut, pilihlah antara 6 sampai 10 berita yang memiliki potensi viralitas, tren, atau dampak tertinggi:
+${JSON.stringify(simplifiedList, null, 2)}
+
+Kembalikan hasil pilihan Anda HANYA berupa array JSON yang berisi ID/indeks dari berita yang terpilih, sebagai contoh: [0, 3, 5, 12, 19].
+PENTING: Jangan sertakan teks penjelasan lainnya atau tag markdown seperti \`\`\`json. Kembalikan HANYA array JSON murni yang valid.`;
+
+          const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
+          
+          const payload = {
+            contents: [{
+              role: 'user',
+              parts: [{ text: prompt }]
+            }],
+            generationConfig: {
+              responseMimeType: 'application/json'
+            }
+          };
+
+          const res = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (resultText) {
+              const selectedIds = JSON.parse(resultText.trim());
+              if (Array.isArray(selectedIds)) {
+                selectedItems = selectedIds
+                  .filter(id => id >= 0 && id < candidateItems.length)
+                  .map(id => ({ ...candidateItems[id], isViral: true }));
+              }
+            }
+          }
+        } catch (geminiError) {
+          console.warn('Failed to currate viral news with Gemini:', geminiError);
+        }
+      }
+
+      // Fallback if Gemini failed or key not present: just take top 8 recent articles
+      if (selectedItems.length === allItems.length) {
+        selectedItems = candidateItems.slice(0, 8).map(item => ({ ...item, isViral: true }));
+      }
+    } else {
+      // Keep top 120 for normal news
+      selectedItems = allItems.slice(0, 120);
+    }
+    
+    // Format the timestamp to a human-readable relative/absolute date string
+    const finalItems = selectedItems.map(item => {
       const d = new Date(item.pubDate);
       const diffMs = Date.now() - item.pubDate;
       const diffMin = Math.floor(diffMs / (60 * 1000));
@@ -201,6 +270,7 @@ export async function GET(request: Request) {
         summary: item.summary,
         category: item.category,
         time: time,
+        isViral: item.isViral || false
       };
     });
 

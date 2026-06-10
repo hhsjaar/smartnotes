@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Newspaper, ExternalLink, Sparkles, RefreshCw, AlertCircle, X, Check, BookOpen, Info } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Newspaper, ExternalLink, Sparkles, RefreshCw, AlertCircle, X, Check, BookOpen, Info, Volume2, VolumeX, Flame } from 'lucide-react';
 import { GlowButton } from './ui/GlowButton';
 import styles from './NewsSection.module.css';
 
@@ -21,6 +21,7 @@ interface NewsItem {
   summary: string;
   category: string;
   time: string;
+  isViral?: boolean;
 }
 
 interface NewsSectionProps {
@@ -31,6 +32,7 @@ const CATEGORIES = ['Semua', 'Teknologi', 'Bisnis', 'Politik', 'Kesehatan', 'Hib
 
 export const NewsSection: React.FC<NewsSectionProps> = ({ onCreateNoteFromNews }) => {
   const [activeCategory, setActiveCategory] = useState('Semua');
+  const [activeType, setActiveType] = useState<'terkini' | 'hari_ini'>('terkini');
   const [news, setNews] = useState<NewsItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -39,13 +41,16 @@ export const NewsSection: React.FC<NewsSectionProps> = ({ onCreateNoteFromNews }
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeSummary, setActiveSummary] = useState<NewsSummary | null>(null);
   const [summarizingId, setSummarizingId] = useState<string | null>(null);
+  
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  const fetchNews = async (category: string, forceRefresh = false) => {
+  const fetchNews = async (category: string, type: 'terkini' | 'hari_ini', forceRefresh = false) => {
     setIsLoading(true);
     setErrorMsg('');
     setVisibleCount(12); // Reset back to default on load
     try {
-      const url = `/api/news?category=${encodeURIComponent(category)}${forceRefresh ? '&refresh=true' : ''}`;
+      const url = `/api/news?category=${encodeURIComponent(category)}&type=${type}${forceRefresh ? '&refresh=true' : ''}`;
       const res = await fetch(url);
       if (!res.ok) {
         throw new Error(`Gagal memuat berita: status ${res.status}`);
@@ -65,8 +70,62 @@ export const NewsSection: React.FC<NewsSectionProps> = ({ onCreateNoteFromNews }
   };
 
   useEffect(() => {
-    fetchNews(activeCategory);
-  }, [activeCategory]);
+    fetchNews(activeCategory, activeType);
+    
+    // Stop any voice when switching categories or tabs
+    stopSpeaking();
+  }, [activeCategory, activeType]);
+
+  useEffect(() => {
+    return () => {
+      stopSpeaking();
+    };
+  }, []);
+
+  const startSpeaking = (summary: NewsSummary) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+
+    // Stop current speech first
+    stopSpeaking();
+
+    const pointsText = summary.points.map((pt, i) => `Poin ke-${i + 1}, ${pt}`).join('. ');
+    const textToSpeak = `Ringkasan berita dari ${summary.source}. Judul: ${summary.title}. Konteks utama: ${summary.context}. Poin utama: ${pointsText}. Dampak dan implikasi: ${summary.impact}`;
+
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    utterance.lang = 'id-ID';
+
+    // Set voice to Indonesian if available
+    const voices = window.speechSynthesis.getVoices();
+    const idVoice = voices.find(v => v.lang.startsWith('id') || v.lang.startsWith('in'));
+    if (idVoice) {
+      utterance.voice = idVoice;
+    }
+
+    utterance.onend = () => {
+      setIsSpeaking(false);
+    };
+
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+    };
+
+    utteranceRef.current = utterance;
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const stopSpeaking = () => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
+    utteranceRef.current = null;
+  };
+
+  const handleCloseModal = () => {
+    stopSpeaking();
+    setIsModalOpen(false);
+  };
 
   const handleCreateNote = async (item: NewsItem, idx: number) => {
     const noteIdKey = `${item.title}-${idx}`;
@@ -100,15 +159,20 @@ export const NewsSection: React.FC<NewsSectionProps> = ({ onCreateNoteFromNews }
       }
 
       const data = await res.json();
-      setActiveSummary({
+      const summaryObj = {
         context: data.context || '',
         points: Array.isArray(data.points) ? data.points : [],
         impact: data.impact || '',
         title: item.title,
         source: item.source,
         url: item.url,
-      });
+      };
+
+      setActiveSummary(summaryObj);
       setIsModalOpen(true);
+      
+      // Auto play TTS voice
+      startSpeaking(summaryObj);
     } catch (e) {
       console.error(e);
       alert('Gagal membuat ringkasan berita dengan AI.');
@@ -122,12 +186,30 @@ export const NewsSection: React.FC<NewsSectionProps> = ({ onCreateNoteFromNews }
       <div className={styles.header}>
         <h2 className={styles.title}>
           <Newspaper size={20} style={{ color: 'var(--secondary)' }} />
-          Berita Terkini (Real-time)
+          {activeType === 'terkini' ? 'Berita Terkini (Real-time)' : 'Berita Hari Ini (Viral & Hype)'}
         </h2>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          {/* Sleek pill toggle for news type */}
+          <div className={styles.typeSelector}>
+            <button
+              className={`${styles.typeBtn} ${activeType === 'terkini' ? styles.activeTypeBtn : ''}`}
+              onClick={() => setActiveType('terkini')}
+              disabled={isLoading}
+            >
+              Terkini
+            </button>
+            <button
+              className={`${styles.typeBtn} ${activeType === 'hari_ini' ? styles.activeTypeBtn : ''}`}
+              onClick={() => setActiveType('hari_ini')}
+              disabled={isLoading}
+            >
+              Viral & Hype
+            </button>
+          </div>
+
           <GlowButton
             variant="outline"
-            onClick={() => fetchNews(activeCategory, true)}
+            onClick={() => fetchNews(activeCategory, activeType, true)}
             disabled={isLoading}
             style={{ padding: '6px 12px' }}
             title="Muat Ulang Berita"
@@ -156,14 +238,14 @@ export const NewsSection: React.FC<NewsSectionProps> = ({ onCreateNoteFromNews }
           <div className={styles.loadingState}>
             <div className={styles.spinner} />
             <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-              Mengambil berita ter-update langsung dari Google Search...
+              Mengambil berita ter-update...
             </p>
           </div>
         ) : errorMsg ? (
           <div className={styles.errorState}>
             <AlertCircle size={36} style={{ color: 'var(--error)' }} />
             <p style={{ fontSize: '0.9rem' }}>{errorMsg}</p>
-            <GlowButton variant="outline" onClick={() => fetchNews(activeCategory)}>
+            <GlowButton variant="outline" onClick={() => fetchNews(activeCategory, activeType)}>
               Coba Lagi
             </GlowButton>
           </div>
@@ -174,82 +256,87 @@ export const NewsSection: React.FC<NewsSectionProps> = ({ onCreateNoteFromNews }
         ) : (
           <>
             <div className={styles.grid}>
-            {news.slice(0, visibleCount).map((item, idx) => {
-              const noteIdKey = `${item.title}-${idx}`;
-              const isCreatingNote = creatingNoteId === noteIdKey;
-              
-              return (
-                <div key={idx} className={`${styles.newsCard} animate-slide-in`}>
-                  <div className={styles.cardHeader}>
-                    <div className={styles.metaInfo}>
-                      <span className={styles.sourceBadge}>{item.source}</span>
-                      <span className={`tag-badge default`}>{item.category || 'Berita'}</span>
+              {news.slice(0, visibleCount).map((item, idx) => {
+                const noteIdKey = `${item.title}-${idx}`;
+                const isCreatingNote = creatingNoteId === noteIdKey;
+                
+                return (
+                  <div key={idx} className={`${styles.newsCard} animate-slide-in`}>
+                    <div className={styles.cardHeader}>
+                      <div className={styles.metaInfo}>
+                        <span className={styles.sourceBadge}>{item.source}</span>
+                        <span className={`tag-badge default`}>{item.category || 'Berita'}</span>
+                        {item.isViral && (
+                          <span className={styles.viralBadge}>
+                            <Flame size={10} fill="currentColor" /> Viral & Hype
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.newsTitle}
+                    >
+                      {item.title}
+                    </a>
+
+                    <p className={styles.newsSummary}>{item.summary}</p>
+
+                    <div className={styles.cardFooter}>
+                      <span className={styles.timeText}>{item.time || 'Hari ini'}</span>
+                      <div className={styles.actions}>
+                        <button
+                          className={styles.summarizeBtn}
+                          onClick={() => handleSummarizeNews(item, idx)}
+                          disabled={summarizingId !== null}
+                        >
+                          {summarizingId === noteIdKey ? (
+                            <>
+                              <div className={styles.spinner} style={{ width: '12px', height: '12px', borderWidth: '1px' }} />
+                              Meringkas...
+                            </>
+                          ) : (
+                            <>
+                              <BookOpen size={12} />
+                              Ringkas AI
+                            </>
+                          )}
+                        </button>
+                        <button
+                          className={styles.createNoteBtn}
+                          onClick={() => handleCreateNote(item, idx)}
+                          disabled={isCreatingNote}
+                        >
+                          {isCreatingNote ? (
+                            <>
+                              <div className={styles.spinner} style={{ width: '12px', height: '12px', borderWidth: '1px' }} />
+                              Menyimpan...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles size={12} />
+                              Buat Catatan
+                            </>
+                          )}
+                        </button>
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={styles.linkBtn}
+                        >
+                          Baca <ExternalLink size={12} />
+                        </a>
+                      </div>
                     </div>
                   </div>
-
-                  <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={styles.newsTitle}
-                  >
-                    {item.title}
-                  </a>
-
-                  <p className={styles.newsSummary}>{item.summary}</p>
-
-                  <div className={styles.cardFooter}>
-                    <span className={styles.timeText}>{item.time || 'Hari ini'}</span>
-                    <div className={styles.actions}>
-                      <button
-                        className={styles.summarizeBtn}
-                        onClick={() => handleSummarizeNews(item, idx)}
-                        disabled={summarizingId !== null}
-                      >
-                        {summarizingId === noteIdKey ? (
-                          <>
-                            <div className={styles.spinner} style={{ width: '12px', height: '12px', borderWidth: '1px' }} />
-                            Meringkas...
-                          </>
-                        ) : (
-                          <>
-                            <BookOpen size={12} />
-                            Ringkas AI
-                          </>
-                        )}
-                      </button>
-                      <button
-                        className={styles.createNoteBtn}
-                        onClick={() => handleCreateNote(item, idx)}
-                        disabled={isCreatingNote}
-                      >
-                        {isCreatingNote ? (
-                          <>
-                            <div className={styles.spinner} style={{ width: '12px', height: '12px', borderWidth: '1px' }} />
-                            Menyimpan...
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles size={12} />
-                            Buat Catatan
-                          </>
-                        )}
-                      </button>
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.linkBtn}
-                      >
-                        Baca <ExternalLink size={12} />
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          
+                );
+              })}
+            </div>
+            
             {news.length > visibleCount && (
               <div className={styles.showMoreContainer}>
                 <GlowButton
@@ -267,9 +354,9 @@ export const NewsSection: React.FC<NewsSectionProps> = ({ onCreateNoteFromNews }
 
       {/* News Summary Modal */}
       {isModalOpen && activeSummary && (
-        <div className={styles.modalOverlay} onClick={() => setIsModalOpen(false)}>
+        <div className={styles.modalOverlay} onClick={handleCloseModal}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <button className={styles.closeBtn} onClick={() => setIsModalOpen(false)}>
+            <button className={styles.closeBtn} onClick={handleCloseModal}>
               <X size={18} />
             </button>
             
@@ -279,6 +366,22 @@ export const NewsSection: React.FC<NewsSectionProps> = ({ onCreateNoteFromNews }
                 <span className="tag-badge default" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', borderColor: 'rgba(99, 102, 241, 0.3)' }}>
                   <Sparkles size={10} /> Ringkasan AI
                 </span>
+                
+                {/* Voice Control Button inside Modal */}
+                <button
+                  onClick={isSpeaking ? stopSpeaking : () => startSpeaking(activeSummary)}
+                  className={`${styles.voiceBtn} ${isSpeaking ? styles.voiceBtnActive : ''}`}
+                >
+                  {isSpeaking ? (
+                    <>
+                      <VolumeX size={12} /> Hentikan Suara
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 size={12} /> Putar Suara
+                    </>
+                  )}
+                </button>
               </div>
               <h3 className={styles.modalTitle}>{activeSummary.title}</h3>
             </div>
@@ -330,7 +433,7 @@ export const NewsSection: React.FC<NewsSectionProps> = ({ onCreateNoteFromNews }
               >
                 Baca Selengkapnya <ExternalLink size={14} />
               </a>
-              <GlowButton variant="secondary" onClick={() => setIsModalOpen(false)}>
+              <GlowButton variant="secondary" onClick={handleCloseModal}>
                 Tutup
               </GlowButton>
             </div>
