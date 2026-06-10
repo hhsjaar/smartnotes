@@ -177,8 +177,8 @@ export async function GET(request: Request) {
     let selectedItems = allItems;
 
     if (type === 'hari_ini' && allItems.length > 0) {
-      // Get the top 40 candidates to evaluate for virality/hype
-      const candidateItems = allItems.slice(0, 40);
+      // Get the top 100 candidates to evaluate for virality/hype
+      const candidateItems = allItems.slice(0, 100);
       const apiKey = process.env.GEMINI_API_KEY;
 
       if (apiKey) {
@@ -192,10 +192,10 @@ export async function GET(request: Request) {
 
           const prompt = `Anda adalah editor berita senior di Indonesia. Tugas Anda adalah menyusun daftar berita paling viral, paling hangat diperbincangkan (hype), dan paling penting bagi masyarakat Indonesia dalam 24 jam terakhir.
           
-Dari daftar berita berikut, pilihlah antara 6 sampai 10 berita yang memiliki potensi viralitas, tren, atau dampak tertinggi:
+Dari daftar berita berikut, pilihlah tepat 30 berita yang memiliki potensi viralitas, tren, atau dampak tertinggi:
 ${JSON.stringify(simplifiedList, null, 2)}
 
-Kembalikan hasil pilihan Anda HANYA berupa array JSON yang berisi ID/indeks dari berita yang terpilih, sebagai contoh: [0, 3, 5, 12, 19].
+Kembalikan hasil pilihan Anda HANYA berupa array JSON yang berisi ID/indeks dari berita yang terpilih (berjumlah tepat 30 berita), sebagai contoh: [0, 3, 5, 12, 19, ...].
 PENTING: Jangan sertakan teks penjelasan lainnya atau tag markdown seperti \`\`\`json. Kembalikan HANYA array JSON murni yang valid.`;
 
           const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
@@ -233,9 +233,9 @@ PENTING: Jangan sertakan teks penjelasan lainnya atau tag markdown seperti \`\`\
         }
       }
 
-      // Fallback if Gemini failed or key not present: just take top 8 recent articles
+      // Fallback if Gemini failed or key not present: just take top 30 recent articles
       if (selectedItems.length === allItems.length) {
-        selectedItems = candidateItems.slice(0, 8).map(item => ({ ...item, isViral: true }));
+        selectedItems = candidateItems.slice(0, 30).map(item => ({ ...item, isViral: true }));
       }
     } else {
       // Keep top 120 for normal news
