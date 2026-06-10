@@ -77,10 +77,13 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
         if (event.error === 'not-allowed') {
           setErrorMsg('Izin mikrofon ditolak. Silakan aktifkan izin mikrofon di pengaturan browser Anda.');
           setIsRecording(false);
+          isRecordingRef.current = false;
         } else if (event.error === 'no-speech') {
-          // Don't show critical error for silent breaks
+          // Don't show critical error for silent breaks, just restart in onend
         } else {
-          setErrorMsg(`Error perekaman: ${event.error}`);
+          setErrorMsg(`Error perekaman: ${event.error}. Silakan coba lagi.`);
+          setIsRecording(false);
+          isRecordingRef.current = false;
         }
       };
 
@@ -93,11 +96,29 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
           accumulatedTextRef.current = (prevAccumulated + ' ' + currentFinal).trim();
           currentFinalRef.current = ''; // Reset for the next session
           
-          try {
-            recognitionRef.current.start();
-          } catch (e) {
-            console.error('Failed to restart speech recognition:', e);
-          }
+          // Use a small timeout to let the SpeechRecognition instance fully clean up before starting again.
+          // This prevents InvalidStateError on Android Chrome when restarting.
+          setTimeout(() => {
+            if (isRecordingRef.current) {
+              try {
+                recognitionRef.current.start();
+              } catch (e: any) {
+                console.error('Failed to restart speech recognition:', e);
+                if (e.name === 'InvalidStateError') {
+                  // Fallback: wait a bit longer and retry once
+                  setTimeout(() => {
+                    if (isRecordingRef.current) {
+                      try {
+                        recognitionRef.current.start();
+                      } catch (err) {
+                        console.error('Failed on second restart attempt:', err);
+                      }
+                    }
+                  }, 300);
+                }
+              }
+            }
+          }, 100);
         }
       };
 
