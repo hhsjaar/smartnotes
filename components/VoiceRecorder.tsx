@@ -94,15 +94,11 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
       rec.onresult = (event: any) => {
         let interimTranscript = '';
         let finalTranscript = '';
-        let lastTranscript = '';
 
         for (let i = 0; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
             const text = event.results[i][0].transcript.trim();
-            if (text && text !== lastTranscript) {
-              finalTranscript += text + ' ';
-              lastTranscript = text;
-            }
+            finalTranscript = mergeTranscripts(finalTranscript, text);
           } else {
             interimTranscript += event.results[i][0].transcript;
           }
