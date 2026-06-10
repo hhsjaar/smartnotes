@@ -127,14 +127,13 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
     }
 
     try {
-      // Request mic permission
-      await navigator.mediaDevices.getUserMedia({ audio: true });
       setIsRecording(true);
       setStatusMsg('Mendengarkan suara Anda...');
       recognitionRef.current.start();
     } catch (err) {
-      console.error('Microphone access denied:', err);
-      setErrorMsg('Gagal mengakses mikrofon. Pastikan Anda telah memberikan izin perekaman.');
+      console.error('Speech recognition start failed:', err);
+      setErrorMsg('Gagal memulai perekaman suara. Pastikan Anda telah memberikan izin perekaman.');
+      setIsRecording(false);
     }
   };
 
