@@ -75,6 +75,53 @@
   color: var(--primary);
 }
 
+.calendarSidebarSection {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.calendarToggleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 6px 4px;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.25s;
+}
+
+.calendarToggleBtn:hover {
+  color: #fff;
+}
+
+.calendarToggleBtn svg {
+  color: var(--secondary);
+}
+
+.toggleArrow {
+  font-size: 0.6rem;
+  transition: transform 0.25s ease;
+  color: var(--text-dark);
+}
+
+.arrowUp {
+  transform: rotate(180deg);
+}
+
+.calendarWrapper {
+  animation: slide-in 0.25s ease-out forwards;
+}
+
 /* Notes List in Sidebar */
 .notesSection {
   flex: 1;
@@ -365,6 +412,41 @@
   border-radius: var(--border-radius-md);
   padding: 8px 14px;
   gap: 10px;
+}
+
+.mobileCalendarSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.mobileCalendarToggleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-md);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 10px 14px;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.25s;
+}
+
+.mobileCalendarToggleBtn:active {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mobileCalendarToggleBtn svg {
+  color: var(--secondary);
+}
+
+.mobileCalendarWrapper {
+  animation: slide-in 0.25s ease-out forwards;
 }
 
 .mobileNotesList {

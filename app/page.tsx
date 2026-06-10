@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2 } from 'lucide-react';
+import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon } from 'lucide-react';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { NoteCard } from '@/components/NoteCard';
 import { NoteEditor } from '@/components/NoteEditor';
 import { NewsSection } from '@/components/NewsSection';
 import { GlowButton } from '@/components/ui/GlowButton';
+import { Calendar } from '@/components/Calendar';
 import styles from './page.module.css';
 
 interface Note {
@@ -33,11 +34,17 @@ export default function Home() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isLoadingNotes, setIsLoadingNotes] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileView, setMobileView] = useState<'list' | 'editor'>('list');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
+
+  useEffect(() => {
+    setIsCalendarOpen(window.innerWidth > 768);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -100,8 +107,26 @@ export default function Home() {
     loadNotes();
   }, []);
 
-  // Filter notes based on search query
+  // Helper to format date as YYYY-MM-DD in local time
+  const getLocalDateString = (dateStr: string) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Filter notes based on search query and selected date
   const filteredNotes = notes.filter((note) => {
+    // 1. Filter by date if selected
+    if (selectedDate) {
+      const noteLocalDate = getLocalDateString(note.created_at);
+      if (noteLocalDate !== selectedDate) return false;
+    }
+
+    // 2. Filter by search query
     const q = searchQuery.toLowerCase();
     const matchesTitle = (note.title || '').toLowerCase().includes(q);
     const matchesContent = (note.content || '').toLowerCase().includes(q);
@@ -118,6 +143,8 @@ export default function Home() {
     todo_list: string[];
   }) => {
     try {
+      // Clear date filter so new note is visible
+      setSelectedDate(null);
       // Map string todo list to objects
       const parsedTodos = formattedData.todo_list.map((task) => ({
         text: task,
@@ -203,6 +230,8 @@ export default function Home() {
   // Create a new blank note
   const handleCreateNewNote = async () => {
     try {
+      // Clear date filter so new note is visible
+      setSelectedDate(null);
       const blankNote = {
         title: 'Catatan Baru',
         content: '',
@@ -234,6 +263,8 @@ export default function Home() {
   // WOW Feature: Summarize news and insert it as an AI note
   const handleCreateNoteFromNews = async (newsItem: NewsItem) => {
     try {
+      // Clear date filter so new note is visible
+      setSelectedDate(null);
       const newsContextText = `Berita Utama: ${newsItem.title}
 Sumber Media: ${newsItem.source}
 Kategori: ${newsItem.category}
@@ -341,6 +372,30 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
+                </div>
+
+                {/* Collapsible Calendar for Mobile */}
+                <div className={styles.mobileCalendarSection}>
+                  <button
+                    className={styles.mobileCalendarToggleBtn}
+                    onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <CalendarIcon size={16} />
+                      <span>{selectedDate ? `Filter: ${selectedDate}` : 'Filter Tanggal (Kalender)'}</span>
+                    </span>
+                    <span className={`${styles.toggleArrow} ${isCalendarOpen ? styles.arrowUp : ''}`}>▼</span>
+                  </button>
+
+                  {isCalendarOpen && (
+                    <div className={styles.mobileCalendarWrapper}>
+                      <Calendar
+                        notes={notes}
+                        selectedDate={selectedDate}
+                        onSelectDate={setSelectedDate}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Scrollable list of notes */}
@@ -484,10 +539,38 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           </button>
         </nav>
 
+        {/* Collapsible Calendar Section */}
+        {activeTab === 'notes' && (
+          <div className={styles.calendarSidebarSection}>
+            <button
+              className={styles.calendarToggleBtn}
+              onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CalendarIcon size={15} />
+                <span>Kalender Catatan</span>
+              </span>
+              <span className={`${styles.toggleArrow} ${isCalendarOpen ? styles.arrowUp : ''}`}>▼</span>
+            </button>
+
+            {isCalendarOpen && (
+              <div className={styles.calendarWrapper}>
+                <Calendar
+                  notes={notes}
+                  selectedDate={selectedDate}
+                  onSelectDate={setSelectedDate}
+                />
+              </div>
+            )}
+          </div>
+        )}
+ 
         {/* Sidebar Notes List (Quick Access) */}
         {activeTab === 'notes' && (
           <div className={styles.notesSection}>
-            <div className={styles.notesListHeader}>Daftar Catatan</div>
+            <div className={styles.notesListHeader}>
+              {selectedDate ? 'Catatan Terfilter' : 'Daftar Catatan'}
+            </div>
             <div className={styles.notesList}>
               {isLoadingNotes ? (
                 <div style={{ textAlign: 'center', color: 'var(--text-dark)', fontSize: '0.8rem', padding: '20px' }}>
