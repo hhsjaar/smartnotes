@@ -44,7 +44,12 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-    if (SpeechRecognition) {
+    if (!SpeechRecognition) {
+      console.warn('Web Speech API is not supported in this browser.');
+      return;
+    }
+
+    const createInstance = (): any => {
       const rec = new SpeechRecognition();
       rec.continuous = true;
       rec.interimResults = true;
@@ -53,10 +58,15 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
       rec.onresult = (event: any) => {
         let interimTranscript = '';
         let finalTranscript = '';
+        let lastTranscript = '';
 
         for (let i = 0; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript + ' ';
+            const text = event.results[i][0].transcript.trim();
+            if (text && text !== lastTranscript) {
+              finalTranscript += text + ' ';
+              lastTranscript = text;
+            }
           } else {
             interimTranscript += event.results[i][0].transcript;
           }
@@ -101,36 +111,33 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
           setTimeout(() => {
             if (isRecordingRef.current) {
               try {
-                recognitionRef.current.start();
+                // Destroy old instance and start a fresh one to prevent duplicate/leaked transcripts
+                if (recognitionRef.current) {
+                  try {
+                    recognitionRef.current.abort();
+                  } catch (e) {}
+                }
+                const newInstance = createInstance();
+                recognitionRef.current = newInstance;
+                newInstance.start();
               } catch (e: any) {
                 console.error('Failed to restart speech recognition:', e);
-                if (e.name === 'InvalidStateError') {
-                  // Fallback: wait a bit longer and retry once
-                  setTimeout(() => {
-                    if (isRecordingRef.current) {
-                      try {
-                        recognitionRef.current.start();
-                      } catch (err) {
-                        console.error('Failed on second restart attempt:', err);
-                      }
-                    }
-                  }, 300);
-                }
               }
             }
           }, 100);
         }
       };
 
-      recognitionRef.current = rec;
-    } else {
-      console.warn('Web Speech API is not supported in this browser.');
-    }
+      return rec;
+    };
+
+    const initialRec = createInstance();
+    recognitionRef.current = initialRec;
 
     return () => {
       if (recognitionRef.current) {
         try {
-          recognitionRef.current.stop();
+          recognitionRef.current.abort();
         } catch (e) {}
       }
     };
