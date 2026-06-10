@@ -29,16 +29,16 @@ Lakukan pencarian Google Search (grounding) untuk mendapatkan detail berita seca
 
 Kembalikan hasil ringkasan HANYA dalam format JSON dengan skema berikut:
 {
-  "context": "Konteks Utama...",
+  "context": "Konteks Utama berita ditulis di sini dalam 1-2 kalimat",
   "points": [
-    "Poin penting 1...",
-    "Poin penting 2...",
-    "Poin penting 3..."
+    "Poin penting 1 ditulis lengkap di sini",
+    "Poin penting 2 ditulis lengkap di sini",
+    "Poin penting 3 ditulis lengkap di sini"
   ],
-  "impact": "Implikasi atau Dampak..."
+  "impact": "Implikasi atau Dampak utama berita ditulis di sini"
 }
 
-PENTING: Jangan sertakan tag markdown \`\`\`json atau teks tambahan lainnya. Kembalikan HANYA string JSON murni yang valid.`;
+PENTING: Jangan gunakan tanda titik-titik (elipsis seperti ...) di luar tanda kutip atau sebagai placeholder. Jangan sertakan tag markdown \`\`\`json atau teks tambahan lainnya. Kembalikan HANYA string JSON murni yang valid.`;
 
     const payload = {
       contents: [
@@ -82,7 +82,43 @@ PENTING: Jangan sertakan tag markdown \`\`\`json atau teks tambahan lainnya. Kem
       return NextResponse.json({ error: 'Tidak ada respons dari model AI.' }, { status: 500 });
     }
 
-    const summarizedJson = JSON.parse(resultText.trim());
+    let summarizedJson;
+    try {
+      let cleanedText = resultText.trim();
+      
+      // Extract the JSON block if wrapped in conversational text
+      const start = cleanedText.indexOf('{');
+      const end = cleanedText.lastIndexOf('}');
+      if (start !== -1 && end !== -1 && start < end) {
+        cleanedText = cleanedText.substring(start, end + 1);
+      }
+      
+      summarizedJson = JSON.parse(cleanedText);
+    } catch (parseError) {
+      console.warn('Failed to parse Gemini response as JSON. Attempting regex fallback:', parseError);
+      
+      // Attempt to extract context, points, and impact using regex as a fallback
+      const contextMatch = resultText.match(/"context"\s*:\s*"([^"]+)"/i);
+      const impactMatch = resultText.match(/"impact"\s*:\s*"([^"]+)"/i);
+      
+      // Extract points as strings inside quotes inside brackets
+      const pointsBlockMatch = resultText.match(/"points"\s*:\s*\[([\s\S]*?)\]/i);
+      const points: string[] = [];
+      if (pointsBlockMatch) {
+        const pointMatches = pointsBlockMatch[1].match(/"([^"]+)"/g);
+        if (pointMatches) {
+          pointMatches.forEach((p: string) => {
+            points.push(p.replace(/"/g, '').trim());
+          });
+        }
+      }
+      
+      summarizedJson = {
+        context: contextMatch ? contextMatch[1] : `Ringkasan untuk berita: ${title}`,
+        points: points.length > 0 ? points : [summary || 'Poin penting berita ini.'],
+        impact: impactMatch ? impactMatch[1] : 'Dampak dari peristiwa ini sedang dipantau.'
+      };
+    }
     return NextResponse.json(summarizedJson);
   } catch (error: any) {
     console.error('API Summarize Error:', error);
