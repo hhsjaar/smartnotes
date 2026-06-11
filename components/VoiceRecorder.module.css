@@ -336,6 +336,7 @@
   .actions {
     justify-content: center;
     gap: 8px;
+    flex-wrap: wrap;
   }
   
   .fileUploadArea {

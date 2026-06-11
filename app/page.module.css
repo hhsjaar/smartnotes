@@ -611,3 +611,383 @@
   }
 }
 
+/* Folders Sidebar Section */
+.foldersSidebarSection {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.foldersToggleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 6px 4px;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.25s;
+}
+
+.foldersToggleBtn:hover {
+  color: #fff;
+}
+
+.foldersToggleBtn svg {
+  color: var(--primary);
+}
+
+.foldersListWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 4px;
+  animation: slide-in 0.25s ease-out forwards;
+}
+
+.folderItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--border-radius-sm);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+.folderItem:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+}
+
+.activeFolderItem {
+  background: rgba(6, 182, 212, 0.1);
+  color: #fff;
+  border: 1px solid rgba(6, 182, 212, 0.2);
+}
+
+.activeFolderItem svg {
+  color: var(--secondary);
+}
+
+.folderItemContainer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 6px;
+  border-radius: var(--border-radius-sm);
+  transition: all 0.2s;
+}
+
+.folderItemContainer:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.folderItemContainer:hover .folderActions {
+  opacity: 1;
+}
+
+.activeFolderItemContainer {
+  background: rgba(6, 182, 212, 0.1);
+  border: 1px solid rgba(6, 182, 212, 0.15);
+}
+
+.folderItemBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-align: left;
+  flex: 1;
+  overflow: hidden;
+}
+
+.folderItemContainer:hover .folderItemBtn {
+  color: #fff;
+}
+
+.activeFolderItemContainer .folderItemBtn {
+  color: #fff;
+}
+
+.activeFolderItemContainer .folderItemBtn svg {
+  color: var(--secondary);
+}
+
+.folderNameText {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.folderActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.folderActions button {
+  background: transparent;
+  border: none;
+  color: var(--text-dark);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: var(--border-radius-sm);
+  transition: all 0.2s;
+}
+
+.folderActions button:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.folderRenameInput {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--glass-border);
+  color: #fff;
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  border-radius: var(--border-radius-sm);
+  outline: none;
+  width: calc(100% - 12px);
+  margin: 4px 6px;
+}
+
+.folderRenameInput:focus {
+  border-color: var(--secondary-glow);
+}
+
+.addFolderContainer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 2px 4px;
+}
+
+.addFolderInput {
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--glass-border);
+  color: #fff;
+  font-size: 0.8rem;
+  padding: 6px 10px;
+  border-radius: var(--border-radius-sm);
+  outline: none;
+  flex: 1;
+}
+
+.addFolderInput:focus {
+  border-color: var(--primary-glow);
+}
+
+.addFolderBtn {
+  background: var(--primary);
+  border: none;
+  color: #fff;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--border-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 0 5px var(--primary-glow);
+}
+
+.addFolderBtn:hover {
+  background: var(--primary-hover);
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.5);
+}
+
+/* Premium Selection Modal overlay styling */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  animation: fade-in 0.2s ease-out;
+}
+
+.modalContent {
+  width: 100%;
+  max-width: 440px;
+  border-radius: var(--border-radius-lg);
+  padding: 24px;
+  text-align: left;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  animation: scale-up 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modalContent h3 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+}
+
+.modalContent p {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.folderSelectDropdown {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: var(--border-radius-md);
+  font-size: 0.9rem;
+  outline: none;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.folderSelectDropdown:focus {
+  border-color: var(--primary-glow);
+}
+
+.folderSelectDropdown option {
+  background: #0f172a;
+  color: #fff;
+}
+
+.modalInlineAddFolder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.modalFolderInput {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--glass-border);
+  color: #fff;
+  font-size: 0.85rem;
+  padding: 8px 12px;
+  border-radius: var(--border-radius-md);
+  outline: none;
+  flex: 1;
+}
+
+.modalFolderInput:focus {
+  border-color: var(--secondary-glow);
+}
+
+.modalFolderBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: var(--border-radius-md);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modalFolderBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-up {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.mobileFolderSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 12px;
+}
+
+.mobileFolderToggleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-md);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 10px 14px;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.25s;
+}
+
+.mobileFolderToggleBtn:active {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mobileFolderToggleBtn svg {
+  color: var(--primary);
+}
+
+@media (max-width: 768px) {
+  .folderActions {
+    opacity: 1 !important;
+  }
+}
+

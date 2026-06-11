@@ -18,7 +18,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { title, content, summary, tags, todo_list } = body;
+    const { title, content, summary, tags, todo_list, folder_id } = body;
     
     const newNote = await prisma.note.create({
       data: {
@@ -27,6 +27,7 @@ export async function POST(request: Request) {
         summary: summary ?? '',
         tags: tags ?? [],
         todo_list: todo_list ?? [],
+        folder_id: folder_id || null,
       },
     });
     
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { id, title, content, summary, tags, todo_list } = body;
+    const { id, title, content, summary, tags, todo_list, folder_id } = body;
     
     if (!id) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
@@ -53,6 +54,7 @@ export async function PUT(request: Request) {
     if (summary !== undefined) dataToUpdate.summary = summary;
     if (tags !== undefined) dataToUpdate.tags = tags;
     if (todo_list !== undefined) dataToUpdate.todo_list = todo_list;
+    if (folder_id !== undefined) dataToUpdate.folder_id = folder_id || null;
 
     const updatedNote = await prisma.note.update({
       where: { id },

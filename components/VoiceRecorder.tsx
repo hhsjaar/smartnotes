@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, Square, Upload, Trash2, Sparkles, FileAudio, AlertCircle } from 'lucide-react';
+import { Mic, Square, Upload, Trash2, Sparkles, FileAudio, AlertCircle, FileText } from 'lucide-react';
 import { GlowButton } from './ui/GlowButton';
 import styles from './VoiceRecorder.module.css';
 
@@ -60,6 +60,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
   const [transcript, setTranscript] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingType, setLoadingType] = useState<'standard' | 'laporan' | 'intel' | null>(null);
   const [statusMsg, setStatusMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -237,10 +238,11 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
     }
   };
 
-  const processTranscription = async () => {
+  const processTranscription = async (formatType: 'standard' | 'laporan' | 'intel' = 'standard') => {
     if (!file) return;
     
     setIsLoading(true);
+    setLoadingType(formatType);
     setErrorMsg('');
     setStatusMsg('Mentranskripsi berkas audio menggunakan AI (Gemini)...');
 
@@ -263,15 +265,16 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
       setStatusMsg('Transkripsi selesai! Sekarang sedang memformat catatan...');
       
       // Automatically proceed to formatting the transcript
-      await processFormatting(data.text);
+      await processFormatting(data.text, formatType);
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || 'Gagal mentranskripsi audio.');
       setIsLoading(false);
+      setLoadingType(null);
     }
   };
 
-  const processFormatting = async (textToFormat: string) => {
+  const processFormatting = async (textToFormat: string, formatType: 'standard' | 'laporan' | 'intel' = 'standard') => {
     const rawText = textToFormat || transcript;
     if (!rawText.trim()) {
       setErrorMsg('Teks transkripsi kosong. Silakan rekam suara Anda terlebih dahulu atau tulis sesuatu.');
@@ -280,8 +283,16 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
     }
 
     setIsLoading(true);
+    setLoadingType(formatType);
     setErrorMsg('');
-    setStatusMsg('AI sedang menyusun, memparagraf, dan merapikan catatan Anda...');
+    
+    let statusText = 'AI sedang menyusun, memparagraf, dan merapikan catatan Anda...';
+    if (formatType === 'laporan') {
+      statusText = 'AI sedang menyusun Laporan Kegiatan dari catatan suara Anda...';
+    } else if (formatType === 'intel') {
+      statusText = 'AI sedang menyusun Laporan Intel dari catatan suara Anda...';
+    }
+    setStatusMsg(statusText);
 
     try {
       const res = await fetch('/api/notes/format', {
@@ -289,7 +300,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text: rawText }),
+        body: JSON.stringify({ text: rawText, formatType }),
       });
 
       if (!res.ok) {
@@ -301,12 +312,20 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
       onFormatted(formattedNote);
       setTranscript('');
       setFile(null);
-      setStatusMsg('Catatan cerdas berhasil dibuat!');
+      
+      let successText = 'Catatan cerdas berhasil dibuat!';
+      if (formatType === 'laporan') {
+        successText = 'Laporan Kegiatan berhasil dibuat!';
+      } else if (formatType === 'intel') {
+        successText = 'Laporan Intel berhasil dibuat!';
+      }
+      setStatusMsg(successText);
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || 'Gagal memproses kecerdasan catatan.');
     } finally {
       setIsLoading(false);
+      setLoadingType(null);
     }
   };
 
@@ -471,25 +490,61 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
 
           {activeTab === 'record' ? (
             transcript && !isRecording && (
-              <GlowButton
-                variant="accent"
-                onClick={() => processFormatting('')}
-                disabled={isLoading}
-              >
-                {isLoading ? <div className={styles.spinner} /> : <Sparkles size={16} />}
-                Format AI
-              </GlowButton>
+              <>
+                <GlowButton
+                  variant="accent"
+                  onClick={() => processFormatting('', 'standard')}
+                  disabled={isLoading}
+                >
+                  {loadingType === 'standard' ? <div className={styles.spinner} /> : <Sparkles size={16} />}
+                  Format AI
+                </GlowButton>
+                <GlowButton
+                  variant="secondary"
+                  onClick={() => processFormatting('', 'laporan')}
+                  disabled={isLoading}
+                >
+                  {loadingType === 'laporan' ? <div className={styles.spinner} /> : <FileText size={16} />}
+                  Laporan Kegiatan
+                </GlowButton>
+                <GlowButton
+                  variant="primary"
+                  onClick={() => processFormatting('', 'intel')}
+                  disabled={isLoading}
+                >
+                  {loadingType === 'intel' ? <div className={styles.spinner} /> : <FileText size={16} />}
+                  Laporan Intel
+                </GlowButton>
+              </>
             )
           ) : (
             file && (
-              <GlowButton
-                variant="accent"
-                onClick={processTranscription}
-                disabled={isLoading}
-              >
-                {isLoading ? <div className={styles.spinner} /> : <Sparkles size={16} />}
-                Transkripsi & Format AI
-              </GlowButton>
+              <>
+                <GlowButton
+                  variant="accent"
+                  onClick={() => processTranscription('standard')}
+                  disabled={isLoading}
+                >
+                  {loadingType === 'standard' ? <div className={styles.spinner} /> : <Sparkles size={16} />}
+                  Transkripsi & Format AI
+                </GlowButton>
+                <GlowButton
+                  variant="secondary"
+                  onClick={() => processTranscription('laporan')}
+                  disabled={isLoading}
+                >
+                  {loadingType === 'laporan' ? <div className={styles.spinner} /> : <FileText size={16} />}
+                  Laporan Kegiatan
+                </GlowButton>
+                <GlowButton
+                  variant="primary"
+                  onClick={() => processTranscription('intel')}
+                  disabled={isLoading}
+                >
+                  {loadingType === 'intel' ? <div className={styles.spinner} /> : <FileText size={16} />}
+                  Laporan Intel
+                </GlowButton>
+              </>
             )
           )}
         </div>

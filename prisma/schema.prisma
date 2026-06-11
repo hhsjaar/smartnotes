@@ -18,6 +18,17 @@ model Note {
   tags       String[] @default([])
   todo_list  Json     @default("[]")
   created_at DateTime @default(now())
+  folder_id  String?
+  folder     Folder?  @relation(fields: [folder_id], references: [id], onDelete: SetNull)
 
   @@map("notes")
+}
+
+model Folder {
+  id         String   @id @default(uuid())
+  name       String   @unique
+  created_at DateTime @default(now())
+  notes      Note[]
+
+  @@map("folders")
 }

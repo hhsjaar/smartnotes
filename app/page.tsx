@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon } from 'lucide-react';
+import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3 } from 'lucide-react';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { NoteCard } from '@/components/NoteCard';
 import { NoteEditor } from '@/components/NoteEditor';
@@ -17,6 +17,13 @@ interface Note {
   summary: string;
   tags: string[];
   todo_list: { text: string; completed: boolean }[] | string[];
+  created_at: string;
+  folder_id?: string | null;
+}
+
+interface Folder {
+  id: string;
+  name: string;
   created_at: string;
 }
 
@@ -42,8 +49,18 @@ export default function Home() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
 
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [pendingNoteData, setPendingNoteData] = useState<any | null>(null);
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editingFolderName, setEditingFolderName] = useState('');
+  const [isFoldersListOpen, setIsFoldersListOpen] = useState(true);
+
   useEffect(() => {
     setIsCalendarOpen(window.innerWidth > 768);
+    setIsFoldersListOpen(window.innerWidth > 768);
   }, []);
 
   useEffect(() => {
@@ -83,17 +100,36 @@ export default function Home() {
     setShowInstallBanner(false);
   };
 
-  // Load notes from Supabase
+  // Helper for fetching with automatic retries to handle database cold-starts
+  const fetchWithRetry = async (url: string, options?: RequestInit, retries = 3, delay = 2500): Promise<Response> => {
+    try {
+      const res = await fetch(url, options);
+      if (!res.ok && retries > 0) {
+        console.warn(`Fetch to ${url} failed with status ${res.status}. Retrying in ${delay}ms... (${retries} retries left)`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return fetchWithRetry(url, options, retries - 1, delay);
+      }
+      return res;
+    } catch (err) {
+      if (retries > 0) {
+        console.warn(`Fetch to ${url} threw an error. Retrying in ${delay}ms... (${retries} retries left)`, err);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return fetchWithRetry(url, options, retries - 1, delay);
+      }
+      throw err;
+    }
+  };
+
+  // Load notes from database
   const loadNotes = async () => {
     setIsLoadingNotes(true);
     try {
-      const res = await fetch('/api/notes');
+      const res = await fetchWithRetry('/api/notes');
       if (!res.ok) throw new Error('Failed to fetch notes');
       const data = await res.json();
       setNotes(data);
       // Automatically select the first note if none is selected
       if (data.length > 0 && !selectedNote) {
-        // Keep selection if it already exists in the new list, otherwise select first
         setSelectedNote(data[0]);
       }
     } catch (err) {
@@ -103,8 +139,86 @@ export default function Home() {
     }
   };
 
+  // Load Folders
+  const loadFolders = async () => {
+    try {
+      const res = await fetchWithRetry('/api/folders');
+      if (!res.ok) throw new Error('Failed to fetch folders');
+      const data = await res.json();
+      setFolders(data);
+    } catch (err) {
+      console.error('Error loading folders:', err);
+    }
+  };
+
+  // Create Folder
+  const handleCreateFolder = async (name: string) => {
+    if (!name || name.trim() === '') return null;
+    try {
+      const res = await fetch('/api/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to create folder');
+      }
+      const newFolder = await res.json();
+      setFolders((prev) => [...prev, newFolder].sort((a, b) => a.name.localeCompare(b.name)));
+      return newFolder;
+    } catch (err: any) {
+      alert(err.message || 'Gagal membuat folder baru.');
+      return null;
+    }
+  };
+
+  // Rename Folder
+  const handleRenameFolder = async (id: string, name: string) => {
+    if (!name || name.trim() === '') return;
+    try {
+      const res = await fetch('/api/folders', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to rename folder');
+      }
+      const updatedFolder = await res.json();
+      setFolders((prev) =>
+        prev.map((f) => (f.id === id ? updatedFolder : f)).sort((a, b) => a.name.localeCompare(b.name))
+      );
+      setEditingFolderId(null);
+    } catch (err: any) {
+      alert(err.message || 'Gagal mengubah nama folder.');
+    }
+  };
+
+  // Delete Folder
+  const handleDeleteFolder = async (id: string) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus folder ini? Catatan di dalamnya tidak akan terhapus, melainkan dipindahkan ke "Tanpa Folder".')) return;
+    try {
+      const res = await fetch(`/api/folders?id=${id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Failed to delete folder');
+      
+      setFolders((prev) => prev.filter((f) => f.id !== id));
+      if (selectedFolderId === id) {
+        setSelectedFolderId(null);
+      }
+      
+      loadNotes();
+    } catch (err: any) {
+      alert(err.message || 'Gagal menghapus folder.');
+    }
+  };
+
   useEffect(() => {
     loadNotes();
+    loadFolders();
   }, []);
 
   // Helper to format date as YYYY-MM-DD in local time
@@ -118,7 +232,7 @@ export default function Home() {
     return `${year}-${month}-${day}`;
   };
 
-  // Filter notes based on search query and selected date
+  // Filter notes based on search query, selected date, and selected folder
   const filteredNotes = notes.filter((note) => {
     // 1. Filter by date if selected
     if (selectedDate) {
@@ -126,7 +240,12 @@ export default function Home() {
       if (noteLocalDate !== selectedDate) return false;
     }
 
-    // 2. Filter by search query
+    // 2. Filter by folder if selected
+    if (selectedFolderId) {
+      if (note.folder_id !== selectedFolderId) return false;
+    }
+
+    // 3. Filter by search query
     const q = searchQuery.toLowerCase();
     const matchesTitle = (note.title || '').toLowerCase().includes(q);
     const matchesContent = (note.content || '').toLowerCase().includes(q);
@@ -134,29 +253,37 @@ export default function Home() {
     return matchesTitle || matchesContent || matchesTags;
   });
 
-  // Handle formatted note from voice recorder
-  const handleFormattedNote = async (formattedData: {
+  // Handle formatted note from voice recorder - opens folder selection modal
+  const handleFormattedNote = (formattedData: {
     title: string;
     content: string;
     summary: string;
     tags: string[];
     todo_list: string[];
   }) => {
+    setPendingNoteData(formattedData);
+    setIsFolderModalOpen(true);
+  };
+
+  // Perform saving note with the selected folder
+  const saveNoteWithFolder = async (folderId: string | null) => {
+    if (!pendingNoteData) return;
     try {
       // Clear date filter so new note is visible
       setSelectedDate(null);
       // Map string todo list to objects
-      const parsedTodos = formattedData.todo_list.map((task) => ({
+      const parsedTodos = pendingNoteData.todo_list.map((task: string) => ({
         text: task,
         completed: false,
       }));
 
       const newNote = {
-        title: formattedData.title,
-        content: formattedData.content,
-        summary: formattedData.summary,
-        tags: formattedData.tags,
+        title: pendingNoteData.title,
+        content: pendingNoteData.content,
+        summary: pendingNoteData.summary,
+        tags: pendingNoteData.tags,
         todo_list: parsedTodos,
+        folder_id: folderId,
       };
 
       const res = await fetch('/api/notes', {
@@ -171,12 +298,23 @@ export default function Home() {
       setNotes((prev) => [data, ...prev]);
       setSelectedNote(data);
       setActiveTab('notes');
+      
+      // Update selected folder filter if saved in one
+      if (folderId) {
+        setSelectedFolderId(folderId);
+      } else {
+        setSelectedFolderId(null);
+      }
+
       if (window.innerWidth <= 768) {
         setMobileView('editor');
       }
     } catch (err) {
       console.error('Error saving new AI note:', err);
       alert('Gagal menyimpan catatan baru ke database.');
+    } finally {
+      setPendingNoteData(null);
+      setIsFolderModalOpen(false);
     }
   };
 
@@ -238,6 +376,7 @@ export default function Home() {
         summary: '',
         tags: ['Pribadi'],
         todo_list: [],
+        folder_id: selectedFolderId,
       };
 
       const res = await fetch('/api/notes', {
@@ -398,6 +537,105 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   )}
                 </div>
 
+                {/* Collapsible Folders for Mobile */}
+                <div className={styles.mobileFolderSection}>
+                  <button
+                    className={styles.mobileFolderToggleBtn}
+                    onClick={() => setIsFoldersListOpen(!isFoldersListOpen)}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <FolderIcon size={16} style={{ color: 'var(--primary)' }} />
+                      <span>{selectedFolderId ? `Folder: ${folders.find(f => f.id === selectedFolderId)?.name || ''}` : 'Filter Folder (Kategori)'}</span>
+                    </span>
+                    <span className={`${styles.toggleArrow} ${isFoldersListOpen ? styles.arrowUp : ''}`}>▼</span>
+                  </button>
+
+                  {isFoldersListOpen && (
+                    <div className={styles.foldersListWrapper}>
+                      <button
+                        className={`${styles.folderItem} ${selectedFolderId === null ? styles.activeFolderItem : ''}`}
+                        onClick={() => setSelectedFolderId(null)}
+                      >
+                        <FolderIcon size={14} />
+                        <span>Semua Catatan</span>
+                      </button>
+                      
+                      {folders.map((folder) => (
+                        <div key={folder.id} className={`${styles.folderItemContainer} ${selectedFolderId === folder.id ? styles.activeFolderItemContainer : ''}`}>
+                          {editingFolderId === folder.id ? (
+                            <input
+                              type="text"
+                              className={styles.folderRenameInput}
+                              value={editingFolderName}
+                              onChange={(e) => setEditingFolderName(e.target.value)}
+                              onBlur={() => handleRenameFolder(folder.id, editingFolderName)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleRenameFolder(folder.id, editingFolderName);
+                                if (e.key === 'Escape') setEditingFolderId(null);
+                              }}
+                              autoFocus
+                            />
+                          ) : (
+                            <button
+                              className={styles.folderItemBtn}
+                              onClick={() => setSelectedFolderId(folder.id)}
+                            >
+                              <FolderIcon size={14} />
+                              <span className={styles.folderNameText}>{folder.name}</span>
+                            </button>
+                          )}
+                          <div className={styles.folderActions}>
+                            <button
+                              title="Ubah Nama"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingFolderId(folder.id);
+                                setEditingFolderName(folder.name);
+                              }}
+                            >
+                              <Edit3 size={12} />
+                            </button>
+                            <button
+                              title="Hapus"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteFolder(folder.id);
+                              }}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      <div className={styles.addFolderContainer}>
+                        <input
+                          type="text"
+                          placeholder="Folder Baru..."
+                          className={styles.addFolderInput}
+                          value={newFolderName}
+                          onChange={(e) => setNewFolderName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleCreateFolder(newFolderName);
+                              setNewFolderName('');
+                            }
+                          }}
+                        />
+                        <button
+                          className={styles.addFolderBtn}
+                          onClick={() => {
+                            handleCreateFolder(newFolderName);
+                            setNewFolderName('');
+                          }}
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Scrollable list of notes */}
                 <div className={styles.mobileNotesList}>
                   {isLoadingNotes ? (
@@ -454,6 +692,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   onSave={handleSaveNote}
                   onDelete={handleDeleteNote}
                   onBack={() => setMobileView('list')}
+                  folders={folders}
                 />
               </div>
             )
@@ -499,6 +738,101 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             <span>Berita</span>
           </button>
         </nav>
+
+        {/* Folder Selection Modal (Mobile) */}
+        {isFolderModalOpen && pendingNoteData && (
+          <div className={styles.modalOverlay}>
+            <div className={`${styles.modalContent} glass-panel`}>
+              <h3>Simpan Catatan ke Folder</h3>
+              <p>Silakan pilih folder penyimpanan untuk catatan cerdas baru Anda:</p>
+              
+              <div className={styles.modalForm}>
+                <select
+                  className={styles.folderSelectDropdown}
+                  id="folder-select-mobile"
+                  defaultValue={selectedFolderId || ""}
+                >
+                  <option value="">Tanpa Folder (Umum)</option>
+                  {folders.map((folder) => (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.name}
+                    </option>
+                  ))}
+                </select>
+                
+                <div className={styles.modalInlineAddFolder}>
+                  <input
+                    type="text"
+                    placeholder="Atau buat folder baru..."
+                    id="new-folder-inline-input-mobile"
+                    className={styles.modalFolderInput}
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter') {
+                        const input = e.currentTarget;
+                        const name = input.value.trim();
+                        if (name) {
+                          const newF = await handleCreateFolder(name);
+                          if (newF) {
+                            const select = document.getElementById('folder-select-mobile') as HTMLSelectElement;
+                            if (select) {
+                              setTimeout(() => {
+                                select.value = newF.id;
+                              }, 50);
+                            }
+                            input.value = '';
+                          }
+                        }
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className={styles.modalFolderBtn}
+                    onClick={async () => {
+                      const input = document.getElementById('new-folder-inline-input-mobile') as HTMLInputElement;
+                      const name = input?.value.trim();
+                      if (name) {
+                        const newF = await handleCreateFolder(name);
+                        if (newF) {
+                          const select = document.getElementById('folder-select-mobile') as HTMLSelectElement;
+                          if (select) {
+                            setTimeout(() => {
+                              select.value = newF.id;
+                            }, 50);
+                          }
+                          input.value = '';
+                        }
+                      }
+                    }}
+                  >
+                    Buat
+                  </button>
+                </div>
+              </div>
+              
+              <div className={styles.modalActions}>
+                <GlowButton
+                  variant="outline"
+                  onClick={() => {
+                    setIsFolderModalOpen(false);
+                    setPendingNoteData(null);
+                  }}
+                >
+                  Batal
+                </GlowButton>
+                <GlowButton
+                  variant="primary"
+                  onClick={() => {
+                    const select = document.getElementById('folder-select-mobile') as HTMLSelectElement;
+                    saveNoteWithFolder(select?.value || null);
+                  }}
+                >
+                  Simpan Catatan
+                </GlowButton>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -560,6 +894,107 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   selectedDate={selectedDate}
                   onSelectDate={setSelectedDate}
                 />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Collapsible Folders Section */}
+        {activeTab === 'notes' && (
+          <div className={styles.foldersSidebarSection}>
+            <button
+              className={styles.foldersToggleBtn}
+              onClick={() => setIsFoldersListOpen(!isFoldersListOpen)}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FolderIcon size={15} />
+                <span>Folder Catatan</span>
+              </span>
+              <span className={`${styles.toggleArrow} ${isFoldersListOpen ? styles.arrowUp : ''}`}>▼</span>
+            </button>
+
+            {isFoldersListOpen && (
+              <div className={styles.foldersListWrapper}>
+                <button
+                  className={`${styles.folderItem} ${selectedFolderId === null ? styles.activeFolderItem : ''}`}
+                  onClick={() => setSelectedFolderId(null)}
+                >
+                  <FolderIcon size={14} />
+                  <span>Semua Catatan</span>
+                </button>
+                
+                {folders.map((folder) => (
+                  <div key={folder.id} className={`${styles.folderItemContainer} ${selectedFolderId === folder.id ? styles.activeFolderItemContainer : ''}`}>
+                    {editingFolderId === folder.id ? (
+                      <input
+                        type="text"
+                        className={styles.folderRenameInput}
+                        value={editingFolderName}
+                        onChange={(e) => setEditingFolderName(e.target.value)}
+                        onBlur={() => handleRenameFolder(folder.id, editingFolderName)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleRenameFolder(folder.id, editingFolderName);
+                          if (e.key === 'Escape') setEditingFolderId(null);
+                        }}
+                        autoFocus
+                      />
+                    ) : (
+                      <button
+                        className={styles.folderItemBtn}
+                        onClick={() => setSelectedFolderId(folder.id)}
+                      >
+                        <FolderIcon size={14} />
+                        <span className={styles.folderNameText}>{folder.name}</span>
+                      </button>
+                    )}
+                    <div className={styles.folderActions}>
+                      <button
+                        title="Ubah Nama"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingFolderId(folder.id);
+                          setEditingFolderName(folder.name);
+                        }}
+                      >
+                        <Edit3 size={12} />
+                      </button>
+                      <button
+                        title="Hapus"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteFolder(folder.id);
+                        }}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                
+                <div className={styles.addFolderContainer}>
+                  <input
+                    type="text"
+                    placeholder="Folder Baru..."
+                    className={styles.addFolderInput}
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleCreateFolder(newFolderName);
+                        setNewFolderName('');
+                      }
+                    }}
+                  />
+                  <button
+                    className={styles.addFolderBtn}
+                    onClick={() => {
+                      handleCreateFolder(newFolderName);
+                      setNewFolderName('');
+                    }}
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -651,6 +1086,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   note={selectedNote}
                   onSave={handleSaveNote}
                   onDelete={handleDeleteNote}
+                  folders={folders}
                 />
               </div>
             </div>
@@ -661,6 +1097,101 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           )}
         </div>
       </main>
+
+      {/* Folder Selection Modal */}
+      {isFolderModalOpen && pendingNoteData && (
+        <div className={styles.modalOverlay}>
+          <div className={`${styles.modalContent} glass-panel`}>
+            <h3>Simpan Catatan ke Folder</h3>
+            <p>Silakan pilih folder penyimpanan untuk catatan cerdas baru Anda:</p>
+            
+            <div className={styles.modalForm}>
+              <select
+                className={styles.folderSelectDropdown}
+                id="folder-select"
+                defaultValue={selectedFolderId || ""}
+              >
+                <option value="">Tanpa Folder (Umum)</option>
+                {folders.map((folder) => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.name}
+                  </option>
+                ))}
+              </select>
+              
+              <div className={styles.modalInlineAddFolder}>
+                <input
+                  type="text"
+                  placeholder="Atau buat folder baru..."
+                  id="new-folder-inline-input"
+                  className={styles.modalFolderInput}
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter') {
+                      const input = e.currentTarget;
+                      const name = input.value.trim();
+                      if (name) {
+                        const newF = await handleCreateFolder(name);
+                        if (newF) {
+                          const select = document.getElementById('folder-select') as HTMLSelectElement;
+                          if (select) {
+                            setTimeout(() => {
+                              select.value = newF.id;
+                            }, 50);
+                          }
+                          input.value = '';
+                        }
+                      }
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className={styles.modalFolderBtn}
+                  onClick={async () => {
+                    const input = document.getElementById('new-folder-inline-input') as HTMLInputElement;
+                    const name = input?.value.trim();
+                    if (name) {
+                      const newF = await handleCreateFolder(name);
+                      if (newF) {
+                        const select = document.getElementById('folder-select') as HTMLSelectElement;
+                        if (select) {
+                          setTimeout(() => {
+                            select.value = newF.id;
+                          }, 50);
+                        }
+                        input.value = '';
+                      }
+                    }
+                  }}
+                >
+                  Buat
+                </button>
+              </div>
+            </div>
+            
+            <div className={styles.modalActions}>
+              <GlowButton
+                variant="outline"
+                onClick={() => {
+                  setIsFolderModalOpen(false);
+                  setPendingNoteData(null);
+                }}
+              >
+                Batal
+              </GlowButton>
+              <GlowButton
+                variant="primary"
+                onClick={() => {
+                  const select = document.getElementById('folder-select') as HTMLSelectElement;
+                  saveNoteWithFolder(select?.value || null);
+                }}
+              >
+                Simpan Catatan
+              </GlowButton>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

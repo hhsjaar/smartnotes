@@ -13,6 +13,13 @@ interface Note {
   tags: string[];
   todo_list: { text: string; completed: boolean }[] | string[]; // support both format
   created_at: string;
+  folder_id?: string | null;
+}
+
+interface Folder {
+  id: string;
+  name: string;
+  created_at: string;
 }
 
 interface NoteEditorProps {
@@ -20,9 +27,10 @@ interface NoteEditorProps {
   onSave: (updatedNote: Partial<Note>) => Promise<void>;
   onDelete: (id: string) => void;
   onBack?: () => void;
+  folders: Folder[];
 }
 
-export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, onBack }) => {
+export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, onBack, folders }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -31,6 +39,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
   const [newTag, setNewTag] = useState('');
   const [todos, setTodos] = useState<{ text: string; completed: boolean }[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [folderId, setFolderId] = useState<string | null>(null);
 
   const [isMobile, setIsMobile] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<'content' | 'summary' | 'todos'>('content');
@@ -65,6 +74,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
         });
       }
       setTodos(parsedTodos);
+      setFolderId(note.folder_id || null);
       setIsEditing(false);
       setActiveSubTab('content'); // Reset sub-tab on note switch
     }
@@ -92,6 +102,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
         summary,
         tags,
         todo_list: todos,
+        folder_id: folderId,
       });
       setIsEditing(false);
     } catch (err) {
@@ -170,6 +181,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
 
     // Bold
     html = html.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
+
+    // Italics (rendered as bold)
+    html = html.replace(/\*(?!\s)(.*?)(?<!\s)\*/gim, '<strong>$1</strong>');
 
     // Blockquotes
     html = html.replace(/^\>\s+(.*$)/gim, '<blockquote>$1</blockquote>');
@@ -253,6 +267,29 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
               <Calendar size={14} />
               {formatDate(note.created_at)}
             </span>
+            {isEditing ? (
+              <div className={styles.folderSelectContainer}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Folder:</span>
+                <select
+                  className={styles.folderSelect}
+                  value={folderId || ''}
+                  onChange={(e) => setFolderId(e.target.value || null)}
+                >
+                  <option value="">Tanpa Folder (Umum)</option>
+                  {folders.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              note.folder_id && folders.find(f => f.id === note.folder_id) && (
+                <span className={styles.folderBadge}>
+                  📂 {folders.find(f => f.id === note.folder_id)?.name}
+                </span>
+              )
+            )}
           </div>
         </div>
 
