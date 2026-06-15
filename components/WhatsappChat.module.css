@@ -1,0 +1,559 @@
+.chatContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  border-radius: var(--border-radius-lg);
+  padding: 32px;
+  overflow-y: auto;
+  gap: 24px;
+}
+
+.header {
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.titleIcon {
+  color: #22c55e;
+  filter: drop-shadow(0 0 5px rgba(34, 197, 94, 0.4));
+}
+
+.subtitle {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.layoutGrid {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 32px;
+  flex: 1;
+  overflow: hidden;
+}
+
+@media (max-width: 1024px) {
+  .layoutGrid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    overflow: visible;
+  }
+}
+
+.formSection {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inputLabel {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.textInput {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--glass-border);
+  color: #fff;
+  font-size: 0.95rem;
+  padding: 12px 16px;
+  border-radius: var(--border-radius-md);
+  outline: none;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.textInput:focus {
+  border-color: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
+}
+
+.textarea {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--glass-border);
+  color: #fff;
+  font-size: 0.95rem;
+  padding: 14px 16px;
+  border-radius: var(--border-radius-md);
+  outline: none;
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  line-height: 1.5;
+  transition: all 0.2s;
+}
+
+.textarea:focus {
+  border-color: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
+}
+
+/* Recent Numbers styling */
+.recentContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recentHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.recentLabel {
+  font-size: 0.75rem;
+  color: var(--text-dark);
+  font-weight: 600;
+}
+
+.clearHistoryBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-dark);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: var(--border-radius-sm);
+  transition: all 0.2s;
+}
+
+.clearHistoryBtn:hover {
+  color: var(--error);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.recentList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recentBadge {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  padding: 6px 12px;
+  border-radius: var(--border-radius-full);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.recentBadge:hover {
+  background: rgba(34, 197, 94, 0.08);
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+/* Contact List Section styling */
+.contactListSection {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-lg);
+  padding: 24px;
+  overflow: hidden;
+  height: 100%;
+}
+
+.contactFormContainer {
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.sectionTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.addContactForm {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.addContactFields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.miniTextInput {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--glass-border);
+  color: #fff;
+  font-size: 0.8rem;
+  padding: 8px 12px;
+  border-radius: var(--border-radius-sm);
+  outline: none;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.miniTextInput:focus {
+  border-color: var(--secondary);
+}
+
+.miniAddBtn {
+  background: var(--secondary);
+  color: #fff;
+  border: none;
+  padding: 9px 16px;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  height: 34px;
+  box-shadow: 0 0 5px var(--secondary-glow);
+}
+
+.miniAddBtn:hover {
+  background: var(--secondary-hover);
+  box-shadow: 0 0 10px var(--secondary-glow);
+}
+
+.contactsListContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.contactsScrollList {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+.contactItemCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-md);
+  padding: 10px 14px;
+  transition: all 0.2s;
+}
+
+.contactItemCard:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.contactSelectBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  outline: none;
+}
+
+.contactAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  flex-shrink: 0;
+}
+
+.contactTextDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.contactName {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contactNumber {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.contactDeleteBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-dark);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--border-radius-sm);
+  transition: all 0.2s;
+  margin-left: 8px;
+}
+
+.contactDeleteBtn:hover {
+  color: var(--error);
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.emptyContacts {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 10px;
+  color: var(--text-dark);
+  text-align: center;
+  padding: 24px;
+}
+
+.emptyContacts p {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Status Banners */
+.statusBannerSuccess {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  color: #4ade80;
+  padding: 12px 16px;
+  border-radius: var(--border-radius-md);
+  font-size: 0.88rem;
+  font-weight: 500;
+  animation: slide-in 0.2s ease-out;
+}
+
+.statusBannerError {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #f87171;
+  padding: 12px 16px;
+  border-radius: var(--border-radius-md);
+  font-size: 0.88rem;
+  font-weight: 500;
+  animation: slide-in 0.2s ease-out;
+}
+
+.statusIcon {
+  flex-shrink: 0;
+}
+
+.actionRow {
+  margin-top: 6px;
+}
+
+@media (max-width: 768px) {
+  .chatContainer {
+    padding: 16px;
+    border-radius: 0;
+    margin-bottom: 70px;
+  }
+}
+
+/* Selected Contact Badge Inside Input Group */
+.selectedContactBadge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  padding: 10px 16px;
+  border-radius: var(--border-radius-md);
+  color: #fff;
+  position: relative;
+  animation: scale-up 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.08);
+}
+
+.badgeAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.badgeDetails {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.badgeName {
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badgeNumber {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.badgeClearBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.badgeClearBtn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+/* Contacts Autocomplete Dropdown */
+.contactsDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 6px;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-md);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+.dropdownItem:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dropdownItem:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dropdownAvatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.dropdownDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.dropdownName {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdownNumber {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.dropdownEmpty {
+  padding: 12px 16px;
+  font-size: 0.78rem;
+  color: var(--text-dark);
+  text-align: center;
+}
+
+@keyframes scale-up {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}

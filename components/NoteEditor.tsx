@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Edit3, Check, Trash2, Calendar, FileText, CheckSquare, Sparkles, Tag, Plus, X, ArrowLeft, Copy } from 'lucide-react';
+import { Edit3, Check, Trash2, Calendar, FileText, CheckSquare, Sparkles, Tag, Plus, X, ArrowLeft, Copy, Mic } from 'lucide-react';
 import { GlowButton } from './ui/GlowButton';
 import styles from './NoteEditor.module.css';
 
@@ -28,9 +28,10 @@ interface NoteEditorProps {
   onDelete: (id: string) => void;
   onBack?: () => void;
   folders: Folder[];
+  onToggleRecorder?: () => void;
 }
 
-export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, onBack, folders }) => {
+export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, onBack, folders, onToggleRecorder }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -40,10 +41,14 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
   const [todos, setTodos] = useState<{ text: string; completed: boolean }[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [folderId, setFolderId] = useState<string | null>(null);
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
+  const [isTodosExpanded, setIsTodosExpanded] = useState(false);
 
   const [isMobile, setIsMobile] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<'content' | 'summary' | 'todos'>('content');
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
+
+
 
   // Detect mobile viewport
   useEffect(() => {
@@ -300,10 +305,19 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
               {!isMobile && <span style={{ marginLeft: '6px' }}>Simpan</span>}
             </button>
           ) : (
-            <button className={`${styles.actionIconBtn} ${styles.editBtn}`} onClick={() => setIsEditing(true)}>
-              <Edit3 size={16} />
-              {!isMobile && <span style={{ marginLeft: '6px' }}>Edit</span>}
-            </button>
+            <>
+              {onToggleRecorder && (
+                <button className={`${styles.actionIconBtn} ${styles.recorderShortcutBtn}`} onClick={onToggleRecorder} title="Input Suara Cerdas (AI)">
+                  <Mic size={16} style={{ color: 'var(--secondary)', marginRight: !isMobile ? '6px' : '0' }} />
+                  {!isMobile && <span>Input Suara AI</span>}
+                </button>
+              )}
+              <button className={`${styles.actionIconBtn} ${styles.editBtn}`} onClick={() => setIsEditing(true)}>
+                <Edit3 size={16} />
+                {!isMobile && <span style={{ marginLeft: '6px' }}>Edit</span>}
+              </button>
+
+            </>
           )}
           <button className={`${styles.actionIconBtn} ${styles.deleteBtn}`} onClick={() => onDelete(note.id)}>
             <Trash2 size={16} />
@@ -468,7 +482,104 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
           </div>
         ) : (
           <>
-            {/* Desktop Side-by-Side View */}
+            {/* Desktop Single-Scroll Notion-like document flow */}
+            
+            {/* 1. Summary Collapsible Section */}
+            {summary && (
+              <div className={`${styles.collapsiblePanel} ${isSummaryExpanded ? styles.expanded : ''}`}>
+                <button
+                  type="button"
+                  className={styles.collapsibleHeader}
+                  onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
+                >
+                  <div className={styles.collapsibleHeaderTitle}>
+                    <Sparkles size={16} style={{ color: 'var(--accent)' }} />
+                    <span>Teks Asli Rekaman (AI Transkrip)</span>
+                  </div>
+                  <span className={`${styles.collapsibleArrow} ${isSummaryExpanded ? styles.arrowUp : ''}`}>▼</span>
+                </button>
+                {isSummaryExpanded && (
+                  <div className={styles.collapsibleContent}>
+                    <button
+                      className={styles.copyBtn}
+                      onClick={() => handleCopy(summary, 'summary')}
+                      title="Salin Teks Asli Rekaman"
+                    >
+                      {copiedSection === 'summary' ? (
+                        <>
+                          <Check size={14} style={{ color: '#22c55e' }} />
+                          <span>Tersalin</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={14} />
+                          <span>Salin</span>
+                        </>
+                      )}
+                    </button>
+                    <p className={styles.summaryText} style={{ whiteSpace: 'pre-wrap' }}>{summary}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 2. Todos Collapsible Section */}
+            {todos.length > 0 && (
+              <div className={`${styles.collapsiblePanel} ${isTodosExpanded ? styles.expanded : ''}`}>
+                <button
+                  type="button"
+                  className={styles.collapsibleHeader}
+                  onClick={() => setIsTodosExpanded(!isTodosExpanded)}
+                >
+                  <div className={styles.collapsibleHeaderTitle}>
+                    <CheckSquare size={16} style={{ color: 'var(--secondary)' }} />
+                    <span>Daftar Tugas ({todos.filter(t => t.completed).length}/${todos.length} Selesai)</span>
+                  </div>
+                  <span className={`${styles.collapsibleArrow} ${isTodosExpanded ? styles.arrowUp : ''}`}>▼</span>
+                </button>
+                {isTodosExpanded && (
+                  <div className={styles.collapsibleContent}>
+                    <button
+                      className={styles.copyBtn}
+                      onClick={() => {
+                        const todosText = todos.map(t => `${t.completed ? '[x]' : '[ ]'} ${t.text}`).join('\n');
+                        handleCopy(todosText, 'todos');
+                      }}
+                      title="Salin Daftar Tugas"
+                    >
+                      {copiedSection === 'todos' ? (
+                        <>
+                          <Check size={14} style={{ color: '#22c55e' }} />
+                          <span>Tersalin</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={14} />
+                          <span>Salin</span>
+                        </>
+                      )}
+                    </button>
+                    <div className={styles.todoList}>
+                      {todos.map((todo, idx) => (
+                        <label key={idx} className={styles.todoItem}>
+                          <input
+                            type="checkbox"
+                            className={styles.todoCheckbox}
+                            checked={todo.completed}
+                            onChange={() => handleTodoToggle(idx)}
+                          />
+                          <span className={todo.completed ? styles.todoCompleted : ''}>
+                            {todo.text}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 3. Main Note Content (Editor or Preview) */}
             <div className={styles.mainContent}>
               <button
                 className={styles.copyBtn}
@@ -501,82 +612,11 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
                 />
               )}
             </div>
-
-            <div className={styles.sidebarPanel}>
-              {summary && (
-                <div className={styles.panelCard}>
-                  <button
-                    className={styles.copyBtn}
-                    onClick={() => handleCopy(summary, 'summary')}
-                    title="Salin Teks Asli Rekaman"
-                  >
-                    {copiedSection === 'summary' ? (
-                      <>
-                        <Check size={14} style={{ color: '#22c55e' }} />
-                        <span>Tersalin</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={14} />
-                        <span>Salin</span>
-                      </>
-                    )}
-                  </button>
-                  <h4 className={styles.panelTitle}>
-                    <Sparkles size={16} style={{ color: 'var(--accent)' }} />
-                    Teks Asli Rekaman
-                  </h4>
-                  <p className={styles.summaryText} style={{ whiteSpace: 'pre-wrap' }}>{summary}</p>
-                </div>
-              )}
-
-              {todos.length > 0 && (
-                <div className={styles.panelCard}>
-                  <button
-                    className={styles.copyBtn}
-                    onClick={() => {
-                      const todosText = todos.map(t => `${t.completed ? '[x]' : '[ ]'} ${t.text}`).join('\n');
-                      handleCopy(todosText, 'todos');
-                    }}
-                    title="Salin Daftar Tugas"
-                  >
-                    {copiedSection === 'todos' ? (
-                      <>
-                        <Check size={14} style={{ color: '#22c55e' }} />
-                        <span>Tersalin</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={14} />
-                        <span>Salin</span>
-                      </>
-                    )}
-                  </button>
-                  <h4 className={styles.panelTitle}>
-                    <CheckSquare size={16} style={{ color: 'var(--secondary)' }} />
-                    Daftar Tugas (Action Items)
-                  </h4>
-                  <div className={styles.todoList}>
-                    {todos.map((todo, idx) => (
-                      <label key={idx} className={styles.todoItem}>
-                        <input
-                          type="checkbox"
-                          className={styles.todoCheckbox}
-                          checked={todo.completed}
-                          onChange={() => handleTodoToggle(idx)}
-                        />
-                        <span className={todo.completed ? styles.todoCompleted : ''}>
-                          {todo.text}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
           </>
         )}
       </div>
+
+
     </div>
   );
 };

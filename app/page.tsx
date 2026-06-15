@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3 } from 'lucide-react';
+import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X } from 'lucide-react';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { NoteCard } from '@/components/NoteCard';
 import { NoteEditor } from '@/components/NoteEditor';
 import { NewsSection } from '@/components/NewsSection';
 import { GlowButton } from '@/components/ui/GlowButton';
 import { Calendar } from '@/components/Calendar';
+import { WhatsappChat } from '@/components/WhatsappChat';
 import styles from './page.module.css';
 
 interface Note {
@@ -36,8 +37,43 @@ interface NewsItem {
   time: string;
 }
 
+const getGroupedNotes = (notesList: Note[]) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const sevenDaysAgo = new Date(today);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const groups: { [key: string]: Note[] } = {
+    'Hari Ini': [],
+    'Kemarin': [],
+    'Minggu Ini': [],
+    'Lebih Lama': []
+  };
+
+  notesList.forEach(note => {
+    const noteDate = new Date(note.created_at);
+    noteDate.setHours(0, 0, 0, 0);
+
+    if (noteDate.getTime() === today.getTime()) {
+      groups['Hari Ini'].push(note);
+    } else if (noteDate.getTime() === yesterday.getTime()) {
+      groups['Kemarin'].push(note);
+    } else if (noteDate.getTime() >= sevenDaysAgo.getTime()) {
+      groups['Minggu Ini'].push(note);
+    } else {
+      groups['Lebih Lama'].push(note);
+    }
+  });
+
+  return groups;
+};
+
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'notes' | 'news' | 'recorder'>('notes');
+  const [activeTab, setActiveTab] = useState<'notes' | 'news' | 'whatsapp' | 'calendar' | 'recorder'>('notes');
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,6 +84,7 @@ export default function Home() {
   const [mobileView, setMobileView] = useState<'list' | 'editor'>('list');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const [workspaceView, setWorkspaceView] = useState<'editor' | 'recorder'>('editor');
 
   const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -57,6 +94,9 @@ export default function Home() {
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState('');
   const [isFoldersListOpen, setIsFoldersListOpen] = useState(true);
+  
+  const [isMobileCalendarOpen, setIsMobileCalendarOpen] = useState(false);
+  const [isMobileFoldersOpen, setIsMobileFoldersOpen] = useState(false);
 
   useEffect(() => {
     setIsCalendarOpen(window.innerWidth > 768);
@@ -232,6 +272,21 @@ export default function Home() {
     return `${year}-${month}-${day}`;
   };
 
+  const getFormattedFilterDate = (dateStr: string | null) => {
+    if (!dateStr) return '';
+    try {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const dateObj = new Date(y, m - 1, d);
+      return dateObj.toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
   // Filter notes based on search query, selected date, and selected folder
   const filteredNotes = notes.filter((note) => {
     // 1. Filter by date if selected
@@ -298,6 +353,7 @@ export default function Home() {
       setNotes((prev) => [data, ...prev]);
       setSelectedNote(data);
       setActiveTab('notes');
+      setWorkspaceView('editor');
       
       // Update selected folder filter if saved in one
       if (folderId) {
@@ -391,6 +447,7 @@ export default function Home() {
       setNotes((prev) => [data, ...prev]);
       setSelectedNote(data);
       setActiveTab('notes');
+      setWorkspaceView('editor');
       if (window.innerWidth <= 768) {
         setMobileView('editor');
       }
@@ -463,6 +520,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
       setNotes((prev) => [data, ...prev]);
       setSelectedNote(data);
       setActiveTab('notes');
+      setWorkspaceView('editor');
       if (window.innerWidth <= 768) {
         setMobileView('editor');
       }
@@ -501,140 +559,188 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           {activeTab === 'notes' && (
             mobileView === 'list' ? (
               <div className={styles.mobileNotesListContainer}>
-                {/* Search Bar */}
-                <div className={styles.mobileSearchBar}>
-                  <Search size={16} style={{ color: 'var(--text-muted)' }} />
-                  <input
-                    type="text"
-                    placeholder="Cari catatan..."
-                    className={styles.searchInput}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
+                {/* Search Bar & Calendar Trigger */}
+                <div className={styles.mobileSearchRow}>
+                  <div className={styles.mobileSearchBar}>
+                    <Search size={16} style={{ color: 'var(--text-muted)' }} />
+                    <input
+                      type="text"
+                      placeholder="Cari catatan..."
+                      className={styles.searchInput}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className={`${styles.mobileCalendarTriggerBtn} ${selectedDate ? styles.mobileCalendarTriggerActive : ''}`}
+                    onClick={() => setIsMobileCalendarOpen(true)}
+                    title="Filter Kalender"
+                  >
+                    <CalendarIcon size={18} />
+                    {selectedDate && <span className={styles.activeDot} />}
+                  </button>
                 </div>
 
-                {/* Collapsible Calendar for Mobile */}
-                <div className={styles.mobileCalendarSection}>
+                {/* Horizontal Folder Category Pills */}
+                <div className={styles.mobileFolderScrollContainer}>
                   <button
-                    className={styles.mobileCalendarToggleBtn}
-                    onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+                    type="button"
+                    className={`${styles.mobileFolderChip} ${selectedFolderId === null ? styles.mobileFolderChipActive : ''}`}
+                    onClick={() => setSelectedFolderId(null)}
                   >
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <CalendarIcon size={16} />
-                      <span>{selectedDate ? `Filter: ${selectedDate}` : 'Filter Tanggal (Kalender)'}</span>
-                    </span>
-                    <span className={`${styles.toggleArrow} ${isCalendarOpen ? styles.arrowUp : ''}`}>▼</span>
+                    📂 Semua
                   </button>
+                  {folders.map((folder) => (
+                    <button
+                      key={folder.id}
+                      type="button"
+                      className={`${styles.mobileFolderChip} ${selectedFolderId === folder.id ? styles.mobileFolderChipActive : ''}`}
+                      onClick={() => setSelectedFolderId(folder.id)}
+                    >
+                      📁 {folder.name}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className={`${styles.mobileFolderChip} ${styles.mobileFolderChipManage}`}
+                    onClick={() => setIsMobileFoldersOpen(true)}
+                    title="Kelola Folder"
+                  >
+                    ⚙️ Kelola
+                  </button>
+                </div>
 
-                  {isCalendarOpen && (
-                    <div className={styles.mobileCalendarWrapper}>
-                      <Calendar
-                        notes={notes}
-                        selectedDate={selectedDate}
-                        onSelectDate={setSelectedDate}
-                      />
+                {/* Mobile Calendar Bottom Sheet Modal */}
+                {isMobileCalendarOpen && (
+                  <div className={styles.mobileBottomSheetOverlay} onClick={() => setIsMobileCalendarOpen(false)}>
+                    <div className={styles.mobileBottomSheet} onClick={(e) => e.stopPropagation()}>
+                      <div className={styles.mobileBottomSheetHeader}>
+                        <h3>Pilih Tanggal</h3>
+                        <button 
+                          className={styles.mobileBottomSheetClose} 
+                          onClick={() => setIsMobileCalendarOpen(false)}
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+                      <div className={styles.mobileBottomSheetBody}>
+                        <Calendar
+                          notes={notes}
+                          selectedDate={selectedDate}
+                          onSelectDate={(dateStr) => {
+                            setSelectedDate(dateStr);
+                            setIsMobileCalendarOpen(false); // auto-close on select
+                          }}
+                        />
+                        {selectedDate && (
+                          <GlowButton
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedDate(null);
+                              setIsMobileCalendarOpen(false);
+                            }}
+                            style={{ marginTop: '12px', width: '100%' }}
+                          >
+                            Hapus Filter Tanggal
+                          </GlowButton>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
-                {/* Collapsible Folders for Mobile */}
-                <div className={styles.mobileFolderSection}>
-                  <button
-                    className={styles.mobileFolderToggleBtn}
-                    onClick={() => setIsFoldersListOpen(!isFoldersListOpen)}
-                  >
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <FolderIcon size={16} style={{ color: 'var(--primary)' }} />
-                      <span>{selectedFolderId ? `Folder: ${folders.find(f => f.id === selectedFolderId)?.name || ''}` : 'Filter Folder (Kategori)'}</span>
-                    </span>
-                    <span className={`${styles.toggleArrow} ${isFoldersListOpen ? styles.arrowUp : ''}`}>▼</span>
-                  </button>
-
-                  {isFoldersListOpen && (
-                    <div className={styles.foldersListWrapper}>
-                      <button
-                        className={`${styles.folderItem} ${selectedFolderId === null ? styles.activeFolderItem : ''}`}
-                        onClick={() => setSelectedFolderId(null)}
-                      >
-                        <FolderIcon size={14} />
-                        <span>Semua Catatan</span>
-                      </button>
-                      
-                      {folders.map((folder) => (
-                        <div key={folder.id} className={`${styles.folderItemContainer} ${selectedFolderId === folder.id ? styles.activeFolderItemContainer : ''}`}>
-                          {editingFolderId === folder.id ? (
+                {/* Mobile Folders Management Bottom Sheet Modal */}
+                {isMobileFoldersOpen && (
+                  <div className={styles.mobileBottomSheetOverlay} onClick={() => setIsMobileFoldersOpen(false)}>
+                    <div className={styles.mobileBottomSheet} onClick={(e) => e.stopPropagation()}>
+                      <div className={styles.mobileBottomSheetHeader}>
+                        <h3>Kelola Folder</h3>
+                        <button 
+                          className={styles.mobileBottomSheetClose} 
+                          onClick={() => setIsMobileFoldersOpen(false)}
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+                      <div className={styles.mobileBottomSheetBody}>
+                        <div className={styles.mobileFolderManagerWrapper}>
+                          {folders.length === 0 ? (
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', marginBottom: '16px' }}>
+                              Belum ada folder. Buat folder baru di bawah.
+                            </p>
+                          ) : (
+                            <div className={styles.mobileFoldersEditList}>
+                              {folders.map((folder) => (
+                                <div key={folder.id} className={styles.mobileFolderEditRow}>
+                                  {editingFolderId === folder.id ? (
+                                    <input
+                                      type="text"
+                                      className={styles.folderRenameInput}
+                                      value={editingFolderName}
+                                      onChange={(e) => setEditingFolderName(e.target.value)}
+                                      onBlur={() => handleRenameFolder(folder.id, editingFolderName)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleRenameFolder(folder.id, editingFolderName);
+                                        if (e.key === 'Escape') setEditingFolderId(null);
+                                      }}
+                                      autoFocus
+                                    />
+                                  ) : (
+                                    <span className={styles.folderNameText}>{folder.name}</span>
+                                  )}
+                                  
+                                  <div className={styles.folderActions}>
+                                    <button
+                                      title="Ubah Nama"
+                                      onClick={() => {
+                                        setEditingFolderId(folder.id);
+                                        setEditingFolderName(folder.name);
+                                      }}
+                                    >
+                                      <Edit3 size={14} />
+                                    </button>
+                                    <button
+                                      title="Hapus"
+                                      onClick={() => handleDeleteFolder(folder.id)}
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          <div className={styles.mobileAddFolderForm}>
                             <input
                               type="text"
-                              className={styles.folderRenameInput}
-                              value={editingFolderName}
-                              onChange={(e) => setEditingFolderName(e.target.value)}
-                              onBlur={() => handleRenameFolder(folder.id, editingFolderName)}
+                              placeholder="Nama folder baru..."
+                              className={styles.addFolderInput}
+                              value={newFolderName}
+                              onChange={(e) => setNewFolderName(e.target.value)}
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleRenameFolder(folder.id, editingFolderName);
-                                if (e.key === 'Escape') setEditingFolderId(null);
+                                if (e.key === 'Enter') {
+                                  handleCreateFolder(newFolderName);
+                                  setNewFolderName('');
+                                }
                               }}
-                              autoFocus
                             />
-                          ) : (
                             <button
-                              className={styles.folderItemBtn}
-                              onClick={() => setSelectedFolderId(folder.id)}
-                            >
-                              <FolderIcon size={14} />
-                              <span className={styles.folderNameText}>{folder.name}</span>
-                            </button>
-                          )}
-                          <div className={styles.folderActions}>
-                            <button
-                              title="Ubah Nama"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingFolderId(folder.id);
-                                setEditingFolderName(folder.name);
+                              className={styles.addFolderBtn}
+                              onClick={() => {
+                                handleCreateFolder(newFolderName);
+                                setNewFolderName('');
                               }}
                             >
-                              <Edit3 size={12} />
-                            </button>
-                            <button
-                              title="Hapus"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteFolder(folder.id);
-                              }}
-                            >
-                              <Trash2 size={12} />
+                              <Plus size={16} />
                             </button>
                           </div>
                         </div>
-                      ))}
-                      
-                      <div className={styles.addFolderContainer}>
-                        <input
-                          type="text"
-                          placeholder="Folder Baru..."
-                          className={styles.addFolderInput}
-                          value={newFolderName}
-                          onChange={(e) => setNewFolderName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handleCreateFolder(newFolderName);
-                              setNewFolderName('');
-                            }
-                          }}
-                        />
-                        <button
-                          className={styles.addFolderBtn}
-                          onClick={() => {
-                            handleCreateFolder(newFolderName);
-                            setNewFolderName('');
-                          }}
-                        >
-                          <Plus size={14} />
-                        </button>
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Scrollable list of notes */}
                 <div className={styles.mobileNotesList}>
@@ -647,41 +753,114 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       Tidak ada catatan ditemukan.
                     </div>
                   ) : (
-                    filteredNotes.map((note) => (
-                      <button
-                        key={note.id}
-                        className={`${styles.mobileNoteCard} ${selectedNote?.id === note.id ? styles.activeMobileNoteCard : ''
-                          }`}
-                        onClick={() => {
-                          setSelectedNote(note);
-                          setMobileView('editor');
-                        }}
-                      >
-                        <div className={styles.mobileNoteCardHeader}>
-                          <div className={styles.mobileNoteTitle}>
-                            {note.title || 'Catatan Tanpa Judul'}
+                    (() => {
+                      const grouped = getGroupedNotes(filteredNotes);
+                      return Object.entries(grouped).map(([groupName, groupNotes]) => {
+                        if (groupNotes.length === 0) return null;
+                        return (
+                          <div key={groupName} className={styles.mobileNoteGroup}>
+                            <h4 className={styles.mobileGroupHeader}>{groupName}</h4>
+                            <div className={styles.mobileGroupList}>
+                              {groupNotes.map((note) => {
+                                // Count todos progress
+                                let totalTodos = 0;
+                                let completedTodos = 0;
+                                if (note.todo_list && Array.isArray(note.todo_list)) {
+                                  totalTodos = note.todo_list.length;
+                                  completedTodos = note.todo_list.filter((t: any) => typeof t === 'object' ? t.completed : false).length;
+                                }
+
+                                // Check note type
+                                const isVoiceNote = !!note.summary && (note.tags?.some(tag => tag.toLowerCase().includes('voice') || tag.toLowerCase().includes('suara')) || note.content.toLowerCase().includes('transkrip'));
+                                const isNewsNote = note.tags?.some(tag => tag.toLowerCase().includes('berita') || tag.toLowerCase().includes('news'));
+                                
+                                return (
+                                  <button
+                                    key={note.id}
+                                    className={`${styles.mobileNoteCard} ${selectedNote?.id === note.id ? styles.activeMobileNoteCard : ''}`}
+                                    onClick={() => {
+                                      setSelectedNote(note);
+                                      setMobileView('editor');
+                                    }}
+                                  >
+                                    <div className={styles.mobileNoteCardHeader}>
+                                      <div className={styles.mobileNoteTitle}>
+                                        {note.title || 'Catatan Tanpa Judul'}
+                                      </div>
+                                      <span className={styles.mobileNoteDate}>
+                                        {new Date(note.created_at).toLocaleDateString('id-ID', {
+                                          day: 'numeric',
+                                          month: 'short',
+                                        })}
+                                      </span>
+                                    </div>
+                                    
+                                    {note.summary && (
+                                      <div className={styles.mobileNoteSummary}>
+                                        {note.summary}
+                                      </div>
+                                    )}
+
+                                    <div className={styles.mobileNoteFooter}>
+                                      <div className={styles.mobileNoteMeta}>
+                                        {/* Display source icon */}
+                                        {isNewsNote ? (
+                                          <span className={styles.sourceIndicator} title="Sumber Berita">
+                                            <Newspaper size={12} style={{ color: 'var(--accent)' }} />
+                                          </span>
+                                        ) : isVoiceNote ? (
+                                          <span className={styles.sourceIndicator} title="Sumber Suara">
+                                            <Mic size={12} style={{ color: 'var(--secondary)' }} />
+                                          </span>
+                                        ) : (
+                                          <span className={styles.sourceIndicator} title="Manual">
+                                            <FileText size={12} style={{ color: 'var(--text-dark)' }} />
+                                          </span>
+                                        )}
+
+                                        {/* Display folder name if folder exists */}
+                                        {note.folder_id && folders.find(f => f.id === note.folder_id) && (
+                                          <span className={styles.folderBadgeSmall}>
+                                            📂 {folders.find(f => f.id === note.folder_id)?.name}
+                                          </span>
+                                        )}
+
+                                        {/* Render tags */}
+                                        {note.tags?.slice(0, 2).map((tag, idx) => {
+                                          const t = tag.toLowerCase();
+                                          let tagClass = 'default';
+                                          if (t.includes('rapat') || t.includes('meet')) tagClass = 'rapat';
+                                          else if (t.includes('ide') || t.includes('kreatif') || t.includes('concept')) tagClass = 'ide';
+                                          else if (t.includes('tugas') || t.includes('todo') || t.includes('kerja')) tagClass = 'tugas';
+                                          else if (t.includes('uang') || t.includes('keuangan') || t.includes('finansial')) tagClass = 'keuangan';
+                                          else if (t.includes('pribadi') || t.includes('personal')) tagClass = 'pribadi';
+                                          
+                                          return (
+                                            <span key={idx} className={`tag-badge ${tagClass}`} style={{ fontSize: '0.62rem', padding: '2px 8px' }}>
+                                              {tag}
+                                            </span>
+                                          );
+                                        })}
+                                      </div>
+
+                                      {/* Todo progress count */}
+                                      {totalTodos > 0 && (
+                                        <div className={styles.todoProgressIndicator} title="Progress Tugas">
+                                          <CheckSquare size={11} />
+                                          <span>
+                                            {completedTodos}/{totalTodos}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
-                          <span className={styles.mobileNoteDate}>
-                            {new Date(note.created_at).toLocaleDateString('id-ID', {
-                              day: 'numeric',
-                              month: 'short',
-                            })}
-                          </span>
-                        </div>
-                        {note.summary && (
-                          <div className={styles.mobileNoteSummary}>
-                            {note.summary}
-                          </div>
-                        )}
-                        <div className={styles.mobileNoteMeta}>
-                          {note.tags?.slice(0, 2).map((tag, idx) => (
-                            <span key={idx} className="tag-badge default" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      </button>
-                    ))
+                        );
+                      });
+                    })()
                   )}
                 </div>
               </div>
@@ -707,6 +886,12 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           {activeTab === 'news' && (
             <div className={styles.mobileNewsContainer}>
               <NewsSection onCreateNoteFromNews={handleCreateNoteFromNews} />
+            </div>
+          )}
+
+          {activeTab === 'whatsapp' && (
+            <div className={styles.mobileNewsContainer}>
+              <WhatsappChat />
             </div>
           )}
         </div>
@@ -736,6 +921,13 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           >
             <Newspaper size={20} />
             <span>Berita</span>
+          </button>
+          <button
+            className={`${styles.bottomNavItem} ${activeTab === 'whatsapp' ? styles.activeBottomNavItem : ''}`}
+            onClick={() => setActiveTab('whatsapp')}
+          >
+            <MessageSquare size={20} />
+            <span>Pesan</span>
           </button>
         </nav>
 
@@ -865,39 +1057,37 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             Catatan Saya
           </button>
           <button
+            className={`${styles.navItem} ${activeTab === 'calendar' ? styles.activeNavItem : ''}`}
+            onClick={() => {
+              setActiveTab('calendar');
+              // Default to select today's date if none is selected
+              if (!selectedDate) {
+                const today = new Date();
+                const y = today.getFullYear();
+                const m = String(today.getMonth() + 1).padStart(2, '0');
+                const d = String(today.getDate()).padStart(2, '0');
+                setSelectedDate(`${y}-${m}-${d}`);
+              }
+            }}
+          >
+            <CalendarIcon size={18} />
+            Kalender Harian
+          </button>
+          <button
             className={`${styles.navItem} ${activeTab === 'news' ? styles.activeNavItem : ''}`}
             onClick={() => setActiveTab('news')}
           >
             <Newspaper size={18} />
             Berita Terkini
           </button>
+          <button
+            className={`${styles.navItem} ${activeTab === 'whatsapp' ? styles.activeNavItem : ''}`}
+            onClick={() => setActiveTab('whatsapp')}
+          >
+            <MessageSquare size={18} />
+            Pesan Darurat
+          </button>
         </nav>
-
-        {/* Collapsible Calendar Section */}
-        {activeTab === 'notes' && (
-          <div className={styles.calendarSidebarSection}>
-            <button
-              className={styles.calendarToggleBtn}
-              onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CalendarIcon size={15} />
-                <span>Kalender Catatan</span>
-              </span>
-              <span className={`${styles.toggleArrow} ${isCalendarOpen ? styles.arrowUp : ''}`}>▼</span>
-            </button>
-
-            {isCalendarOpen && (
-              <div className={styles.calendarWrapper}>
-                <Calendar
-                  notes={notes}
-                  selectedDate={selectedDate}
-                  onSelectDate={setSelectedDate}
-                />
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Collapsible Folders Section */}
         {activeTab === 'notes' && (
@@ -999,104 +1189,326 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             )}
           </div>
         )}
- 
-        {/* Sidebar Notes List (Quick Access) */}
-        {activeTab === 'notes' && (
-          <div className={styles.notesSection}>
+      </aside>
+
+      {/* 3-Pane desktop layout logic */}
+      {activeTab === 'notes' ? (
+        <>
+          {/* Middle Column: Notes List Column */}
+          <div className={styles.notesListColumn}>
             <div className={styles.notesListHeader}>
-              {selectedDate ? 'Catatan Terfilter' : 'Daftar Catatan'}
+              <div className={styles.searchBar}>
+                <Search size={16} style={{ color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  placeholder="Cari catatan..."
+                  className={styles.searchInput}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <div className={styles.notesListActions}>
+                <button
+                  className={styles.tulisCatatanBtn}
+                  onClick={handleCreateNewNote}
+                >
+                  <Plus size={14} />
+                  Tulis Catatan
+                </button>
+                <button
+                  className={styles.rekamAiBtn}
+                  onClick={() => {
+                    setSelectedNote(null);
+                    setWorkspaceView('recorder');
+                  }}
+                >
+                  <Mic size={14} />
+                  Rekam AI
+                </button>
+              </div>
             </div>
-            <div className={styles.notesList}>
+
+            {/* Filter Chips Bar */}
+            {(selectedFolderId || selectedDate || searchQuery) && (
+              <div className={styles.filterChipsRow}>
+                {selectedFolderId && (
+                  <div className={styles.filterChip}>
+                    <span>📂 {folders.find(f => f.id === selectedFolderId)?.name || 'Folder'}</span>
+                    <button onClick={() => setSelectedFolderId(null)} title="Hapus Filter Folder">×</button>
+                  </div>
+                )}
+                {selectedDate && (
+                  <div className={styles.filterChip}>
+                    <span>📅 {getFormattedFilterDate(selectedDate)}</span>
+                    <button onClick={() => setSelectedDate(null)} title="Hapus Filter Tanggal">×</button>
+                  </div>
+                )}
+                {searchQuery && (
+                  <div className={styles.filterChip}>
+                    <span>🔍 "{searchQuery.slice(0, 10)}{searchQuery.length > 10 ? '...' : ''}"</span>
+                    <button onClick={() => setSearchQuery('')} title="Hapus Filter Pencarian">×</button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Grouped Notes List */}
+            <div className={styles.notesListBody}>
               {isLoadingNotes ? (
-                <div style={{ textAlign: 'center', color: 'var(--text-dark)', fontSize: '0.8rem', padding: '20px' }}>
+                <div className={styles.loadingState}>
                   Memuat catatan...
                 </div>
               ) : filteredNotes.length === 0 ? (
-                <div style={{ textAlign: 'center', color: 'var(--text-dark)', fontSize: '0.8rem', padding: '20px' }}>
+                <div className={styles.emptyState}>
                   Tidak ada catatan.
                 </div>
               ) : (
-                filteredNotes.map((note) => (
-                  <button
-                    key={note.id}
-                    className={`${styles.sidebarNoteCard} ${selectedNote?.id === note.id ? styles.activeSidebarNoteCard : ''
-                      }`}
-                    onClick={() => setSelectedNote(note)}
-                  >
-                    <div className={styles.sidebarNoteTitle}>
-                      {note.title || 'Catatan Tanpa Judul'}
-                    </div>
-                    <div className={styles.sidebarNoteMeta}>
-                      <span>{note.tags?.[0] || 'Umum'}</span>
-                      <span>
-                        {new Date(note.created_at).toLocaleDateString('id-ID', {
-                          day: 'numeric',
-                          month: 'short',
-                        })}
-                      </span>
-                    </div>
-                  </button>
-                ))
+                (() => {
+                  const grouped = getGroupedNotes(filteredNotes);
+                  return Object.entries(grouped).map(([groupName, groupNotes]) => {
+                    if (groupNotes.length === 0) return null;
+                    return (
+                      <div key={groupName} className={styles.noteGroup}>
+                        <h4 className={styles.groupHeader}>{groupName}</h4>
+                        <div className={styles.groupList}>
+                          {groupNotes.map((note) => {
+                            // Count todos progress
+                            let totalTodos = 0;
+                            let completedTodos = 0;
+                            if (note.todo_list && Array.isArray(note.todo_list)) {
+                              totalTodos = note.todo_list.length;
+                              completedTodos = note.todo_list.filter((t: any) => typeof t === 'object' ? t.completed : false).length;
+                            }
+
+                            // Check note type
+                            const isVoiceNote = !!note.summary && (note.tags?.some(tag => tag.toLowerCase().includes('voice') || tag.toLowerCase().includes('suara')) || note.content.toLowerCase().includes('transkrip'));
+                            const isNewsNote = note.tags?.some(tag => tag.toLowerCase().includes('berita') || tag.toLowerCase().includes('news'));
+
+                            return (
+                              <button
+                                key={note.id}
+                                className={`${styles.noteCard} ${selectedNote?.id === note.id ? styles.activeNoteCard : ''}`}
+                                onClick={() => {
+                                  setSelectedNote(note);
+                                  setWorkspaceView('editor');
+                                }}
+                              >
+                                <div className={styles.noteCardHeader}>
+                                  <span className={styles.noteCardTitle}>{note.title || 'Catatan Tanpa Judul'}</span>
+                                  <span className={styles.noteCardDate}>
+                                    {new Date(note.created_at).toLocaleDateString('id-ID', {
+                                      day: 'numeric',
+                                      month: 'short',
+                                    })}
+                                  </span>
+                                </div>
+
+                                {note.summary && (
+                                  <div className={styles.noteCardSummary}>
+                                    {note.summary}
+                                  </div>
+                                )}
+
+                                <div className={styles.noteCardFooter}>
+                                  <div className={styles.noteCardMeta}>
+                                    {isNewsNote ? (
+                                      <span className={styles.sourceIndicator} title="Sumber Berita">
+                                        <Newspaper size={12} style={{ color: 'var(--accent)' }} />
+                                      </span>
+                                    ) : isVoiceNote ? (
+                                      <span className={styles.sourceIndicator} title="Sumber Suara">
+                                        <Mic size={12} style={{ color: 'var(--secondary)' }} />
+                                      </span>
+                                    ) : (
+                                      <span className={styles.sourceIndicator} title="Manual">
+                                        <FileText size={12} style={{ color: 'var(--text-dark)' }} />
+                                      </span>
+                                    )}
+
+                                    {note.folder_id && folders.find(f => f.id === note.folder_id) && (
+                                      <span className={styles.folderBadgeSmall}>
+                                        📂 {folders.find(f => f.id === note.folder_id)?.name}
+                                      </span>
+                                    )}
+
+                                    {note.tags?.slice(0, 1).map((tag, idx) => {
+                                      const t = tag.toLowerCase();
+                                      let tagClass = 'default';
+                                      if (t.includes('rapat') || t.includes('meet')) tagClass = 'rapat';
+                                      else if (t.includes('ide') || t.includes('kreatif') || t.includes('concept')) tagClass = 'ide';
+                                      else if (t.includes('tugas') || t.includes('todo') || t.includes('kerja')) tagClass = 'tugas';
+                                      else if (t.includes('uang') || t.includes('keuangan') || t.includes('finansial')) tagClass = 'keuangan';
+                                      else if (t.includes('pribadi') || t.includes('personal')) tagClass = 'pribadi';
+                                      
+                                      return (
+                                        <span key={idx} className={`tag-badge ${tagClass}`} style={{ fontSize: '0.62rem', padding: '2px 8px' }}>
+                                          {tag}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {totalTodos > 0 && (
+                                    <div className={styles.todoProgressIndicator} title="Progress Tugas">
+                                      <CheckSquare size={11} />
+                                      <span>
+                                        {completedTodos}/{totalTodos}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()
               )}
             </div>
           </div>
-        )}
-      </aside>
 
-      {/* Main Dashboard Area */}
-      <main className={styles.mainContainer}>
-        {/* Top Search bar */}
-        <div className={styles.topBar}>
-          {activeTab === 'notes' ? (
-            <div className={styles.searchBar}>
-              <Search size={16} style={{ color: 'var(--text-muted)' }} />
-              <input
-                type="text"
-                placeholder="Cari judul, isi, atau tag catatan..."
-                className={styles.searchInput}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          ) : (
-            <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-              Membaca update berita Indonesia secara real-time
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <GlowButton variant="primary" onClick={handleCreateNewNote}>
-              <Plus size={16} /> Catatan Baru
-            </GlowButton>
-          </div>
-        </div>
-
-        {/* Dashboard Grid Content */}
-        <div className={styles.contentArea}>
-          {activeTab === 'notes' ? (
-            <div className={styles.notesLayoutGrid}>
-              {/* Left Column: Voice Recorder */}
-              <div className={styles.leftColumn}>
+          {/* Right Column: Workspace Column */}
+          <div className={styles.workspace}>
+            {workspaceView === 'recorder' ? (
+              <div className={styles.workspaceRecorderWrapper}>
+                <div className={styles.workspaceRecorderHeader}>
+                  <button
+                    className={styles.closeRecorderBtn}
+                    onClick={() => {
+                      setWorkspaceView('editor');
+                      // Load back first note if selectedNote is null
+                      if (!selectedNote && notes.length > 0) {
+                        setSelectedNote(notes[0]);
+                      }
+                    }}
+                  >
+                    ← Kembali ke Catatan
+                  </button>
+                </div>
                 <VoiceRecorder onFormatted={handleFormattedNote} />
               </div>
-
-              {/* Right Column: Note Editor */}
-              <div className={styles.rightColumn}>
-                <NoteEditor
-                  note={selectedNote}
-                  onSave={handleSaveNote}
-                  onDelete={handleDeleteNote}
-                  folders={folders}
-                />
+            ) : selectedNote ? (
+              <NoteEditor
+                note={selectedNote}
+                onSave={handleSaveNote}
+                onDelete={handleDeleteNote}
+                folders={folders}
+                onToggleRecorder={() => setWorkspaceView('recorder')}
+              />
+            ) : (
+              <div className={styles.welcomeState}>
+                <FileText size={64} style={{ color: 'var(--text-dark)' }} />
+                <h3>Selamat Datang di Catatan Pintar</h3>
+                <p>Pilih catatan dari daftar di tengah untuk mengedit, atau rekam suara baru menggunakan kecerdasan AI.</p>
+                <div className={styles.welcomeActions}>
+                  <button className={styles.welcomeTulisBtn} onClick={handleCreateNewNote}>
+                    📝 Tulis Catatan Baru
+                  </button>
+                  <button className={styles.welcomeRekamBtn} onClick={() => setWorkspaceView('recorder')}>
+                    🎙️ Input Suara AI
+                  </button>
+                </div>
               </div>
+            )}
+          </div>
+        </>
+      ) : activeTab === 'calendar' ? (
+        <div className={styles.calendarDashboardGrid}>
+          {/* Left: Monthly Calendar Widget */}
+          <div className={styles.calendarDashboardLeft}>
+            <div className={styles.calendarDashboardHeader}>
+              <h3>Kalender Harian</h3>
+              <p>Pilih tanggal pada kalender di bawah untuk melihat atau membuat catatan khusus hari tersebut.</p>
             </div>
-          ) : (
-            <div className={styles.fullWidthArea}>
-              <NewsSection onCreateNoteFromNews={handleCreateNoteFromNews} />
+            <div className={styles.calendarDashboardWidget}>
+              <Calendar
+                notes={notes}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+              />
             </div>
-          )}
+          </div>
+          {/* Right: Notes List for Selected Date */}
+          <div className={styles.calendarDashboardRight}>
+            <div className={styles.calendarNotesHeader}>
+              <span>Catatan pada Tanggal:</span>
+              <span className={styles.calendarNotesDateStr}>
+                {selectedDate ? getFormattedFilterDate(selectedDate) : 'Pilih Tanggal'}
+              </span>
+            </div>
+            <div className={styles.calendarNotesBody}>
+              {filteredNotes.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <CalendarIcon size={48} style={{ color: 'var(--text-dark)', opacity: 0.5, marginBottom: '8px' }} />
+                  <p>Tidak ada catatan untuk tanggal ini.</p>
+                  <GlowButton
+                    variant="primary"
+                    onClick={handleCreateNewNote}
+                    style={{ marginTop: '12px', fontSize: '0.8rem', padding: '6px 12px' }}
+                  >
+                    📝 Tulis Catatan Baru
+                  </GlowButton>
+                </div>
+              ) : (
+                <div className={styles.calendarNotesScrollList}>
+                  {filteredNotes.map((note) => {
+                    const isVoiceNote = !!note.summary && (note.tags?.some(tag => tag.toLowerCase().includes('voice') || tag.toLowerCase().includes('suara')) || note.content.toLowerCase().includes('transkrip'));
+                    const isNewsNote = note.tags?.some(tag => tag.toLowerCase().includes('berita') || tag.toLowerCase().includes('news'));
+
+                    return (
+                      <div key={note.id} className={styles.calendarNoteItem}>
+                        <button
+                          type="button"
+                          className={styles.calendarNoteSelectBtn}
+                          onClick={() => {
+                            setSelectedNote(note);
+                            setActiveTab('notes');
+                            setWorkspaceView('editor');
+                          }}
+                        >
+                          <div className={styles.calendarNoteTitleArea}>
+                            <span className={styles.calendarNoteTitle}>{note.title || 'Catatan Tanpa Judul'}</span>
+                            {isNewsNote ? (
+                              <Newspaper size={12} style={{ color: 'var(--accent)' }} />
+                            ) : isVoiceNote ? (
+                              <Mic size={12} style={{ color: 'var(--secondary)' }} />
+                            ) : (
+                              <FileText size={12} style={{ color: 'var(--text-dark)' }} />
+                            )}
+                          </div>
+                          {note.summary && <div className={styles.calendarNoteSummary}>{note.summary}</div>}
+                          <div className={styles.calendarNoteMeta}>
+                            {note.folder_id && folders.find(f => f.id === note.folder_id) && (
+                              <span className={styles.folderBadgeSmall}>
+                                📂 {folders.find(f => f.id === note.folder_id)?.name}
+                              </span>
+                            )}
+                            {note.tags?.slice(0, 1).map((tag, idx) => (
+                              <span key={idx} className={`tag-badge default`} style={{ fontSize: '0.6rem', padding: '1px 6px' }}>
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </main>
+      ) : activeTab === 'news' ? (
+        <div className={styles.fullWidthNewsArea}>
+          <NewsSection onCreateNoteFromNews={handleCreateNoteFromNews} />
+        </div>
+      ) : (
+        <div className={styles.fullWidthNewsArea}>
+          <WhatsappChat />
+        </div>
+      )}
 
       {/* Folder Selection Modal */}
       {isFolderModalOpen && pendingNoteData && (

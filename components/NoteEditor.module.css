@@ -72,16 +72,11 @@
 }
 
 .contentWrapper {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 24px;
   flex: 1;
-}
-
-@media (max-width: 1024px) {
-  .contentWrapper {
-    grid-template-columns: 1fr;
-  }
+  width: 100%;
 }
 
 .mainContent {
@@ -89,6 +84,7 @@
   flex-direction: column;
   gap: 20px;
   position: relative;
+  width: 100%;
 }
 
 .textarea {
@@ -118,7 +114,60 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--border-radius-md);
   padding: 20px;
-  overflow-y: auto;
+}
+
+.collapsiblePanel {
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+}
+
+.collapsiblePanel:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.collapsibleHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.collapsibleHeaderTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.collapsibleArrow {
+  font-size: 0.7rem;
+  color: var(--text-dark);
+  transition: transform 0.2s ease;
+}
+
+.arrowUp {
+  transform: rotate(180deg);
+}
+
+.collapsibleContent {
+  padding: 0 18px 18px 18px;
+  position: relative;
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  padding-top: 14px;
 }
 
 .sidebarPanel {
@@ -502,4 +551,20 @@
   font-size: 0.75rem;
   font-weight: 500;
 }
+
+
+
+
+
+.recorderShortcutBtn {
+  background: rgba(6, 182, 212, 0.1);
+  border-color: rgba(6, 182, 212, 0.2);
+  color: #22d3ee;
+}
+.recorderShortcutBtn:hover {
+  background: rgba(6, 182, 212, 0.25);
+  border-color: rgba(6, 182, 212, 0.4);
+  color: #fff;
+}
+
 
