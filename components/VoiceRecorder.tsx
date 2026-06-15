@@ -6,11 +6,15 @@ import { GlowButton } from './ui/GlowButton';
 import styles from './VoiceRecorder.module.css';
 
 interface FormattedNote {
-  title: string;
-  content: string;
-  summary: string;
-  tags: string[];
-  todo_list: string[];
+  notes?: Array<{
+    title: string;
+    content: string;
+    summary: string;
+    tags: string[];
+    todo_list: string[];
+    folderId: string | null;
+    folderName: string | null;
+  }>;
 }
 
 function mergeTranscripts(accumulated: string, current: string): string {

@@ -106,6 +106,67 @@ export const WhatsappChat: React.FC = () => {
     }
   };
 
+  // Listen for SEND_WHATSAPP action from Voice Assistant to automatically send the message
+  useEffect(() => {
+    const handleAssistantWhatsApp = async (e: Event) => {
+      const { action, payload } = (e as CustomEvent).detail;
+      if (action === 'SEND_WHATSAPP') {
+        const { recipient, message: msgText } = payload;
+        if (recipient && msgText) {
+          // Set states
+          setTargetNumber(recipient);
+          setMessage(msgText);
+          setIsLoading(true);
+          setStatus('idle');
+          setErrorMsg('');
+          
+          try {
+            const res = await fetch('/api/whatsapp', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                target: recipient,
+                message: msgText,
+              }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok || !data.success) {
+              throw new Error(data.error || 'Gagal mengirim WhatsApp.');
+            }
+
+            setStatus('success');
+            
+            // Update history in localStorage
+            const cleanNum = recipient.trim();
+            setRecentNumbers(prev => {
+              const updated = [
+                cleanNum,
+                ...prev.filter(n => n !== cleanNum)
+              ].slice(0, 5);
+              localStorage.setItem('recent_wa_numbers', JSON.stringify(updated));
+              return updated;
+            });
+
+            setMessage('');
+          } catch (err: any) {
+            console.error(err);
+            setStatus('error');
+            setErrorMsg(err.message || 'Gagal mengirim WhatsApp.');
+          } finally {
+            setIsLoading(false);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('assistant-action', handleAssistantWhatsApp);
+    return () => {
+      window.removeEventListener('assistant-action', handleAssistantWhatsApp);
+    };
+  }, []);
+
   const handleClearHistory = () => {
     if (confirm('Hapus semua riwayat nomor telepon?')) {
       setRecentNumbers([]);

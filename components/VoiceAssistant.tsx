@@ -1,0 +1,525 @@
+"use client";
+
+import React, { useState, useEffect, useRef } from 'react';
+import { Mic, MicOff, X, Sparkles, Volume2, VolumeX, AlertCircle } from 'lucide-react';
+import styles from './VoiceAssistant.module.css';
+
+// Declare SpeechRecognition properties safely on window
+const SpeechRecognition = typeof window !== 'undefined' 
+  ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) 
+  : null;
+
+interface ChatMessage {
+  role: 'user' | 'model';
+  text: string;
+}
+
+export const VoiceAssistant: React.FC = () => {
+  const [recognition, setRecognition] = useState<any>(null);
+  const [isSupported, setIsSupported] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'listening' | 'processing' | 'speaking' | 'error'>('idle');
+  const [transcript, setTranscript] = useState('');
+  const [response, setResponse] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [showPanel, setShowPanel] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  
+  // Multi-turn state variables
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [pendingAction, setPendingAction] = useState<any | null>(null);
+  const [contacts, setContacts] = useState<any[]>([]);
+
+  const synthRef = useRef<SpeechSynthesis | null>(null);
+  const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const dialogEndRef = useRef<HTMLDivElement | null>(null);
+  
+  // Debounce timeout for silence detection
+  const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Keep references to prevent stale closures in event listeners
+  const chatHistoryRef = useRef<ChatMessage[]>([]);
+  const pendingActionRef = useRef<any | null>(null);
+  const showPanelRef = useRef(showPanel);
+  const contactsRef = useRef<any[]>([]);
+  const transcriptRef = useRef(transcript);
+
+  useEffect(() => {
+    chatHistoryRef.current = chatHistory;
+  }, [chatHistory]);
+
+  useEffect(() => {
+    pendingActionRef.current = pendingAction;
+  }, [pendingAction]);
+
+  useEffect(() => {
+    showPanelRef.current = showPanel;
+  }, [showPanel]);
+
+  useEffect(() => {
+    contactsRef.current = contacts;
+  }, [contacts]);
+
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
+
+  // Load contacts whenever panel opens
+  useEffect(() => {
+    if (showPanel && typeof window !== 'undefined') {
+      const saved = localStorage.getItem('wa_contacts');
+      if (saved) {
+        try {
+          setContacts(JSON.parse(saved));
+        } catch (e) {
+          console.error('Failed to parse wa_contacts', e);
+        }
+      }
+    }
+  }, [showPanel]);
+
+  // Scroll to bottom of chat dialog whenever history changes
+  useEffect(() => {
+    if (dialogEndRef.current) {
+      dialogEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatHistory, status, transcript]);
+
+  // Core function to process commands via the Gemini API
+  const processCommand = async (commandText: string) => {
+    setStatus('processing');
+    setErrorMsg('');
+
+    // 1. Add user speech command to chat history view
+    const userMsg: ChatMessage = { role: 'user', text: commandText };
+    setChatHistory(prev => [...prev, userMsg]);
+    
+    try {
+      // Call our assistant API to process the command
+      const res = await fetch('/api/assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          command: commandText,
+          history: chatHistoryRef.current,
+          pendingAction: pendingActionRef.current,
+          contacts: contactsRef.current
+        }),
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Gagal memproses instruksi');
+      }
+      
+      const data = await res.json();
+      setResponse(data.response);
+
+      // 2. Add AI reply to history
+      const modelMsg: ChatMessage = { role: 'model', text: data.response };
+      setChatHistory(prev => [...prev, modelMsg]);
+      
+      // 3. Process actions
+      if (data.action === 'ASK_CONFIRMATION') {
+        setPendingAction(data.payload);
+      } else if (data.action === 'CONFIRM_JOB') {
+        setPendingAction(null);
+        window.dispatchEvent(new CustomEvent('assistant-action', {
+          detail: {
+            action: 'SCHEDULE_JOB',
+            payload: data.payload,
+            response: data.response
+          }
+        }));
+      } else if (data.action === 'CANCEL_JOB') {
+        setPendingAction(null);
+      } else {
+        setPendingAction(null);
+        window.dispatchEvent(new CustomEvent('assistant-action', {
+          detail: {
+            action: data.action,
+            payload: data.payload,
+            response: data.response
+          }
+        }));
+      }
+      
+      // Speak back the response
+      speak(data.response);
+    } catch (err: any) {
+      console.error('Assistant process failed', err);
+      const errMsg = err.message || 'Gagal memproses perintah suara Anda.';
+      setErrorMsg(errMsg);
+      setStatus('error');
+      setChatHistory(prev => [...prev, { role: 'model', text: `Terjadi kesalahan: ${errMsg}` }]);
+    }
+  };
+
+  const processCommandRef = useRef(processCommand);
+  useEffect(() => {
+    processCommandRef.current = processCommand;
+  }, [processCommand]);
+
+  // Check speech support and initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsSupported(!!SpeechRecognition);
+      synthRef.current = window.speechSynthesis;
+      
+      if (SpeechRecognition) {
+        const rec = new SpeechRecognition();
+        rec.continuous = true;       // Allow pauses without immediate browser cutoff
+        rec.interimResults = true;   // Capture speech in real-time
+        rec.lang = 'id-ID';          // default to Indonesian
+        
+        rec.onstart = () => {
+          setStatus('listening');
+          setTranscript('');
+          setResponse('');
+          setErrorMsg('');
+        };
+        
+        rec.onerror = (event: any) => {
+          console.error('Speech recognition error', event);
+          if (event.error === 'not-allowed') {
+            setErrorMsg('Izin mikrofon ditolak.');
+          } else {
+            setErrorMsg(`Kesalahan suara: ${event.error}`);
+          }
+          setStatus('error');
+        };
+        
+        rec.onend = () => {
+          if (silenceTimeoutRef.current) {
+            clearTimeout(silenceTimeoutRef.current);
+          }
+          setStatus(prev => {
+            if (prev === 'listening') return 'idle';
+            return prev;
+          });
+        };
+        
+        rec.onresult = (event: any) => {
+          let completeTranscript = '';
+          for (let i = 0; i < event.results.length; ++i) {
+            completeTranscript += event.results[i][0].transcript + ' ';
+          }
+          
+          const currentText = completeTranscript.trim();
+          setTranscript(currentText);
+
+          // Reset the silence debounce timer
+          if (silenceTimeoutRef.current) {
+            clearTimeout(silenceTimeoutRef.current);
+          }
+
+          if (currentText) {
+            // Set 5-second debounce timer to wait for thinking pauses
+            silenceTimeoutRef.current = setTimeout(() => {
+              try {
+                rec.stop();
+              } catch (e) {}
+              processCommandRef.current(currentText);
+            }, 5000);
+          }
+        };
+        
+        setRecognition(rec);
+      }
+    }
+
+    return () => {
+      if (silenceTimeoutRef.current) {
+        clearTimeout(silenceTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const autoListenNext = () => {
+    // Delay slightly to prevent microphone catching the end of output speech
+    setTimeout(() => {
+      if (showPanelRef.current && recognition) {
+        try {
+          recognition.start();
+        } catch (e) {
+          console.warn('Auto-start SpeechRecognition ignored', e);
+        }
+      }
+    }, 450);
+  };
+
+  const startListening = () => {
+    if (synthRef.current) {
+      synthRef.current.cancel(); // Stop any ongoing speech synthesis
+    }
+
+    // Reset history for a fresh dialogue session if the panel was completely closed
+    if (!showPanel) {
+      setChatHistory([]);
+      setPendingAction(null);
+    }
+    
+    if (recognition) {
+      setShowPanel(true);
+      try {
+        recognition.start();
+      } catch (e) {
+        console.warn('SpeechRecognition already started', e);
+      }
+    }
+  };
+
+  const stopListening = () => {
+    if (silenceTimeoutRef.current) {
+      clearTimeout(silenceTimeoutRef.current);
+    }
+    if (recognition) {
+      recognition.stop();
+    }
+    // If user clicked stop manually and there is spoken text, process it immediately
+    if (transcriptRef.current && transcriptRef.current.trim() !== '') {
+      processCommandRef.current(transcriptRef.current.trim());
+    }
+  };
+
+  const speak = (text: string) => {
+    if (!synthRef.current || isMuted) {
+      setStatus('idle');
+      autoListenNext();
+      return;
+    }
+    
+    synthRef.current.cancel(); // cancel any active speech
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Choose Indonesian voice if available
+    const voices = synthRef.current.getVoices();
+    const idVoice = voices.find(v => v.lang.startsWith('id') || v.lang.startsWith('in'));
+    if (idVoice) {
+      utterance.voice = idVoice;
+    }
+    
+    utterance.onstart = () => {
+      setStatus('speaking');
+    };
+    
+    utterance.onend = () => {
+      setStatus('idle');
+      autoListenNext();
+    };
+    
+    utterance.onerror = () => {
+      setStatus('idle');
+      autoListenNext();
+    };
+    
+    activeUtteranceRef.current = utterance;
+    synthRef.current.speak(utterance);
+  };
+
+  const toggleMute = () => {
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    if (nextMuted && synthRef.current) {
+      synthRef.current.cancel();
+      setStatus('idle');
+    }
+  };
+
+  const closePanel = () => {
+    if (silenceTimeoutRef.current) {
+      clearTimeout(silenceTimeoutRef.current);
+    }
+    if (synthRef.current) {
+      synthRef.current.cancel();
+    }
+    stopListening();
+    setShowPanel(false);
+    setStatus('idle');
+  };
+
+  if (!isSupported) {
+    return null; // Don't render if browser doesn't support Web Speech API
+  }
+
+  return (
+    <>
+      {/* Floating Wave Trigger Button */}
+      <button 
+        type="button" 
+        className={`${styles.floatingAssistantBtn} ${status === 'listening' ? styles.btnListening : ''}`}
+        onClick={status === 'listening' ? stopListening : startListening}
+        title="Bicara dengan Asisten AI"
+      >
+        {status === 'listening' ? (
+          <div className={styles.pulseContainer}>
+            <div className={styles.pulseWave} />
+            <MicOff size={22} className={styles.assistantIcon} />
+          </div>
+        ) : (
+          <div className={styles.btnGlowWrapper}>
+            <Mic size={22} className={styles.assistantIcon} />
+            <Sparkles size={10} className={styles.sparkleIcon} />
+          </div>
+        )}
+      </button>
+
+      {/* Siri-like Assistant Overlay Panel */}
+      {showPanel && (
+        <div className={styles.assistantPanelOverlay} onClick={closePanel}>
+          <div className={styles.assistantPanel} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.panelHeader}>
+              <div className={styles.assistantBrand}>
+                <Sparkles size={16} className={styles.sparkleBrandIcon} />
+                <span>Asisten Suara Pintar</span>
+              </div>
+              <div className={styles.headerControls}>
+                <button 
+                  type="button" 
+                  className={styles.controlBtn} 
+                  onClick={toggleMute}
+                  title={isMuted ? 'Aktifkan Suara' : 'Bisukan Suara'}
+                >
+                  {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                </button>
+                <button 
+                  type="button" 
+                  className={styles.closeBtn} 
+                  onClick={closePanel}
+                  title="Tutup Panel"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.panelBody}>
+              {/* Glowing Orb Animation Wave */}
+              <div className={styles.orbWrapper}>
+                <div className={`${styles.orb} ${styles[status]}`}>
+                  <div className={styles.orbInner} />
+                  <div className={styles.orbGlow} />
+                  <div className={styles.wave1} />
+                  <div className={styles.wave2} />
+                  <div className={styles.wave3} />
+                </div>
+                <span className={styles.statusLabel}>
+                  {status === 'listening' && 'Mendengarkan Anda...'}
+                  {status === 'processing' && 'Memproses instruksi...'}
+                  {status === 'speaking' && 'Menjawab...'}
+                  {status === 'idle' && 'Siap melayani Anda'}
+                  {status === 'error' && 'Terjadi Kesalahan'}
+                </span>
+              </div>
+
+              {/* Dialog Panel Contents */}
+              <div className={styles.dialogContainer}>
+                {chatHistory.length === 0 && !transcript && (
+                  <div className={styles.aiBubble}>
+                    <span className={styles.bubbleLabelAI}>Asisten</span>
+                    <p className={styles.bubbleTextAI}>Halo! Ada yang bisa saya bantu hari ini?</p>
+                  </div>
+                )}
+
+                {chatHistory.map((msg, index) => (
+                  <div 
+                    key={index} 
+                    className={msg.role === 'user' ? styles.userBubble : styles.aiBubble}
+                  >
+                    <span className={msg.role === 'user' ? styles.bubbleLabel : styles.bubbleLabelAI}>
+                      {msg.role === 'user' ? 'Anda' : 'Asisten'}
+                    </span>
+                    <p className={msg.role === 'user' ? styles.bubbleText : styles.bubbleTextAI}>
+                      {msg.text}
+                    </p>
+                  </div>
+                ))}
+
+                {/* Real-time transcript bubble while speaking */}
+                {status === 'listening' && transcript && (
+                  <div className={styles.userBubble}>
+                    <span className={styles.bubbleLabel}>Anda (Berbicara...)</span>
+                    <p className={styles.bubbleText}>"{transcript}"</p>
+                  </div>
+                )}
+
+                {status === 'processing' && (
+                  <div className={styles.aiBubble}>
+                    <span className={styles.bubbleLabelAI}>Asisten</span>
+                    <div className={styles.typingIndicator}>
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                    </div>
+                  </div>
+                )}
+
+                {errorMsg && (
+                  <div className={styles.errorBubble}>
+                    <AlertCircle size={16} className={styles.errorIcon} />
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
+                <div ref={dialogEndRef} />
+              </div>
+            </div>
+
+            {/* Quick Suggestions Footer */}
+            {status === 'idle' && (
+              <div className={styles.suggestions}>
+                <span className={styles.suggestionsLabel}>Saran Obrolan:</span>
+                <div className={styles.suggestionsRow}>
+                  <button 
+                    type="button" 
+                    className={styles.suggestionBtn}
+                    onClick={() => {
+                      const text = 'Tampilkan berita terbaru';
+                      setTranscript(text);
+                      const responseText = 'Tentu, saya akan membuka halaman berita untuk Anda.';
+                      setResponse(responseText);
+                      setChatHistory(prev => [
+                        ...prev, 
+                        { role: 'user', text },
+                        { role: 'model', text: responseText }
+                      ]);
+                      speak(responseText);
+                      window.dispatchEvent(new CustomEvent('assistant-action', {
+                        detail: { action: 'SHOW_NEWS', payload: {} }
+                      }));
+                    }}
+                  >
+                    📰 Buka Berita
+                  </button>
+                  <button 
+                    type="button" 
+                    className={styles.suggestionBtn}
+                    onClick={() => {
+                      const text = 'Buat catatan baru tentang rapat besok';
+                      setTranscript(text);
+                      const responseText = 'Tentu, saya akan membuat catatan baru tentang rapat besok.';
+                      setResponse(responseText);
+                      setChatHistory(prev => [
+                        ...prev, 
+                        { role: 'user', text },
+                        { role: 'model', text: responseText }
+                      ]);
+                      speak(responseText);
+                      window.dispatchEvent(new CustomEvent('assistant-action', {
+                        detail: { 
+                          action: 'CREATE_NOTE', 
+                          payload: { title: 'Agenda Rapat Besok', content: '# Agenda Rapat Besok\n\n1. Pembahasan rencana kuartalan\n2. Alokasi budget divisi baru\n3. Tanya jawab' } 
+                        }
+                      }));
+                    }}
+                  >
+                    📝 Buat Catatan Rapat
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+};

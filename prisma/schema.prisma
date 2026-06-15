@@ -32,3 +32,15 @@ model Folder {
 
   @@map("folders")
 }
+
+model ScheduledJob {
+  id         String   @id @default(uuid())
+  command    String
+  actionType String   // "whatsapp", "news_summary", "create_note"
+  payload    Json
+  runAt      DateTime
+  status     String   @default("pending") // pending, completed, failed
+  created_at DateTime @default(now())
+
+  @@map("scheduled_jobs")
+}

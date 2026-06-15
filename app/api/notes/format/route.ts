@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
   try {
@@ -13,27 +14,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'GEMINI_API_KEY tidak dikonfigurasi di server.' }, { status: 500 });
     }
 
+    // Load existing folders from the database to map notes to folders
+    const folders = await prisma.folder.findMany({
+      select: { id: true, name: true }
+    });
+
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
 
     let prompt = '';
+    const currentDateTimeStr = new Date().toLocaleDateString('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
 
     if (formatType === 'intel') {
-      // Get current local date/time in Indonesian format as context for the model
-      const currentDateTimeStr = new Date().toLocaleDateString('id-ID', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-      });
-
-      prompt = `Anda adalah asisten AI editor catatan profesional intelijen/keamanan. Tugas Anda adalah mengambil teks mentah hasil transkripsi suara (Voice-to-Text) di bawah ini dan merapikannya menjadi "Laporan Intel" awal (Pulbaket) dengan format yang SANGAT SPESIFIK dan kaku.
+      prompt = `Anda adalah asisten AI editor catatan profesional intelijen/keamanan. Tugas Anda adalah mengambil teks mentah hasil transkripsi suara (Voice-to-Text) di bawah ini, menganalisis kontennya, dan merapikannya menjadi "Laporan Intel" awal (Pulbaket) dengan format yang SANGAT SPESIFIK dan kaku.
+Jika teks mengandung lebih dari satu topik pembicaraan/bahasan/kejadian intelijen yang berbeda, maka PECAHLAH isi rekaman tersebut menjadi beberapa catatan laporan intel yang berbeda secara logis. Jika hanya ada satu, buat 1 catatan saja.
 
 Teks Mentah Transkripsi:
 "${text}"
 
 Konteks Waktu Hari Ini (jika tidak disebutkan secara eksplisit di transkrip): ${currentDateTimeStr}
 
-Format Output bagian 'content' harus mengikuti struktur Markdown berikut secara presisi (perhatikan spasi, baris baru, bullet point, dan daftar bernomor):
+Daftar Folder saat ini di database: ${JSON.stringify(folders)}
+
+Format Output bagian 'content' untuk setiap catatan harus mengikuti struktur Markdown berikut secara presisi:
 
 *Informasi Awal*
 
@@ -48,37 +55,41 @@ Instruksi Tambahan:
 - Judul bagian pertama wajib menggunakan tag bintang tunggal agar dicetak miring di markdown raw: *Informasi Awal*.
 - Di bawah *Informasi Awal*, wajib menggunakan satu bullet point (- ) yang menjelaskan seluruh detail kejadian dalam satu paragraf bersambung (tidak boleh dipisah-pisah menjadi beberapa baris).
 - Di bawahnya wajib menyertakan baris teks persis: "Langkah awal di lapangan : Pulbaket yang di lakukan :" (tanpa heading markdown atau bold).
-- Di bawahnya tuliskan daftar langkah awal yang dilakukan secara bernomor (1., 2., 3., dst.) sesuai isi transkrip. Sesuaikan jumlah langkahnya dengan isi transkrip.
+- Di bawahnya tuliskan daftar langkah awal yang dilakukan secara bernomor (1., 2., 3., dst.) sesuai isi transkrip.
 - Judul Catatan ('title') harus berformat: "Laporan Intel: [Nama Kegiatan] di [Nama Lokasi/Gedung]" (maksimal 8 kata).
-- Kategori/Tags ('tags') harus menyertakan "Laporan", "Intel", serta 1-2 tag tambahan yang relevan (misalnya: "Keamanan", "Diskusi", "Pemantauan", dll).
+- Kategori/Tags ('tags') harus menyertakan "Laporan", "Intel", serta 1-2 tag tambahan yang relevan.
 - Ekstrak daftar tugas/tindakan konkret lanjutan ke dalam 'todo_list' jika ada. Jika tidak ada, kembalikan [].
 
-Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema berikut:
+Untuk setiap catatan, tentukan folder penyimpanannya. Cari dari Daftar Folder saat ini yang paling cocok. Jika ada yang sangat cocok, berikan 'folderId' sesuai ID folder tersebut. Jika tidak ada yang cocok namun topiknya memerlukan kategori baru, berikan 'folderName' dengan nama kategori baru tersebut, dan isi 'folderId' dengan null. Jika merupakan catatan umum tanpa folder khusus, berikan 'folderId': null dan 'folderName': null.
+
+Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
 {
-  "title": "Judul Catatan",
-  "content": "Isi laporan intel lengkap dengan format persis seperti template di atas. Jangan berikan pengantar atau teks tambahan di luar format.",
-  "tags": ["Laporan", "Intel", "TagLain"],
-  "todo_list": ["Tugas 1", "Tugas 2"]
+  "notes": [
+    {
+      "title": "Judul Catatan",
+      "content": "Isi laporan intel lengkap dengan format persis seperti template di atas. Jangan berikan pengantar atau teks tambahan di luar format.",
+      "summary": "Ringkasan pendek isi laporan intel ini dalam 1-2 kalimat.",
+      "tags": ["Laporan", "Intel", "TagLain"],
+      "todo_list": ["Tugas 1", "Tugas 2"],
+      "folderId": "id-folder-yang-cocok-atau-null",
+      "folderName": "NamaFolderBaruAtauNull"
+    }
+  ]
 }
 
 PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan lainnya. Kembalikan HANYA string JSON murni yang valid.`;
     } else if (formatType === 'laporan') {
-      // Get current local date/time in Indonesian format as context for the model
-      const currentDateTimeStr = new Date().toLocaleDateString('id-ID', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-      });
-
-      prompt = `Anda adalah asisten AI editor catatan profesional untuk kepolisian dan satuan keamanan. Tugas Anda adalah mengambil teks mentah hasil transkripsi suara (Voice-to-Text) di bawah ini dan merapikannya menjadi "Laporan Kegiatan" resmi dengan format yang SANGAT SPESIFIK dan kaku.
+      prompt = `Anda adalah asisten AI editor catatan profesional untuk kepolisian dan satuan keamanan. Tugas Anda adalah mengambil teks mentah hasil transkripsi suara (Voice-to-Text) di bawah ini, menganalisis kontennya, dan merapikannya menjadi "Laporan Kegiatan" resmi dengan format yang SANGAT SPESIFIK dan kaku.
+Jika teks mengandung lebih dari satu topik kejadian/kegiatan keamanan yang berbeda, maka PECAHLAH isi rekaman tersebut menjadi beberapa catatan laporan kegiatan yang berbeda secara logis. Jika hanya ada satu, buat 1 catatan saja.
 
 Teks Mentah Transkripsi:
 "${text}"
 
 Konteks Waktu Hari Ini (jika tidak disebutkan secara eksplisit di transkrip): ${currentDateTimeStr}
 
-Format Output bagian 'content' harus mengikuti struktur teks berikut secara presisi (tanpa header markdown ### atau ## atau # untuk judul bagian, dan tanpa bullet points/poin-poin pada bagian Informasi Kejadian):
+Daftar Folder saat ini di database: ${JSON.stringify(folders)}
+
+Format Output bagian 'content' untuk setiap catatan harus mengikuti struktur teks berikut secara presisi (tanpa header markdown ### atau ## atau # untuk judul bagian, dan tanpa bullet points/poin-poin pada bagian Informasi Kejadian):
 
 Informasi Kejadian
 
@@ -88,7 +99,7 @@ Penanganan di Lokasi
 
 1. *Piket Intel* [jika ada personel lain yang disebutkan, tambahkan 'bersama *<Nama Personel 1>* dan *<Nama Personel 2>*', jika tidak ada personel lain cukup tulis '*Piket Intel*'] segera mendatangi Tempat Kejadian Perkara (TKP) setelah menerima laporan.
 2. Personel gabungan melakukan pengamanan area di sekitar lokasi kejadian.
-3. [Kalimat yang menerangkan tindakan saat ini / tindak lanjut di lokasi kejadian sesuai isi transkrip, dengan format struktur SPOK (Subjek, Predikat, Objek, Keterangan). Contoh: "Saat ini, personel *Piket Fungsi* masih berada di lokasi untuk menangani dan mengamankan jalannya proses evakuasi serta penyelidikan awal."]
+3. [Kalimat yang menerangkan tindakan saat ini / tindak lanjut di lokasi kejadian sesuai isi transkrip, dengan format struktur SPOK (Subjek, Predikat, Objek, Keterangan).]
 
 > *Catatan Penting:* [Catatan penting atau informasi krusial tambahan sesuai isi transkrip]
 
@@ -96,25 +107,37 @@ Instruksi Tambahan:
 - Jangan gunakan penanda markdown heading (###, ##, #) atau cetak tebal (**) pada judul "Informasi Kejadian" dan "Penanganan di Lokasi". Biarkan berupa baris teks biasa.
 - Jangan gunakan bullet points (-) di bawah Informasi Kejadian. Tuliskan dalam satu baris paragraf bersambung persis seperti di atas.
 - Judul Catatan ('title') harus berformat: "Laporan Kegiatan: [Nama Kejadian] di [Nama Lokasi/TKP]" (maksimal 8 kata).
-- Kategori/Tags ('tags') harus menyertakan "Laporan" dan "Kegiatan", serta 1-2 tag tambahan yang relevan (misalnya: "Keamanan", "Penyelidikan", dll).
-- Ekstrak daftar tugas/tindakan konkret lanjutan (Action Items / TODO checklist) ke dalam 'todo_list' jika ada. Jika tidak ada, kembalikan [].
+- Kategori/Tags ('tags') harus menyertakan "Laporan" dan "Kegiatan", serta 1-2 tag tambahan yang relevan.
+- Ekstrak daftar tugas/tindakan konkret lanjutan ke dalam 'todo_list' jika ada. Jika tidak ada, kembalikan [].
 
-Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema berikut:
+Untuk setiap catatan, tentukan folder penyimpanannya. Cari dari Daftar Folder saat ini yang paling cocok. Jika ada yang sangat cocok, berikan 'folderId' sesuai ID folder tersebut. Jika tidak ada yang cocok namun topiknya memerlukan kategori baru, berikan 'folderName' dengan nama kategori baru tersebut, dan isi 'folderId' dengan null. Jika merupakan catatan umum tanpa folder khusus, berikan 'folderId': null dan 'folderName': null.
+
+Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
 {
-  "title": "Judul Catatan",
-  "content": "Isi laporan kegiatan lengkap dengan format teks persis seperti template di atas. Gunakan teks biasa untuk 'Informasi Kejadian' dan 'Penanganan di Lokasi' (jangan gunakan header ###, ##, #, atau bold **). Jangan gunakan bullet points (-) pada Informasi Kejadian. Jangan berikan pengantar atau teks tambahan di luar format.",
-  "tags": ["Laporan", "Kegiatan", "TagLain"],
-  "todo_list": ["Tugas 1", "Tugas 2"]
+  "notes": [
+    {
+      "title": "Judul Catatan",
+      "content": "Isi laporan kegiatan lengkap dengan format teks persis seperti template di atas. Gunakan teks biasa untuk 'Informasi Kejadian' dan 'Penanganan di Lokasi'. Jangan gunakan bullet points (-) pada Informasi Kejadian. Jangan berikan pengantar atau teks tambahan di luar format.",
+      "summary": "Ringkasan pendek isi laporan kegiatan ini dalam 1-2 kalimat.",
+      "tags": ["Laporan", "Kegiatan", "TagLain"],
+      "todo_list": ["Tugas 1", "Tugas 2"],
+      "folderId": "id-folder-yang-cocok-atau-null",
+      "folderName": "NamaFolderBaruAtauNull"
+    }
+  ]
 }
 
 PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan lainnya. Kembalikan HANYA string JSON murni yang valid.`;
     } else {
-      prompt = `Anda adalah asisten AI editor catatan profesional. Tugas Anda adalah mengambil teks mentah hasil transkripsi suara (Voice-to-Text) di bawah ini dan merapikannya menjadi catatan terstruktur yang sangat berkualitas dan rapi.
+      prompt = `Anda adalah asisten AI editor catatan profesional. Tugas Anda adalah mengambil teks mentah hasil transkripsi suara (Voice-to-Text) di bawah ini, menganalisis kontennya, dan merapikannya menjadi catatan terstruktur yang sangat berkualitas dan rapi.
+Jika teks mengandung lebih dari satu topik pembicaraan/bahasan/ide yang berbeda, maka PECAHLAH isi rekaman tersebut menjadi beberapa catatan terpisah secara logis sesuai dengan masing-masing topik. Jika hanya ada satu, buat 1 catatan saja.
 
 Teks Mentah Transkripsi:
 "${text}"
 
-Instruksi Pemformatan:
+Daftar Folder saat ini di database: ${JSON.stringify(folders)}
+
+Instruksi Pemformatan Setiap Catatan:
 1. Perbaiki kesalahan ejaan, tanda baca, huruf kapital, dan tata bahasa (terutama dalam bahasa Indonesia atau Inggris, sesuaikan dengan bahasa yang diucapkan).
 2. Buat judul yang sangat relevan dan menarik untuk catatan ini (maksimal 6 kata).
 3. Formatlah isi catatan ('content') secara sangat rapi, berstruktur, dan nyaman dibaca menggunakan Markdown. Jangan hanya membuat paragraf panjang yang padat. Gunakan kombinasi:
@@ -126,12 +149,21 @@ Instruksi Pemformatan:
 4. Ekstrak daftar tugas/tindakan konkret (Action Items / TODO checklist) yang harus dilakukan berdasarkan pembicaraan. Jika tidak ada tindakan nyata, buat daftar kosong [].
 5. Rekomendasikan 2-4 tag/kategori yang relevan untuk catatan ini (misalnya: Rapat, Ide, Tugas, Keuangan, Pribadi, dll).
 
-Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema berikut:
+Untuk setiap catatan, tentukan folder penyimpanannya. Cari dari Daftar Folder saat ini yang paling cocok. Jika ada yang sangat cocok, berikan 'folderId' sesuai ID folder tersebut. Jika tidak ada yang cocok namun topiknya memerlukan kategori baru, berikan 'folderName' dengan nama kategori baru tersebut (misalnya 'Keuangan', 'Pribadi', 'Marketing', dll), dan isi 'folderId' dengan null. Jika merupakan catatan umum tanpa folder khusus, berikan 'folderId': null dan 'folderName': null.
+
+Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
 {
-  "title": "Judul Catatan",
-  "content": "Isi catatan yang diformat sangat rapi dengan sub-header, daftar poin/bullet points, daftar bernomor, tebal, dll. agar nyaman dibaca. Jangan sertakan todo list di dalam 'content' ini.",
-  "tags": ["Tag1", "Tag2"],
-  "todo_list": ["Tugas 1", "Tugas 2"]
+  "notes": [
+    {
+      "title": "Judul Catatan",
+      "content": "Isi catatan yang diformat sangat rapi dengan sub-header, daftar poin/bullet points, tebal, dll. agar nyaman dibaca. Jangan sertakan todo list di dalam 'content' ini.",
+      "summary": "Ringkasan pendek isi catatan ini dalam 1-2 kalimat.",
+      "tags": ["Tag1", "Tag2"],
+      "todo_list": ["Tugas 1", "Tugas 2"],
+      "folderId": "id-folder-yang-cocok-atau-null",
+      "folderName": "NamaFolderBaruAtauNull"
+    }
+  ]
 }
 
 PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan lainnya. Kembalikan HANYA string JSON murni yang valid.`;
@@ -174,9 +206,30 @@ PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan l
       return NextResponse.json({ error: 'Tidak ada respons dari model AI.' }, { status: 500 });
     }
 
-    const formattedNote = JSON.parse(resultText.trim());
-    formattedNote.summary = text; // Override summary with original raw speech transcript
-    return NextResponse.json(formattedNote);
+    const formattedResponse = JSON.parse(resultText.trim());
+
+    // If "notes" array is not returned but it returned a single note format, wrap it in notes array
+    let finalNotes = [];
+    if (formattedResponse.notes && Array.isArray(formattedResponse.notes)) {
+      finalNotes = formattedResponse.notes;
+    } else if (formattedResponse.title) {
+      finalNotes = [formattedResponse];
+    } else {
+      throw new Error('Format respon AI tidak valid.');
+    }
+
+    // Ensure every note in the array has the required attributes
+    finalNotes = finalNotes.map((note: any) => ({
+      title: note.title || 'Catatan Tanpa Judul',
+      content: note.content || '',
+      summary: note.summary || text.substring(0, 100) + '...',
+      tags: note.tags || [],
+      todo_list: note.todo_list || [],
+      folderId: note.folderId || null,
+      folderName: note.folderName || null
+    }));
+
+    return NextResponse.json({ notes: finalNotes });
   } catch (error: any) {
     console.error('API Format Error:', error);
     return NextResponse.json({ error: error.message || 'Terjadi kesalahan internal server' }, { status: 500 });

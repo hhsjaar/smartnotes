@@ -9,6 +9,7 @@ import { NewsSection } from '@/components/NewsSection';
 import { GlowButton } from '@/components/ui/GlowButton';
 import { Calendar } from '@/components/Calendar';
 import { WhatsappChat } from '@/components/WhatsappChat';
+import { VoiceAssistant } from '@/components/VoiceAssistant';
 import styles from './page.module.css';
 
 interface Note {
@@ -97,6 +98,59 @@ export default function Home() {
   
   const [isMobileCalendarOpen, setIsMobileCalendarOpen] = useState(false);
   const [isMobileFoldersOpen, setIsMobileFoldersOpen] = useState(false);
+
+  // Save Notification state
+  const [saveResultNotification, setSaveResultNotification] = useState<{
+    notes: Array<{ title: string; folderName: string }>;
+  } | null>(null);
+
+  // Auto-dismiss notification after 10 seconds
+  useEffect(() => {
+    if (saveResultNotification) {
+      const timer = setTimeout(() => {
+        setSaveResultNotification(null);
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [saveResultNotification]);
+
+  // Spoken feedback helper for voice recorder completions
+  const speakFeedback = (text: string) => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'id-ID';
+      
+      const voices = window.speechSynthesis.getVoices();
+      const idVoice = voices.find(v => v.lang.startsWith('id') || v.lang.includes('ID'));
+      if (idVoice) {
+        utterance.voice = idVoice;
+      }
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  // Custom Confirm Dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmDialog({
+      isOpen: true,
+      title,
+      message,
+      onConfirm,
+    });
+  };
 
   useEffect(() => {
     setIsCalendarOpen(window.innerWidth > 768);
@@ -238,28 +292,165 @@ export default function Home() {
 
   // Delete Folder
   const handleDeleteFolder = async (id: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus folder ini? Catatan di dalamnya tidak akan terhapus, melainkan dipindahkan ke "Tanpa Folder".')) return;
-    try {
-      const res = await fetch(`/api/folders?id=${id}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) throw new Error('Failed to delete folder');
-      
-      setFolders((prev) => prev.filter((f) => f.id !== id));
-      if (selectedFolderId === id) {
-        setSelectedFolderId(null);
+    showConfirm(
+      'Hapus Folder',
+      'Apakah Anda yakin ingin menghapus folder ini? Catatan di dalamnya tidak akan terhapus, melainkan dipindahkan ke "Tanpa Folder".',
+      async () => {
+        try {
+          const res = await fetch(`/api/folders?id=${id}`, {
+            method: 'DELETE',
+          });
+          if (!res.ok) throw new Error('Failed to delete folder');
+          
+          setFolders((prev) => prev.filter((f) => f.id !== id));
+          if (selectedFolderId === id) {
+            setSelectedFolderId(null);
+          }
+          
+          loadNotes();
+        } catch (err: any) {
+          alert(err.message || 'Gagal menghapus folder.');
+        }
       }
-      
-      loadNotes();
-    } catch (err: any) {
-      alert(err.message || 'Gagal menghapus folder.');
-    }
+    );
   };
 
   useEffect(() => {
     loadNotes();
     loadFolders();
   }, []);
+
+  // Background cron executor (polls /api/cron to run pending jobs)
+  useEffect(() => {
+    // Run initial check
+    fetch('/api/cron').catch(console.error);
+
+    const interval = setInterval(() => {
+      fetch('/api/cron')
+        .then(res => res.json())
+        .then(data => {
+          if (data.results && data.results.length > 0) {
+            console.log('Cron completed some jobs:', data);
+            loadNotes();
+          }
+        })
+        .catch(console.error);
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Handle actions sent from Voice Assistant
+  useEffect(() => {
+    const handleAssistantAction = async (e: Event) => {
+      const { action, payload } = (e as CustomEvent).detail;
+      console.log('Assistant Action received:', action, payload);
+
+      if (action === 'SHOW_NEWS') {
+        setActiveTab('news');
+      } else if (action === 'CREATE_NOTE') {
+        // Automatically create note from Assistant payload
+        try {
+          const res = await fetch('/api/notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: payload.title || 'Catatan Baru',
+              content: payload.content || '',
+              summary: 'Dibuat melalui Asisten Suara.',
+              tags: ['Asisten Suara', 'AI'],
+              todo_list: []
+            })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setNotes(prev => [data, ...prev]);
+            setSelectedNote(data);
+            setActiveTab('notes');
+            setWorkspaceView('editor');
+            if (window.innerWidth <= 768) {
+              setMobileView('editor');
+            }
+          }
+        } catch (err) {
+          console.error('Failed to create note via assistant:', err);
+        }
+      } else if (action === 'VIEW_NOTE') {
+        // Open the matched note
+        if (payload.noteId) {
+          const noteToView = notes.find(n => n.id === payload.noteId);
+          if (noteToView) {
+            setSelectedNote(noteToView);
+            setActiveTab('notes');
+            setWorkspaceView('editor');
+            if (window.innerWidth <= 768) {
+              setMobileView('editor');
+            }
+          }
+        }
+      } else if (action === 'CATEGORIZE_NOTE') {
+        // Move note to folder
+        if (payload.noteId) {
+          let targetFolderId = payload.folderId;
+          
+          // If folderId is null, check if folderName matches an existing folder, or create it
+          if (!targetFolderId && payload.folderName) {
+            const existingFolder = folders.find(f => f.name.toLowerCase() === payload.folderName.toLowerCase());
+            if (existingFolder) {
+              targetFolderId = existingFolder.id;
+            } else {
+              // Create folder
+              const newF = await handleCreateFolder(payload.folderName);
+              if (newF) targetFolderId = newF.id;
+            }
+          }
+          
+          // Call API to update folder
+          try {
+            const res = await fetch('/api/notes', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: payload.noteId,
+                folder_id: targetFolderId
+              })
+            });
+            if (res.ok) {
+              const data = await res.json();
+              setNotes(prev => prev.map(n => n.id === data.id ? data : n));
+              if (selectedNote?.id === data.id) {
+                setSelectedNote(data);
+              }
+              // Set the active folder filter
+              setSelectedFolderId(targetFolderId);
+            }
+          } catch (err) {
+            console.error('Failed to move note via assistant:', err);
+          }
+        }
+      } else if (action === 'SUMMARIZE_AI') {
+        // Summarize note
+        if (payload.noteId) {
+          const noteToSummarize = notes.find(n => n.id === payload.noteId);
+          if (noteToSummarize) {
+            setSelectedNote(noteToSummarize);
+            setActiveTab('notes');
+            setWorkspaceView('editor');
+          }
+        }
+      } else if (action === 'SEND_WHATSAPP') {
+        setActiveTab('whatsapp');
+      } else if (action === 'SCHEDULE_JOB') {
+        // Trigger check
+        fetch('/api/cron').catch(console.error);
+      }
+    };
+
+    window.addEventListener('assistant-action', handleAssistantAction);
+    return () => {
+      window.removeEventListener('assistant-action', handleAssistantAction);
+    };
+  }, [notes, folders, selectedNote]);
 
   // Helper to format date as YYYY-MM-DD in local time
   const getLocalDateString = (dateStr: string) => {
@@ -308,17 +499,117 @@ export default function Home() {
     return matchesTitle || matchesContent || matchesTags;
   });
 
-  // Handle formatted note from voice recorder - opens folder selection modal
-  const handleFormattedNote = (formattedData: {
-    title: string;
-    content: string;
-    summary: string;
-    tags: string[];
-    todo_list: string[];
+  // Handle formatted notes from voice recorder - processes array, resolves folders, and auto-saves
+  const handleFormattedNote = async (formattedData: {
+    notes?: Array<{
+      title: string;
+      content: string;
+      summary: string;
+      tags: string[];
+      todo_list: string[];
+      folderId: string | null;
+      folderName: string | null;
+    }>;
   }) => {
-    setPendingNoteData(formattedData);
-    setIsFolderModalOpen(true);
+    if (!formattedData.notes || !Array.isArray(formattedData.notes)) return;
+    
+    try {
+      const savedNotesList: any[] = [];
+      let lastSavedNote: any = null;
+      const localFolders = [...folders];
+      const notificationNotes: Array<{ title: string; folderName: string }> = [];
+
+      for (const note of formattedData.notes) {
+        let folderId = note.folderId;
+        let finalFolderName = note.folderName || 'Tanpa Folder';
+        
+        // Resolve folderId if folderName is suggested but folderId is null
+        if (!folderId && note.folderName) {
+          const existingFolder = localFolders.find(
+            (f) => f.name.toLowerCase() === note.folderName!.toLowerCase()
+          );
+          if (existingFolder) {
+            folderId = existingFolder.id;
+            finalFolderName = existingFolder.name;
+          } else {
+            const newFolder = await handleCreateFolder(note.folderName);
+            if (newFolder) {
+              folderId = newFolder.id;
+              finalFolderName = newFolder.name;
+              localFolders.push(newFolder);
+            }
+          }
+        } else if (folderId) {
+          const folderObj = localFolders.find(f => f.id === folderId);
+          if (folderObj) {
+            finalFolderName = folderObj.name;
+          }
+        }
+
+        const parsedTodos = note.todo_list.map((task: string) => ({
+          text: task,
+          completed: false,
+        }));
+
+        const newNotePayload = {
+          title: note.title,
+          content: note.content,
+          summary: note.summary,
+          tags: note.tags,
+          todo_list: parsedTodos,
+          folder_id: folderId,
+        };
+
+        const res = await fetch('/api/notes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newNotePayload),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          savedNotesList.push(data);
+          lastSavedNote = data;
+          notificationNotes.push({
+            title: note.title,
+            folderName: finalFolderName
+          });
+        }
+      }
+
+      if (savedNotesList.length > 0) {
+        // Clear active date filter so new notes are visible
+        setSelectedDate(null);
+        
+        // Add new notes to local state
+        setNotes((prev) => [...savedNotesList, ...prev]);
+        
+        // Select the last saved note and focus it
+        if (lastSavedNote) {
+          setSelectedNote(lastSavedNote);
+          // Set active folder selection to show this note
+          setSelectedFolderId(lastSavedNote.folder_id);
+        }
+
+        setActiveTab('notes');
+        setWorkspaceView('editor');
+
+        if (window.innerWidth <= 768) {
+          setMobileView('editor');
+        }
+
+        // Show notification toast and trigger voice feedback
+        setSaveResultNotification({ notes: notificationNotes });
+        
+        const speakText = `Berhasil membuat ${savedNotesList.length} catatan baru. ` + 
+          notificationNotes.map(n => `Catatan ${n.title} dimasukkan ke folder ${n.folderName}`).join('. ');
+        speakFeedback(speakText);
+      }
+    } catch (err) {
+      console.error('Failed to auto-save split notes:', err);
+    }
   };
+
 
   // Perform saving note with the selected folder
   const saveNoteWithFolder = async (folderId: string | null) => {
@@ -399,26 +690,31 @@ export default function Home() {
 
   // Handle deleting a note
   const handleDeleteNote = async (noteId: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus catatan ini secara permanen?')) return;
-    try {
-      const res = await fetch(`/api/notes?id=${noteId}`, {
-        method: 'DELETE',
-      });
+    showConfirm(
+      'Hapus Catatan',
+      'Apakah Anda yakin ingin menghapus catatan ini secara permanen?',
+      async () => {
+        try {
+          const res = await fetch(`/api/notes?id=${noteId}`, {
+            method: 'DELETE',
+          });
 
-      if (!res.ok) throw new Error('Failed to delete note');
+          if (!res.ok) throw new Error('Failed to delete note');
 
-      setNotes((prev) => prev.filter((n) => n.id !== noteId));
-      if (selectedNote && selectedNote.id === noteId) {
-        const remaining = notes.filter((n) => n.id !== noteId);
-        setSelectedNote(remaining.length > 0 ? remaining[0] : null);
-        if (window.innerWidth <= 768) {
-          setMobileView('list');
+          setNotes((prev) => prev.filter((n) => n.id !== noteId));
+          if (selectedNote && selectedNote.id === noteId) {
+            const remaining = notes.filter((n) => n.id !== noteId);
+            setSelectedNote(remaining.length > 0 ? remaining[0] : null);
+            if (window.innerWidth <= 768) {
+              setMobileView('list');
+            }
+          }
+        } catch (err) {
+          console.error('Error deleting note:', err);
+          alert('Gagal menghapus catatan dari database.');
         }
       }
-    } catch (err) {
-      console.error('Error deleting note:', err);
-      alert('Gagal menghapus catatan dari database.');
-    }
+    );
   };
 
   // Create a new blank note
@@ -1025,6 +1321,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             </div>
           </div>
         )}
+        <VoiceAssistant />
       </div>
     );
   }
@@ -1600,6 +1897,65 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               >
                 Simpan Catatan
               </GlowButton>
+            </div>
+          </div>
+        </div>
+      )}
+      <VoiceAssistant />
+
+      {confirmDialog.isOpen && (
+        <div className={styles.confirmOverlay} onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}>
+          <div className={styles.confirmBox} onClick={(e) => e.stopPropagation()}>
+            <h3 className={styles.confirmTitle}>{confirmDialog.title}</h3>
+            <p className={styles.confirmMessage}>{confirmDialog.message}</p>
+            <div className={styles.confirmActions}>
+              <button 
+                type="button" 
+                className={styles.confirmCancelBtn}
+                onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+              >
+                Batal
+              </button>
+              <button 
+                type="button" 
+                className={styles.confirmConfirmBtn}
+                onClick={() => {
+                  confirmDialog.onConfirm();
+                  setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                }}
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {saveResultNotification && (
+        <div className={styles.notificationToast}>
+          <div className={styles.notificationHeader}>
+            <div className={styles.notificationTitle}>
+              <Sparkles size={16} style={{ color: 'var(--secondary)', marginRight: '8px' }} />
+              Catatan Pintar Berhasil Dibuat
+            </div>
+            <button 
+              className={styles.notificationCloseBtn}
+              onClick={() => setSaveResultNotification(null)}
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <div className={styles.notificationBody}>
+            <p className={styles.notificationSubtitle}>
+              Catatan hasil rekaman Anda telah dianalisis dan dikelompokkan ke folder yang sesuai:
+            </p>
+            <div className={styles.notificationList}>
+              {saveResultNotification.notes.map((n, idx) => (
+                <div key={idx} className={styles.notificationItem}>
+                  <span className={styles.notificationNoteTitle} title={n.title}>📝 {n.title}</span>
+                  <span className={styles.notificationFolderBadge}>📁 {n.folderName}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
