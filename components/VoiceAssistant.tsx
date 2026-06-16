@@ -226,8 +226,15 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
         
         rec.onresult = (event: any) => {
           let completeTranscript = '';
+          let lastTextClean = '';
           for (let i = 0; i < event.results.length; ++i) {
-            completeTranscript += event.results[i][0].transcript + ' ';
+            const part = event.results[i][0].transcript;
+            const partClean = part.trim().toLowerCase();
+            // Workaround for Chrome Android bug that duplicates/re-emits whole phrases across result indices
+            if (partClean && partClean !== lastTextClean) {
+              completeTranscript += part.trim() + ' ';
+              lastTextClean = partClean;
+            }
           }
           
           const currentText = completeTranscript.trim();
