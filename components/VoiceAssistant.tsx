@@ -101,6 +101,11 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
     transcriptRef.current = transcript;
   }, [transcript]);
 
+  const statusRef = useRef(status);
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
   useEffect(() => {
     selectedNoteRef.current = selectedNote;
   }, [selectedNote]);
@@ -247,8 +252,20 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
         };
         
         rec.onend = () => {
+          // Workaround for Chrome Android bug that automatically stops recognition on short silences.
+          // If the 5-second silence timeout is still active, we restart it so the user can continue thinking.
+          if (silenceTimeoutRef.current && statusRef.current === 'listening') {
+            try {
+              rec.start();
+            } catch (e) {
+              console.warn('Failed to restart SpeechRecognition on end:', e);
+            }
+            return;
+          }
+
           if (silenceTimeoutRef.current) {
             clearTimeout(silenceTimeoutRef.current);
+            silenceTimeoutRef.current = null;
           }
           setStatus(prev => {
             if (prev === 'listening') return 'idle';
@@ -280,6 +297,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
           if (currentText) {
             // Set 5-second debounce timer to wait for thinking pauses
             silenceTimeoutRef.current = setTimeout(() => {
+              silenceTimeoutRef.current = null;
               try {
                 rec.stop();
               } catch (e) {}
@@ -348,6 +366,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
   const stopListening = () => {
     if (silenceTimeoutRef.current) {
       clearTimeout(silenceTimeoutRef.current);
+      silenceTimeoutRef.current = null;
     }
     if (recognition) {
       recognition.stop();
@@ -406,6 +425,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
   const autoClosePanel = () => {
     if (silenceTimeoutRef.current) {
       clearTimeout(silenceTimeoutRef.current);
+      silenceTimeoutRef.current = null;
     }
     stopListening();
     setShowPanel(false);
@@ -414,6 +434,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
   const closePanel = () => {
     if (silenceTimeoutRef.current) {
       clearTimeout(silenceTimeoutRef.current);
+      silenceTimeoutRef.current = null;
     }
     if (synthRef.current) {
       synthRef.current.cancel();
