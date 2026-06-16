@@ -72,6 +72,9 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
   // Debounce timeout for silence detection
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Keep track of final transcript accumulated across auto-restarts (workaround for mobile auto-cutoffs)
+  const accumulatedTranscriptRef = useRef('');
+
   // Keep references to prevent stale closures in event listeners
   const chatHistoryRef = useRef<ChatMessage[]>([]);
   const pendingActionRef = useRef<any | null>(null);
@@ -236,7 +239,10 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
         
         rec.onstart = () => {
           setStatus('listening');
-          setTranscript('');
+          // Only clear transcript if we are starting a completely fresh session (not restarting)
+          if (!accumulatedTranscriptRef.current) {
+            setTranscript('');
+          }
           setResponse('');
           setErrorMsg('');
         };
@@ -286,7 +292,14 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
             }
           }
           
-          const currentText = (finalTranscript + ' ' + interimTranscript).trim();
+          // Merge with accumulated transcript from previous sessions
+          const totalFinal = mergeTranscripts(accumulatedTranscriptRef.current, finalTranscript);
+          
+          if (finalTranscript) {
+            accumulatedTranscriptRef.current = totalFinal;
+          }
+          
+          const currentText = (totalFinal + ' ' + interimTranscript).trim();
           setTranscript(currentText);
 
           // Reset the silence debounce timer
@@ -298,6 +311,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
             // Set 5-second debounce timer to wait for thinking pauses
             silenceTimeoutRef.current = setTimeout(() => {
               silenceTimeoutRef.current = null;
+              accumulatedTranscriptRef.current = totalFinal;
               try {
                 rec.stop();
               } catch (e) {}
@@ -333,6 +347,8 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
     // Delay slightly to prevent microphone catching the end of output speech
     setTimeout(() => {
       if (showPanelRef.current && recognition) {
+        accumulatedTranscriptRef.current = ''; // Reset accumulated transcript for next instruction
+        setTranscript('');
         try {
           recognition.start();
         } catch (e) {
@@ -346,6 +362,9 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
     if (synthRef.current) {
       synthRef.current.cancel(); // Stop any ongoing speech synthesis
     }
+
+    accumulatedTranscriptRef.current = ''; // Reset accumulated transcript
+    setTranscript('');
 
     // Reset history for a fresh dialogue session if the panel was completely closed
     if (!showPanel) {
