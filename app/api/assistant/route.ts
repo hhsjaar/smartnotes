@@ -88,6 +88,9 @@ Pilihan Aksi ("action") yang didukung:
    - ATURAN PENTING: Gunakan aksi ini jika terdapat 'pendingAction' di input dan perintah terbaru pengguna menyatakan pembatalan (seperti "batal", "jangan", "tidak jadi", "tidak").
    - Payload: {}
    - Response: Informasikan bahwa tindakan telah dibatalkan.
+11. CREATE_REMINDER: Membuat pengingat atau alarm baru berbasis waktu.
+    - Pola: "buat pengingat...", "buat alarm...", "ingatkan saya..."
+    - Payload: { "title": "Judul Pengingat Singkat", "description": "Keterangan tambahan (optional)", "dateTime": "Waktu pengingat dalam format ISO String (hitung tanggal & jam relatif terhadap waktu server saat ini, pastikan dalam timezone lokal +07:00 jika sesuai)", "notify1Day": boolean (default true, set false jika pengguna secara eksplisit menolak pengingat H-1 hari seperti 'jangan ingatkan sehari sebelumnya' atau 'ingatkan pas hari h saja'), "notify1Hour": boolean (default true, set false jika pengguna menolak pengingat H-1 jam), "notifyExact": boolean (default true, set false jika pengguna menolak pengingat tepat waktu) }
 
 Aturan Pemrosesan Multi-Turn & Pending Action:
 - Jika pengguna mengirim perintah baru yang tidak berhubungan dengan konfirmasi pendingAction (misalnya "buka berita"), abaikan pendingAction dan proses perintah baru tersebut secara normal.
@@ -95,7 +98,7 @@ Aturan Pemrosesan Multi-Turn & Pending Action:
 
 Format Keluaran (JSON murni):
 {
-  "action": "CREATE_NOTE" | "UPDATE_NOTE" | "VIEW_NOTE" | "CATEGORIZE_NOTE" | "SHOW_NEWS" | "SUMMARIZE_AI" | "SEND_WHATSAPP" | "ASK_CONFIRMATION" | "CONFIRM_JOB" | "CANCEL_JOB" | null,
+  "action": "CREATE_NOTE" | "UPDATE_NOTE" | "VIEW_NOTE" | "CATEGORIZE_NOTE" | "SHOW_NEWS" | "SUMMARIZE_AI" | "SEND_WHATSAPP" | "ASK_CONFIRMATION" | "CONFIRM_JOB" | "CANCEL_JOB" | "CREATE_REMINDER" | null,
   "payload": { ... },
   "response": "Tanggapan lisan ramah dari asisten suara dalam Bahasa Indonesia (singkat, padat, informatif)."
 }

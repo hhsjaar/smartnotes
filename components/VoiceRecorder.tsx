@@ -226,8 +226,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
       const validTypes = ['audio/mp3', 'audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/m4a', 'audio/x-m4a', 'audio/webm', 'video/webm'];
       
       // Basic check
-      if (selectedFile.size > 25 * 1024 * 1024) {
-        setErrorMsg('Ukuran file maksimal adalah 25MB.');
+      if (selectedFile.size > 1024 * 1024 * 1024) {
+        setErrorMsg('Ukuran file maksimal adalah 1GB.');
         return;
       }
       
@@ -414,8 +414,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
                 onClick={() => fileInputRef.current?.click()}
               >
                 <FileAudio size={40} className="text-gray-400" style={{ color: 'var(--text-muted)' }} />
-                <span className={styles.fileUploadText}>Klik untuk memilih file audio (MP3, WAV, M4A, WEBM)</span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-dark)' }}>Maksimal ukuran 25MB</span>
+                <span className={styles.fileUploadText}>Klik untuk memilih file audio (MP3, WAV, M4A, MPEG, WEBM, dsb.)</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-dark)' }}>Maksimal ukuran 1GB</span>
                 <input
                   type="file"
                   ref={fileInputRef}

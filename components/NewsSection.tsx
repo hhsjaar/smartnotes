@@ -32,7 +32,7 @@ const CATEGORIES = ['Semua', 'Teknologi', 'Bisnis', 'Politik', 'Kesehatan', 'Hib
 
 export const NewsSection: React.FC<NewsSectionProps> = ({ onCreateNoteFromNews }) => {
   const [activeCategory, setActiveCategory] = useState('Semua');
-  const [activeType, setActiveType] = useState<'terkini' | 'hari_ini'>('terkini');
+  const [activeType, setActiveType] = useState<'terkini' | 'hari_ini'>('hari_ini');
   const [news, setNews] = useState<NewsItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');

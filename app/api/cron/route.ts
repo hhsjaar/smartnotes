@@ -1,5 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import webpush from 'web-push';
+
+if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    'mailto:developer@catatanpintar.local',
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
 
 // Helper to clean and format telephone numbers for Fonnte
 function cleanTargetNumber(target: string) {
@@ -93,9 +102,122 @@ Kembalikan jawaban HANYA dalam format JSON dengan skema berikut (jangan tambahka
   return JSON.parse(text.trim());
 }
 
+async function processReminders(now: Date) {
+  const reminderResults = [];
+  try {
+    const reminders = await prisma.reminder.findMany({
+      where: {
+        dateTime: {
+          gte: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000)
+        },
+        OR: [
+          { sent1Day: false },
+          { sent1Hour: false },
+          { sentExact: false }
+        ]
+      }
+    });
+
+    if (reminders.length === 0) return [];
+
+    const subscriptions = await prisma.pushSubscription.findMany();
+
+    for (const reminder of reminders) {
+      const eventTime = new Date(reminder.dateTime).getTime();
+      const nowTime = now.getTime();
+      const diffMs = eventTime - nowTime;
+
+      let sendNotify = false;
+      let notifyBody = '';
+      let updatedFields: any = {};
+
+      if (reminder.notify1Day && diffMs <= 24 * 60 * 60 * 1000 && diffMs > 1 * 60 * 60 * 1000 && !reminder.sent1Day) {
+        sendNotify = true;
+        notifyBody = `Besok: ${reminder.title} (${new Date(reminder.dateTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })})`;
+        updatedFields.sent1Day = true;
+      }
+      else if (reminder.notify1Hour && diffMs <= 1 * 60 * 60 * 1000 && diffMs > 0 && !reminder.sent1Hour) {
+        sendNotify = true;
+        notifyBody = `1 jam lagi: ${reminder.title}`;
+        updatedFields.sent1Hour = true;
+        updatedFields.sent1Day = true;
+      }
+      else if (reminder.notifyExact && diffMs <= 0 && diffMs >= -15 * 60 * 1000 && !reminder.sentExact) {
+        sendNotify = true;
+        notifyBody = `Sekarang: ${reminder.title}`;
+        updatedFields.sentExact = true;
+        updatedFields.sent1Day = true;
+        updatedFields.sent1Hour = true;
+      }
+      else if (diffMs < -15 * 60 * 1000) {
+        await prisma.reminder.update({
+          where: { id: reminder.id },
+          data: {
+            sent1Day: true,
+            sent1Hour: true,
+            sentExact: true
+          }
+        });
+        continue;
+      }
+
+      if (sendNotify) {
+        await prisma.reminder.update({
+          where: { id: reminder.id },
+          data: updatedFields
+        });
+
+        let successCount = 0;
+        let failCount = 0;
+
+        const pushPayload = JSON.stringify({
+          title: 'Alarm / Pengingat AI ⏰',
+          body: notifyBody,
+          url: '/'
+        });
+
+        for (const sub of subscriptions) {
+          try {
+            await webpush.sendNotification(
+              {
+                endpoint: sub.endpoint,
+                keys: sub.keys as any
+              },
+              pushPayload
+            );
+            successCount++;
+          } catch (err: any) {
+            console.error('Failed sending webpush notification:', err.message);
+            failCount++;
+            if (err.statusCode === 410 || err.statusCode === 404) {
+              await prisma.pushSubscription.delete({
+                where: { id: sub.id }
+              }).catch(console.error);
+            }
+          }
+        }
+
+        reminderResults.push({
+          id: reminder.id,
+          title: reminder.title,
+          type: notifyBody.split(':')[0],
+          sentTo: successCount,
+          failedTo: failCount
+        });
+      }
+    }
+  } catch (err: any) {
+    console.error('Error processing reminders in cron:', err);
+  }
+  return reminderResults;
+}
+
 export async function GET(request: Request) {
   try {
     const now = new Date();
+
+    // Process Reminders first
+    const reminderResults = await processReminders(now);
     
     // Find all pending jobs that should be executed
     const pendingJobs = await prisma.scheduledJob.findMany({
@@ -106,10 +228,6 @@ export async function GET(request: Request) {
         }
       }
     });
-
-    if (pendingJobs.length === 0) {
-      return NextResponse.json({ message: 'Tidak ada tugas terjadwal yang tertunda saat ini.' });
-    }
 
     const executionResults = [];
 
@@ -193,8 +311,13 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
-      message: `Berhasil mengeksekusi ${pendingJobs.length} tugas.`,
-      results: executionResults
+      message: `Cron selesai diproses.`,
+      reminders: reminderResults,
+      results: executionResults,
+      jobs: {
+        executed: pendingJobs.length,
+        results: executionResults
+      }
     });
   } catch (error: any) {
     console.error('API Cron Job Runner Error:', error);

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X } from 'lucide-react';
+import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock } from 'lucide-react';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { NoteCard } from '@/components/NoteCard';
 import { NoteEditor } from '@/components/NoteEditor';
@@ -37,6 +37,21 @@ interface NewsItem {
   category: string;
   time: string;
 }
+
+interface Reminder {
+  id: string;
+  title: string;
+  description?: string;
+  dateTime: string;
+  notify1Day: boolean;
+  notify1Hour: boolean;
+  notifyExact: boolean;
+  sent1Day: boolean;
+  sent1Hour: boolean;
+  sentExact: boolean;
+  created_at: string;
+}
+
 
 const getGroupedNotes = (notesList: Note[]) => {
   const today = new Date();
@@ -74,8 +89,18 @@ const getGroupedNotes = (notesList: Note[]) => {
 };
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'notes' | 'news' | 'whatsapp' | 'calendar' | 'recorder'>('notes');
+  const [activeTab, setActiveTab] = useState<'notes' | 'news' | 'whatsapp' | 'calendar' | 'recorder' | 'reminders'>('notes');
   const [notes, setNotes] = useState<Note[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [isPushSubscribed, setIsPushSubscribed] = useState(false);
+  const [pushPermissionStatus, setPushPermissionStatus] = useState<NotificationPermission>('default');
+  const [reminderTitle, setReminderTitle] = useState('');
+  const [reminderDescription, setReminderDescription] = useState('');
+  const [reminderDate, setReminderDate] = useState('');
+  const [reminderTime, setReminderTime] = useState('');
+  const [opt1Day, setOpt1Day] = useState(true);
+  const [opt1Hour, setOpt1Hour] = useState(true);
+  const [optExact, setOptExact] = useState(true);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -245,6 +270,132 @@ export default function Home() {
     }
   };
 
+  const loadReminders = async () => {
+    try {
+      const res = await fetch('/api/reminders');
+      if (res.ok) {
+        const data = await res.json();
+        setReminders(data);
+      }
+    } catch (err) {
+      console.error('Failed to load reminders:', err);
+    }
+  };
+
+  const handleCreateReminder = async (
+    title: string,
+    description: string,
+    dateTime: string,
+    notify1Day?: boolean,
+    notify1Hour?: boolean,
+    notifyExact?: boolean
+  ) => {
+    try {
+      const res = await fetch('/api/reminders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          description,
+          dateTime,
+          notify1Day: notify1Day !== undefined ? notify1Day : true,
+          notify1Hour: notify1Hour !== undefined ? notify1Hour : true,
+          notifyExact: notifyExact !== undefined ? notifyExact : true
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReminders(prev => [data, ...prev]);
+        fetch('/api/cron').catch(console.error);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Failed to create reminder:', err);
+      return false;
+    }
+  };
+
+  const handleDeleteReminder = async (id: string) => {
+    if (confirm('Apakah Anda yakin ingin menghapus pengingat ini?')) {
+      try {
+        const res = await fetch(`/api/reminders?id=${id}`, {
+          method: 'DELETE'
+        });
+        if (res.ok) {
+          setReminders(prev => prev.filter(r => r.id !== id));
+        }
+      } catch (err) {
+        console.error('Failed to delete reminder:', err);
+      }
+    }
+  };
+
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
+  const handleSubscribePush = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      alert('Browser Anda tidak mendukung notifikasi.');
+      return;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      setPushPermissionStatus(permission);
+
+      if (permission !== 'granted') {
+        alert('Izin notifikasi ditolak. Aktifkan secara manual di pengaturan browser.');
+        return;
+      }
+
+      if (!('serviceWorker' in navigator)) {
+        alert('Service worker tidak didukung di browser ini.');
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+      
+      const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!publicKey) {
+        console.error('NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing');
+        alert('Kunci publik VAPID belum dikonfigurasi di server.');
+        return;
+      }
+
+      const subscribeOptions = {
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey)
+      };
+
+      const subscription = await registration.pushManager.subscribe(subscribeOptions);
+      
+      const res = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription })
+      });
+
+      if (res.ok) {
+        setIsPushSubscribed(true);
+        alert('Push notifikasi berhasil diaktifkan!');
+      } else {
+        throw new Error('Gagal menyimpan subscription di server');
+      }
+    } catch (err: any) {
+      console.error('Push subscription failed:', err);
+      alert('Gagal mengaktifkan push notifikasi: ' + err.message);
+    }
+  };
+
   // Create Folder
   const handleCreateFolder = async (name: string) => {
     if (!name || name.trim() === '') return null;
@@ -318,6 +469,19 @@ export default function Home() {
   useEffect(() => {
     loadNotes();
     loadFolders();
+    loadReminders();
+
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setPushPermissionStatus(Notification.permission);
+      
+      if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then((registration) => {
+          registration.pushManager.getSubscription().then((subscription) => {
+            setIsPushSubscribed(!!subscription);
+          });
+        });
+      }
+    }
   }, []);
 
   // Background cron executor (polls /api/cron to run pending jobs)
@@ -348,6 +512,29 @@ export default function Home() {
 
       if (action === 'SHOW_NEWS') {
         setActiveTab('news');
+      } else if (action === 'CREATE_REMINDER') {
+        try {
+          const res = await fetch('/api/reminders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: payload.title || 'Pengingat Suara',
+              description: payload.description || 'Dibuat via Asisten Suara.',
+              dateTime: payload.dateTime,
+              notify1Day: payload.notify1Day,
+              notify1Hour: payload.notify1Hour,
+              notifyExact: payload.notifyExact
+            })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setReminders(prev => [data, ...prev]);
+            setActiveTab('reminders');
+            fetch('/api/cron').catch(console.error);
+          }
+        } catch (err) {
+          console.error('Failed to create reminder via assistant:', err);
+        }
       } else if (action === 'CREATE_NOTE') {
         // Automatically create note from Assistant payload
         try {
@@ -865,6 +1052,285 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
     }
   };
 
+  const renderRemindersTab = () => {
+    const formatDateTime = (dateStr: string) => {
+      try {
+        const d = new Date(dateStr);
+        return d.toLocaleString('id-ID', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      } catch (err) {
+        return dateStr;
+      }
+    };
+
+    const handleSubmitReminder = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!reminderTitle.trim() || !reminderDate || !reminderTime) {
+        alert('Judul, tanggal, dan waktu pengingat wajib diisi!');
+        return;
+      }
+
+      // Combine date and time
+      const dateTimeStr = `${reminderDate}T${reminderTime}`;
+
+      const success = await handleCreateReminder(
+        reminderTitle,
+        reminderDescription,
+        dateTimeStr,
+        opt1Day,
+        opt1Hour,
+        optExact
+      );
+
+      if (success) {
+        setReminderTitle('');
+        setReminderDescription('');
+        setReminderDate('');
+        setReminderTime('');
+        setOpt1Day(true);
+        setOpt1Hour(true);
+        setOptExact(true);
+        alert('Pengingat berhasil dibuat!');
+      } else {
+        alert('Gagal membuat pengingat.');
+      }
+    };
+
+    return (
+      <div className={styles.remindersDashboard}>
+        <div className={styles.remindersHeader}>
+          <div>
+            <h2>⏰ Pengingat & Alarm AI</h2>
+            <p className={styles.remindersSub}>Atur pengingat suara Anda melalui Asisten AI atau buat secara manual di bawah.</p>
+          </div>
+          
+          <div className={styles.pushPermissionWidget}>
+            {pushPermissionStatus === 'granted' && isPushSubscribed ? (
+              <span className={`${styles.statusBadge} ${styles.statusActive}`}>
+                🔔 Push Notifikasi Aktif
+              </span>
+            ) : (
+              <div className={styles.permissionActionArea}>
+                <span className={`${styles.statusBadge} ${styles.statusInactive}`}>
+                  🔕 Notifikasi Belum Aktif
+                </span>
+                <button 
+                  type="button" 
+                  onClick={handleSubscribePush}
+                  className={styles.activatePushBtn}
+                >
+                  Aktifkan Push Notifikasi
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className={styles.remindersContentGrid}>
+          <div className={`${styles.reminderFormCard} glass-panel`}>
+            <h3>Buat Pengingat Baru</h3>
+            <form onSubmit={handleSubmitReminder} className={styles.reminderForm}>
+              <div className={styles.formGroup}>
+                <label htmlFor="reminder-title">Judul Pengingat</label>
+                <input
+                  id="reminder-title"
+                  type="text"
+                  placeholder="Contoh: Rapat Evaluasi Proyek"
+                  value={reminderTitle}
+                  onChange={(e) => setReminderTitle(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label htmlFor="reminder-desc">Keterangan (Opsional)</label>
+                <textarea
+                  id="reminder-desc"
+                  placeholder="Tambahkan detail pengingat di sini..."
+                  value={reminderDescription}
+                  onChange={(e) => setReminderDescription(e.target.value)}
+                  rows={3}
+                />
+              </div>
+
+              {/* Date and Time split inputs */}
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label htmlFor="reminder-date">📅 Tanggal Pelaksanaan</label>
+                  <input
+                    id="reminder-date"
+                    type="date"
+                    value={reminderDate}
+                    onChange={(e) => setReminderDate(e.target.value)}
+                    onClick={(e) => {
+                      try {
+                        e.currentTarget.showPicker();
+                      } catch (err) {}
+                    }}
+                    onFocus={(e) => {
+                      try {
+                        e.currentTarget.showPicker();
+                      } catch (err) {}
+                    }}
+                    required
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="reminder-time">⏰ Jam Pelaksanaan</label>
+                  <input
+                    id="reminder-time"
+                    type="time"
+                    value={reminderTime}
+                    onChange={(e) => setReminderTime(e.target.value)}
+                    onClick={(e) => {
+                      try {
+                        e.currentTarget.showPicker();
+                      } catch (err) {}
+                    }}
+                    onFocus={(e) => {
+                      try {
+                        e.currentTarget.showPicker();
+                      } catch (err) {}
+                    }}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Toggle switch controls */}
+              <div className={styles.formGroup}>
+                <label style={{ marginBottom: '8px', display: 'block' }}>Pemberitahuan Alarm</label>
+                <div className={styles.togglesList}>
+                  <div className={styles.toggleItem}>
+                    <span>H-1 Hari Sebelum Acara</span>
+                    <label className={styles.switch}>
+                      <input
+                        type="checkbox"
+                        checked={opt1Day}
+                        onChange={(e) => setOpt1Day(e.target.checked)}
+                      />
+                      <span className={styles.slider}></span>
+                    </label>
+                  </div>
+
+                  <div className={styles.toggleItem}>
+                    <span>H-60 Menit Sebelum Acara</span>
+                    <label className={styles.switch}>
+                      <input
+                        type="checkbox"
+                        checked={opt1Hour}
+                        onChange={(e) => setOpt1Hour(e.target.checked)}
+                      />
+                      <span className={styles.slider}></span>
+                    </label>
+                  </div>
+
+                  <div className={styles.toggleItem}>
+                    <span>Tepat Waktu (D-Day)</span>
+                    <label className={styles.switch}>
+                      <input
+                        type="checkbox"
+                        checked={optExact}
+                        onChange={(e) => setOptExact(e.target.checked)}
+                      />
+                      <span className={styles.slider}></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <GlowButton type="submit" variant="primary" style={{ width: '100%', marginTop: '8px' }}>
+                🔔 Simpan Pengingat
+              </GlowButton>
+            </form>
+          </div>
+
+          <div className={styles.reminderListArea}>
+            <h3>Daftar Pengingat Terjadwal</h3>
+            {reminders.length === 0 ? (
+              <div className={`${styles.emptyReminders} glass-panel`}>
+                <Clock size={48} className={styles.emptyIcon} />
+                <p>Belum ada pengingat terjadwal.</p>
+                <p className={styles.emptyHint}>Katakan "Ingatkan saya [tugas] besok jam 8 pagi" pada AI Voice Assistant untuk membuat pengingat secara otomatis!</p>
+              </div>
+            ) : (
+              <div className={styles.remindersScrollContainer}>
+                {reminders.map((reminder) => {
+                  const isPast = new Date(reminder.dateTime).getTime() < Date.now();
+                  return (
+                    <div key={reminder.id} className={`${styles.reminderCard} glass-panel ${isPast ? styles.pastReminder : ''}`}>
+                      <div className={reminder.notifyExact && !reminder.sentExact && !isPast ? styles.alarmGlowWrapper : undefined}>
+                        <div className={styles.reminderCardHeader}>
+                          <div>
+                            <h4>{reminder.title}</h4>
+                            {reminder.description && <p className={styles.reminderCardDesc}>{reminder.description}</p>}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteReminder(reminder.id)}
+                            className={styles.deleteReminderBtn}
+                            title="Hapus Pengingat"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+
+                        <div className={styles.reminderCardTime}>
+                          <Clock size={14} />
+                          <span>{formatDateTime(reminder.dateTime)}</span>
+                          {isPast && <span className={styles.pastLabel}>Selesai</span>}
+                        </div>
+
+                        <div className={styles.reminderStages}>
+                          {reminder.notify1Day ? (
+                            <span className={`${styles.stageBadge} ${reminder.sent1Day ? styles.stageSent : styles.stagePending}`}>
+                              {reminder.sent1Day ? '✓ 1 Hari' : '⏳ 1 Hari'}
+                            </span>
+                          ) : (
+                            <span className={`${styles.stageBadge} ${styles.stageDisabled}`}>
+                              ✖ 1 Hari (Nonaktif)
+                            </span>
+                          )}
+
+                          {reminder.notify1Hour ? (
+                            <span className={`${styles.stageBadge} ${reminder.sent1Hour ? styles.stageSent : styles.stagePending}`}>
+                              {reminder.sent1Hour ? '✓ 1 Jam' : '⏳ 1 Jam'}
+                            </span>
+                          ) : (
+                            <span className={`${styles.stageBadge} ${styles.stageDisabled}`}>
+                              ✖ 1 Jam (Nonaktif)
+                            </span>
+                          )}
+
+                          {reminder.notifyExact ? (
+                            <span className={`${styles.stageBadge} ${reminder.sentExact ? styles.stageSent : styles.stagePending}`}>
+                              {reminder.sentExact ? '✓ Tepat Waktu' : '⏳ Tepat Waktu'}
+                            </span>
+                          ) : (
+                            <span className={`${styles.stageBadge} ${styles.stageDisabled}`}>
+                              ✖ Tepat Waktu (Nonaktif)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (isMobile) {
     return (
       <div className={styles.mobileLayout}>
@@ -1224,6 +1690,12 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             </div>
           )}
 
+          {activeTab === 'reminders' && (
+            <div className={styles.mobileNewsContainer}>
+              {renderRemindersTab()}
+            </div>
+          )}
+
           {activeTab === 'whatsapp' && (
             <div className={styles.mobileNewsContainer}>
               <WhatsappChat />
@@ -1256,6 +1728,13 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           >
             <Newspaper size={20} />
             <span>Berita</span>
+          </button>
+          <button
+            className={`${styles.bottomNavItem} ${activeTab === 'reminders' ? styles.activeBottomNavItem : ''}`}
+            onClick={() => setActiveTab('reminders')}
+          >
+            <Bell size={20} />
+            <span>Pengingat</span>
           </button>
           <button
             className={`${styles.bottomNavItem} ${activeTab === 'whatsapp' ? styles.activeBottomNavItem : ''}`}
@@ -1473,6 +1952,13 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           >
             <Newspaper size={18} />
             Berita Terkini
+          </button>
+          <button
+            className={`${styles.navItem} ${activeTab === 'reminders' ? styles.activeNavItem : ''}`}
+            onClick={() => setActiveTab('reminders')}
+          >
+            <Bell size={18} />
+            Pengingat & Alarm
           </button>
           <button
             className={`${styles.navItem} ${activeTab === 'whatsapp' ? styles.activeNavItem : ''}`}
@@ -1897,6 +2383,10 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
       ) : activeTab === 'news' ? (
         <div className={styles.fullWidthNewsArea}>
           <NewsSection onCreateNoteFromNews={handleCreateNoteFromNews} />
+        </div>
+      ) : activeTab === 'reminders' ? (
+        <div className={styles.fullWidthNewsArea}>
+          {renderRemindersTab()}
         </div>
       ) : (
         <div className={styles.fullWidthNewsArea}>

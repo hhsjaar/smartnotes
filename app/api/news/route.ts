@@ -16,40 +16,44 @@ interface FeedConfig {
 
 const CATEGORY_FEEDS: Record<string, FeedConfig[]> = {
   'Semua': [
-    { url: 'https://www.antaranews.com/rss/terkini.xml', source: 'Antara News' },
-    { url: 'https://www.cnbcindonesia.com/rss', source: 'CNBC Indonesia' },
+    { url: 'https://www.antaranews.com/rss/terpopuler.xml', source: 'Antara News (Populer)' },
+    { url: 'https://www.cnnindonesia.com/nasional/rss', source: 'CNN Indonesia' },
     { url: 'https://news.detik.com/rss', source: 'Detikcom' },
+    { url: 'https://www.cnbcindonesia.com/rss', source: 'CNBC Indonesia' },
     { url: 'https://rss.tempo.co/nasional', source: 'Tempo.co' }
   ],
   'Teknologi': [
+    { url: 'https://www.cnnindonesia.com/teknologi/rss', source: 'CNN Indonesia' },
+    { url: 'https://inet.detik.com/rss', source: 'Detikcom' },
     { url: 'https://www.cnbcindonesia.com/tech/rss', source: 'CNBC Indonesia' },
-    { url: 'https://www.antaranews.com/rss/tekno.xml', source: 'Antara News' },
-    { url: 'https://rss.tempo.co/tekno', source: 'Tempo.co' }
+    { url: 'https://www.antaranews.com/rss/tekno.xml', source: 'Antara News' }
   ],
   'Bisnis': [
+    { url: 'https://www.cnnindonesia.com/ekonomi/rss', source: 'CNN Indonesia' },
+    { url: 'https://finance.detik.com/rss', source: 'Detikcom' },
     { url: 'https://www.cnbcindonesia.com/market/rss', source: 'CNBC Indonesia' },
-    { url: 'https://www.antaranews.com/rss/ekonomi.xml', source: 'Antara News' },
-    { url: 'https://rss.tempo.co/bisnis', source: 'Tempo.co' }
+    { url: 'https://www.antaranews.com/rss/ekonomi.xml', source: 'Antara News' }
   ],
   'Politik': [
+    { url: 'https://www.cnnindonesia.com/nasional/rss', source: 'CNN Indonesia' },
     { url: 'https://www.antaranews.com/rss/politik.xml', source: 'Antara News' },
     { url: 'https://news.detik.com/rss', source: 'Detikcom' },
     { url: 'https://rss.tempo.co/nasional', source: 'Tempo.co' }
   ],
   'Kesehatan': [
-    { url: 'https://www.antaranews.com/rss/lifestyle.xml', source: 'Antara News' },
+    { url: 'https://www.cnnindonesia.com/gaya-hidup/rss', source: 'CNN Indonesia' },
     { url: 'https://www.cnbcindonesia.com/lifestyle/rss', source: 'CNBC Indonesia' },
-    { url: 'https://rss.tempo.co/gaya-hidup', source: 'Tempo.co' }
+    { url: 'https://www.antaranews.com/rss/lifestyle.xml', source: 'Antara News' }
   ],
   'Hiburan': [
-    { url: 'https://www.antaranews.com/rss/hiburan.xml', source: 'Antara News' },
-    { url: 'https://www.cnbcindonesia.com/lifestyle/rss', source: 'CNBC Indonesia' },
-    { url: 'https://rss.tempo.co/seleb', source: 'Tempo.co' }
+    { url: 'https://www.cnnindonesia.com/hiburan/rss', source: 'CNN Indonesia' },
+    { url: 'https://hot.detik.com/rss', source: 'Detikcom' },
+    { url: 'https://www.antaranews.com/rss/hiburan.xml', source: 'Antara News' }
   ],
   'Olahraga': [
-    { url: 'https://www.antaranews.com/rss/olahraga.xml', source: 'Antara News' },
-    { url: 'https://rss.tempo.co/olahraga', source: 'Tempo.co' },
-    { url: 'https://rss.tempo.co/bola', source: 'Tempo.co' }
+    { url: 'https://www.cnnindonesia.com/olahraga/rss', source: 'CNN Indonesia' },
+    { url: 'https://sport.detik.com/rss', source: 'Detikcom' },
+    { url: 'https://www.antaranews.com/rss/olahraga.xml', source: 'Antara News' }
   ],
 };
 
@@ -190,9 +194,15 @@ export async function GET(request: Request) {
             source: item.source
           }));
 
-          const prompt = `Anda adalah editor berita senior di Indonesia. Tugas Anda adalah menyusun daftar berita paling viral, paling hangat diperbincangkan (hype), dan paling penting bagi masyarakat Indonesia dalam 24 jam terakhir.
+          const prompt = `Anda adalah editor berita senior di Indonesia. Tugas Anda adalah menyusun daftar berita paling hangat diperbincangkan (viral/trending) dan memiliki urgensi strategis nasional bagi masyarakat Indonesia dalam 24 jam terakhir.
           
-Dari daftar berita berikut, pilihlah tepat 30 berita yang memiliki potensi viralitas, tren, atau dampak tertinggi:
+Aturan pemilihan berita:
+1. PRIORITASKAN Isu Strategis Nasional: Kebijakan pemerintah pusat, perkembangan ekonomi makro (rupiah, inflasi, anggaran), politik nasional, mega-proyek nasional, hubungan diplomatik, isu keamanan nasional, atau tren industri teknologi berskala besar.
+2. PRIORITASKAN Berita Populer Nasional: Kejadian besar yang banyak diketahui dan dibicarakan oleh masyarakat Indonesia dari media massa utama.
+3. HINDARI Berita Trivial/Skala Kecil: Filter dan buang berita sepele skala lokal (seperti jadwal SIM Keliling di kota tertentu, kecelakaan lalu lintas minor daerah, berita kriminalitas lokal kecil, lowongan kerja instansi daerah kecil, event kelurahan, atau cuaca harian daerah).
+4. HINDARI Gosip/Selebriti Minor: Jangan pilih berita gosip artis kecuali peristiwa tersebut sangat viral dan menjadi perbincangan publik nasional secara luas.
+
+Dari daftar berita berikut, pilihlah tepat 30 berita terbaik yang memenuhi kriteria di atas:
 ${JSON.stringify(simplifiedList, null, 2)}
 
 Kembalikan hasil pilihan Anda HANYA berupa array JSON yang berisi ID/indeks dari berita yang terpilih (berjumlah tepat 30 berita), sebagai contoh: [0, 3, 5, 12, 19, ...].
