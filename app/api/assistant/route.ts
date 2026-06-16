@@ -24,7 +24,8 @@ export async function POST(request: Request) {
     });
 
     const currentDateTime = new Date();
-    const currentDateTimeStr = currentDateTime.toLocaleDateString('id-ID', {
+    const currentDateTimeStr = currentDateTime.toLocaleString('id-ID', {
+      timeZone: 'Asia/Jakarta',
       weekday: 'long',
       day: 'numeric',
       month: 'long',

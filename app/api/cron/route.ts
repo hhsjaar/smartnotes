@@ -133,7 +133,7 @@ async function processReminders(now: Date) {
 
       if (reminder.notify1Day && diffMs <= 24 * 60 * 60 * 1000 && diffMs > 1 * 60 * 60 * 1000 && !reminder.sent1Day) {
         sendNotify = true;
-        notifyBody = `Besok: ${reminder.title} (${new Date(reminder.dateTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })})`;
+        notifyBody = `Besok: ${reminder.title} (${new Date(reminder.dateTime).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' })})`;
         updatedFields.sent1Day = true;
       }
       else if (reminder.notify1Hour && diffMs <= 1 * 60 * 60 * 1000 && diffMs > 0 && !reminder.sent1Hour) {

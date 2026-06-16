@@ -23,6 +23,7 @@ export async function POST(request: Request) {
 
     let prompt = '';
     const currentDateTimeStr = new Date().toLocaleDateString('id-ID', {
+      timeZone: 'Asia/Jakarta',
       weekday: 'long',
       day: 'numeric',
       month: 'long',

@@ -1076,8 +1076,17 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
         return;
       }
 
-      // Combine date and time
-      const dateTimeStr = `${reminderDate}T${reminderTime}`;
+      // Parse date and time components locally to ensure timezone offset is included
+      const [year, month, day] = reminderDate.split('-').map(Number);
+      const [hour, minute] = reminderTime.split(':').map(Number);
+      const localDateTime = new Date(year, month - 1, day, hour, minute);
+
+      if (isNaN(localDateTime.getTime())) {
+        alert('Format tanggal atau waktu tidak valid!');
+        return;
+      }
+
+      const dateTimeStr = localDateTime.toISOString();
 
       const success = await handleCreateReminder(
         reminderTitle,

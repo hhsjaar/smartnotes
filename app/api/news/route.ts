@@ -265,7 +265,8 @@ PENTING: Jangan sertakan teks penjelasan lainnya atau tag markdown seperti \`\`\
       } else if (diffHr < 24) {
         time = `${diffHr} jam yang lalu`;
       } else {
-        time = d.toLocaleDateString('id-ID', {
+        time = d.toLocaleString('id-ID', {
+          timeZone: 'Asia/Jakarta',
           day: 'numeric',
           month: 'short',
           hour: '2-digit',
