@@ -9,6 +9,38 @@ const SpeechRecognition = typeof window !== 'undefined'
   ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) 
   : null;
 
+function mergeTranscripts(accumulated: string, current: string): string {
+  const accClean = accumulated.trim();
+  const currClean = current.trim();
+  
+  if (!accClean) return currClean;
+  if (!currClean) return accClean;
+
+  const accWords = accClean.split(/\s+/);
+  const currWords = currClean.split(/\s+/);
+
+  const maxOverlap = Math.min(accWords.length, currWords.length);
+  let overlapLength = 0;
+
+  for (let len = 1; len <= maxOverlap; len++) {
+    let match = true;
+    for (let i = 0; i < len; i++) {
+      const accWord = accWords[accWords.length - len + i].toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"");
+      const currWord = currWords[i].toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"");
+      if (accWord !== currWord) {
+        match = false;
+        break;
+      }
+    }
+    if (match) {
+      overlapLength = len;
+    }
+  }
+
+  const uniqueCurrWords = currWords.slice(overlapLength);
+  return (accClean + ' ' + uniqueCurrWords.join(' ')).trim();
+}
+
 interface ChatMessage {
   role: 'user' | 'model';
   text: string;
@@ -225,19 +257,19 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
         };
         
         rec.onresult = (event: any) => {
-          let completeTranscript = '';
-          let lastTextClean = '';
+          let interimTranscript = '';
+          let finalTranscript = '';
+
           for (let i = 0; i < event.results.length; ++i) {
-            const part = event.results[i][0].transcript;
-            const partClean = part.trim().toLowerCase();
-            // Workaround for Chrome Android bug that duplicates/re-emits whole phrases across result indices
-            if (partClean && partClean !== lastTextClean) {
-              completeTranscript += part.trim() + ' ';
-              lastTextClean = partClean;
+            if (event.results[i].isFinal) {
+              const text = event.results[i][0].transcript.trim();
+              finalTranscript = mergeTranscripts(finalTranscript, text);
+            } else {
+              interimTranscript += event.results[i][0].transcript;
             }
           }
           
-          const currentText = completeTranscript.trim();
+          const currentText = (finalTranscript + ' ' + interimTranscript).trim();
           setTranscript(currentText);
 
           // Reset the silence debounce timer
