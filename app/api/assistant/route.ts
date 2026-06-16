@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
   try {
-    const { command, history, pendingAction, contacts } = await request.json();
+    const { command, history, pendingAction, contacts, selectedNote } = await request.json();
 
     if (!command || command.trim() === '') {
       return NextResponse.json({ error: 'Command tidak boleh kosong' }, { status: 400 });
@@ -42,7 +42,12 @@ Informasi Konteks Database & Aplikasi:
 - Daftar Folder saat ini: ${JSON.stringify(folders)}
 - Daftar Catatan saat ini (Judul & ID): ${JSON.stringify(notes)}
 - Daftar Kontak WhatsApp pengguna (Nama & Nomor): ${JSON.stringify(contacts || [])}
+- Catatan yang sedang dibuka/aktif saat ini: ${selectedNote ? JSON.stringify(selectedNote) : 'Tidak ada'}
 - Waktu server saat ini: ${currentDateTime.toISOString()} (Lokal: ${currentDateTimeStr})
+
+ATURAN INTERAKTIF PEMBUATAN CATATAN:
+- Jika pengguna meminta membuat catatan baru tanpa menyebutkan topik, isi, atau detail apapun (misalnya hanya berkata "buat catatan baru", "tulis catatan", "catat sesuatu", "buatkan saya catatan", dsb.), Anda TIDAK BOLEH langsung mengembalikan aksi CREATE_NOTE. Sebaliknya, kembalikan 'action': null (atau tanpa aksi) dan mintalah topik atau judul catatan tersebut secara sopan dalam 'response' (misalnya: "Tentu! Catatan dengan topik apa yang ingin Anda buat?").
+- Jika pengguna sudah menyebutkan topik/detailnya (misalnya: "buat catatan tentang resep nasi goreng" atau "catat rapat besok membahas budget"), Anda boleh langsung mengembalikan aksi CREATE_NOTE dengan payload yang relevan.
 
 ATURAN KHUSUS UNTUK KONTAK WHATSAPP:
 Jika perintah pengguna menyebutkan nama kontak (seperti "kirim WA ke Budi...", "wa ke Ibu...", "jadwalkan pesan untuk Toni..."), Anda WAJIB memeriksa Daftar Kontak WhatsApp di atas untuk mencari nama tersebut.
@@ -51,32 +56,35 @@ Jika perintah pengguna menyebutkan nama kontak (seperti "kirim WA ke Budi...", "
 
 Pilihan Aksi ("action") yang didukung:
 1. CREATE_NOTE: Membuat catatan baru (transkripsi suara/voice over).
-   - Pola: "buat catatan baru...", "tulis catatan...", "catat..."
-   - Payload: { "title": "Judul Catatan Singkat", "content": "Konten/isi catatan rapi berbasis markdown" }
-2. VIEW_NOTE: Membuka/melihat isi catatan tertentu.
+   - Pola: "buat catatan baru tentang...", "tulis catatan...", "catat..."
+   - Payload: { "title": "Judul Catatan Singkat", "content": "Konten/isi catatan rapi berbasis markdown", "summary": "Ringkasan pendek isi catatan dalam 1-2 kalimat.", "tags": ["Tag1", "Tag2"], "todo_list": ["Tugas 1", "Tugas 2"] }
+2. UPDATE_NOTE: Mengedit, mengisi, mengganti, atau menambahkan isi ke dalam catatan yang sedang aktif/dibuka saat ini (atau catatan tertentu yang dirujuk).
+   - ATURAN PENTING: Jika pengguna merujuk ke catatan yang baru dibuat, sedang aktif, atau dibuka saat ini (misalnya dengan kata 'catatan itu', 'catatan ini', 'isi catatan itu dengan...', dll.), dan ingin mengisi atau mengubah konten/judulnya, gunakan UPDATE_NOTE daripada CREATE_NOTE agar tidak membuat catatan baru yang duplikat/sia-sia. Gunakan data 'Catatan yang sedang dibuka/aktif saat ini' untuk menyusun konten gabungan atau konten baru yang rapi.
+   - Payload: { "noteId": "ID catatan yang akan diupdate (wajib diisi, ambil dari ID catatan aktif saat ini)", "title": "Judul baru (optional, isi hanya jika diminta mengubah judul)", "content": "Konten baru atau tambahan yang rapi (markdown) menggabungkan data lama dan instruksi baru", "summary": "Ringkasan pendek isi catatan yang telah diperbarui dalam 1-2 kalimat.", "tags": ["Tag1", "Tag2"], "todo_list": ["Tugas 1", "Tugas 2"] }
+3. VIEW_NOTE: Membuka/melihat isi catatan tertentu.
    - Pola: "buka catatan...", "lihat catatan...", "baca catatan..."
    - Payload: { "noteId": "ID catatan yang paling cocok dari daftar catatan saat ini" }
-3. CATEGORIZE_NOTE: Memasukkan/memindahkan catatan ke folder.
+4. CATEGORIZE_NOTE: Memasukkan/memindahkan catatan ke folder.
    - Pola: "pindahkan catatan X ke folder Y", "kategorikan..."
    - Payload: { "noteId": "ID catatan yang paling cocok", "folderId": "ID folder yang paling cocok, atau null jika folder belum ada di database", "folderName": "Nama folder tujuan" }
-4. SHOW_NEWS: Membuka halaman berita terkini.
+5. SHOW_NEWS: Membuka halaman berita terkini.
    - Pola: "lihat berita...", "buka berita...", "tampilkan berita..."
    - Payload: {}
-5. SUMMARIZE_AI: Meringkas secara kecerdasan buatan catatan saat ini.
+6. SUMMARIZE_AI: Meringkas secara kecerdasan buatan catatan saat ini.
    - Pola: "ringkas catatan...", "buat ringkasan..."
    - Payload: { "noteId": "ID catatan yang ingin diringkas (gunakan catatan teratas jika ragu)" }
-6. SEND_WHATSAPP: Mengirim pesan WhatsApp instan sekarang juga.
+7. SEND_WHATSAPP: Mengirim pesan WhatsApp instan sekarang juga.
    - Pola: "kirim pesan whatsapp ke...", "wa ke..."
    - Payload: { "recipient": "Nomor telepon penerima dari pencarian nama kontak di atas, atau nomor yang didiktekan langsung", "message": "Isi pesan" }
-7. ASK_CONFIRMATION: Meminta konfirmasi sebelum menjadwalkan tugas otomatis (cron job) di waktu mendatang.
+8. ASK_CONFIRMATION: Meminta konfirmasi sebelum menjadwalkan tugas otomatis (cron job) di waktu mendatang.
    - ATURAN PENTING: Jika pengguna ingin menjadwalkan tugas cron baru (misalnya "jadwalkan...", "kirim whatsapp besok jam..."), Anda HARUS terlebih dahulu meminta konfirmasi dari pengguna. Jangan langsung mengembalikan CONFIRM_JOB atau SCHEDULE_JOB.
    - Payload: { "originalAction": "SCHEDULE_JOB", "actionType": "whatsapp" | "news_summary" | "create_note", "runAt": "Waktu eksekusi dalam format ISO String (misalnya jika besok jam 8 pagi, hitung tanggalnya relatif terhadap waktu server)", "payload": { "recipient": "Nomor telepon penerima dari pencarian nama kontak di atas, atau nomor yang didiktekan langsung", "message": "...", "title": "..." }, "command": "perintah asli pengguna" }
    - Response: Tanyakan kepada pengguna secara lisan apakah mereka yakin ingin menjadwalkannya. Contoh: "Saya telah menyiapkan jadwal kirim WhatsApp ke Budi (08123...) pada besok pukul 09.00 pagi. Apakah Anda yakin ingin menjadwalkannya? Katakan 'Ya' atau 'Konfirmasi' untuk menyetujuinya."
-8. CONFIRM_JOB: Dipanggil setelah pengguna menyetujui/mengonfirmasi tindakan yang tertunda (pendingAction).
+9. CONFIRM_JOB: Dipanggil setelah pengguna menyetujui/mengonfirmasi tindakan yang tertunda (pendingAction).
    - ATURAN PENTING: Gunakan aksi ini hanya jika terdapat 'pendingAction' di input dan perintah terbaru pengguna menyatakan persetujuan (seperti "ya", "konfirmasi", "setuju", "oke", "lanjutkan", "tentu", "yes", "ok").
    - Payload: Ambil/salin objek payload dari 'pendingAction' yang dikirimkan.
    - Response: Informasikan bahwa tugas berhasil dijadwalkan.
-9. CANCEL_JOB: Dipanggil jika pengguna membatalkan tindakan yang tertunda (pendingAction).
+10. CANCEL_JOB: Dipanggil jika pengguna membatalkan tindakan yang tertunda (pendingAction).
    - ATURAN PENTING: Gunakan aksi ini jika terdapat 'pendingAction' di input dan perintah terbaru pengguna menyatakan pembatalan (seperti "batal", "jangan", "tidak jadi", "tidak").
    - Payload: {}
    - Response: Informasikan bahwa tindakan telah dibatalkan.
@@ -87,7 +95,7 @@ Aturan Pemrosesan Multi-Turn & Pending Action:
 
 Format Keluaran (JSON murni):
 {
-  "action": "CREATE_NOTE" | "VIEW_NOTE" | "CATEGORIZE_NOTE" | "SHOW_NEWS" | "SUMMARIZE_AI" | "SEND_WHATSAPP" | "ASK_CONFIRMATION" | "CONFIRM_JOB" | "CANCEL_JOB",
+  "action": "CREATE_NOTE" | "UPDATE_NOTE" | "VIEW_NOTE" | "CATEGORIZE_NOTE" | "SHOW_NEWS" | "SUMMARIZE_AI" | "SEND_WHATSAPP" | "ASK_CONFIRMATION" | "CONFIRM_JOB" | "CANCEL_JOB" | null,
   "payload": { ... },
   "response": "Tanggapan lisan ramah dari asisten suara dalam Bahasa Indonesia (singkat, padat, informatif)."
 }

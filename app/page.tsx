@@ -351,15 +351,20 @@ export default function Home() {
       } else if (action === 'CREATE_NOTE') {
         // Automatically create note from Assistant payload
         try {
+          const parsedTodos = payload.todo_list ? payload.todo_list.map((task: string) => ({
+            text: task,
+            completed: false,
+          })) : [];
+
           const res = await fetch('/api/notes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               title: payload.title || 'Catatan Baru',
               content: payload.content || '',
-              summary: 'Dibuat melalui Asisten Suara.',
-              tags: ['Asisten Suara', 'AI'],
-              todo_list: []
+              summary: payload.summary || 'Dibuat melalui Asisten Suara.',
+              tags: payload.tags || ['Asisten Suara', 'AI'],
+              todo_list: parsedTodos
             })
           });
           if (res.ok) {
@@ -374,6 +379,40 @@ export default function Home() {
           }
         } catch (err) {
           console.error('Failed to create note via assistant:', err);
+        }
+      } else if (action === 'UPDATE_NOTE') {
+        if (payload.noteId) {
+          try {
+            const parsedTodos = payload.todo_list ? payload.todo_list.map((task: string) => ({
+              text: task,
+              completed: false,
+            })) : undefined;
+
+            const res = await fetch('/api/notes', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: payload.noteId,
+                title: payload.title,
+                content: payload.content,
+                summary: payload.summary,
+                tags: payload.tags,
+                todo_list: parsedTodos
+              })
+            });
+            if (res.ok) {
+              const data = await res.json();
+              setNotes(prev => prev.map(n => n.id === data.id ? data : n));
+              setSelectedNote(data);
+              setActiveTab('notes');
+              setWorkspaceView('editor');
+              if (window.innerWidth <= 768) {
+                setMobileView('editor');
+              }
+            }
+          } catch (err) {
+            console.error('Failed to update note via assistant:', err);
+          }
         }
       } else if (action === 'VIEW_NOTE') {
         // Open the matched note
@@ -1321,7 +1360,65 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             </div>
           </div>
         )}
-        <VoiceAssistant />
+        <VoiceAssistant selectedNote={selectedNote} />
+
+        {confirmDialog.isOpen && (
+          <div className={styles.confirmOverlay} onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}>
+            <div className={styles.confirmBox} onClick={(e) => e.stopPropagation()}>
+              <h3 className={styles.confirmTitle}>{confirmDialog.title}</h3>
+              <p className={styles.confirmMessage}>{confirmDialog.message}</p>
+              <div className={styles.confirmActions}>
+                <button 
+                  type="button" 
+                  className={styles.confirmCancelBtn}
+                  onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+                >
+                  Batal
+                </button>
+                <button 
+                  type="button" 
+                  className={styles.confirmConfirmBtn}
+                  onClick={() => {
+                    confirmDialog.onConfirm();
+                    setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                  }}
+                >
+                  Hapus
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {saveResultNotification && (
+          <div className={styles.notificationToast}>
+            <div className={styles.notificationHeader}>
+              <div className={styles.notificationTitle}>
+                <Sparkles size={16} style={{ color: 'var(--secondary)', marginRight: '8px' }} />
+                Catatan Pintar Berhasil Dibuat
+              </div>
+              <button 
+                className={styles.notificationCloseBtn}
+                onClick={() => setSaveResultNotification(null)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className={styles.notificationBody}>
+              <p className={styles.notificationSubtitle}>
+                Catatan hasil rekaman Anda telah dianalisis dan dikelompokkan ke folder yang sesuai:
+              </p>
+              <div className={styles.notificationList}>
+                {saveResultNotification.notes.map((n, idx) => (
+                  <div key={idx} className={styles.notificationItem}>
+                    <span className={styles.notificationNoteTitle} title={n.title}>📝 {n.title}</span>
+                    <span className={styles.notificationFolderBadge}>📁 {n.folderName}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1901,7 +1998,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           </div>
         </div>
       )}
-      <VoiceAssistant />
+      <VoiceAssistant selectedNote={selectedNote} />
 
       {confirmDialog.isOpen && (
         <div className={styles.confirmOverlay} onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}>

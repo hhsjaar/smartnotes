@@ -14,7 +14,11 @@ interface ChatMessage {
   text: string;
 }
 
-export const VoiceAssistant: React.FC = () => {
+interface VoiceAssistantProps {
+  selectedNote?: any;
+}
+
+export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) => {
   const [recognition, setRecognition] = useState<any>(null);
   const [isSupported, setIsSupported] = useState(false);
   const [status, setStatus] = useState<'idle' | 'listening' | 'processing' | 'speaking' | 'error'>('idle');
@@ -42,6 +46,8 @@ export const VoiceAssistant: React.FC = () => {
   const showPanelRef = useRef(showPanel);
   const contactsRef = useRef<any[]>([]);
   const transcriptRef = useRef(transcript);
+  const selectedNoteRef = useRef<any>(selectedNote);
+  const isProcessingRef = useRef(false);
 
   useEffect(() => {
     chatHistoryRef.current = chatHistory;
@@ -62,6 +68,10 @@ export const VoiceAssistant: React.FC = () => {
   useEffect(() => {
     transcriptRef.current = transcript;
   }, [transcript]);
+
+  useEffect(() => {
+    selectedNoteRef.current = selectedNote;
+  }, [selectedNote]);
 
   // Load contacts whenever panel opens
   useEffect(() => {
@@ -86,6 +96,8 @@ export const VoiceAssistant: React.FC = () => {
 
   // Core function to process commands via the Gemini API
   const processCommand = async (commandText: string) => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
     setStatus('processing');
     setErrorMsg('');
 
@@ -102,7 +114,8 @@ export const VoiceAssistant: React.FC = () => {
           command: commandText,
           history: chatHistoryRef.current,
           pendingAction: pendingActionRef.current,
-          contacts: contactsRef.current
+          contacts: contactsRef.current,
+          selectedNote: selectedNoteRef.current
         }),
       });
       
@@ -119,38 +132,50 @@ export const VoiceAssistant: React.FC = () => {
       setChatHistory(prev => [...prev, modelMsg]);
       
       // 3. Process actions
+      let isTerminal = false;
       if (data.action === 'ASK_CONFIRMATION') {
         setPendingAction(data.payload);
-      } else if (data.action === 'CONFIRM_JOB') {
-        setPendingAction(null);
-        window.dispatchEvent(new CustomEvent('assistant-action', {
-          detail: {
-            action: 'SCHEDULE_JOB',
-            payload: data.payload,
-            response: data.response
-          }
-        }));
-      } else if (data.action === 'CANCEL_JOB') {
-        setPendingAction(null);
+      } else if (data.action === null) {
+        // Interactive conversation, do not close and do not dispatch action
       } else {
-        setPendingAction(null);
-        window.dispatchEvent(new CustomEvent('assistant-action', {
-          detail: {
-            action: data.action,
-            payload: data.payload,
-            response: data.response
-          }
-        }));
+        isTerminal = true;
+        if (data.action === 'CONFIRM_JOB') {
+          setPendingAction(null);
+          window.dispatchEvent(new CustomEvent('assistant-action', {
+            detail: {
+              action: 'SCHEDULE_JOB',
+              payload: data.payload,
+              response: data.response
+            }
+          }));
+        } else if (data.action === 'CANCEL_JOB') {
+          setPendingAction(null);
+        } else {
+          setPendingAction(null);
+          window.dispatchEvent(new CustomEvent('assistant-action', {
+            detail: {
+              action: data.action,
+              payload: data.payload,
+              response: data.response
+            }
+          }));
+        }
       }
       
       // Speak back the response
       speak(data.response);
+
+      if (isTerminal) {
+        autoClosePanel();
+      }
     } catch (err: any) {
       console.error('Assistant process failed', err);
       const errMsg = err.message || 'Gagal memproses perintah suara Anda.';
       setErrorMsg(errMsg);
       setStatus('error');
       setChatHistory(prev => [...prev, { role: 'model', text: `Terjadi kesalahan: ${errMsg}` }]);
+    } finally {
+      isProcessingRef.current = false;
     }
   };
 
@@ -161,12 +186,13 @@ export const VoiceAssistant: React.FC = () => {
 
   // Check speech support and initialize speech recognition
   useEffect(() => {
+    let rec: any = null;
     if (typeof window !== 'undefined') {
       setIsSupported(!!SpeechRecognition);
       synthRef.current = window.speechSynthesis;
       
       if (SpeechRecognition) {
-        const rec = new SpeechRecognition();
+        rec = new SpeechRecognition();
         rec.continuous = true;       // Allow pauses without immediate browser cutoff
         rec.interimResults = true;   // Capture speech in real-time
         rec.lang = 'id-ID';          // default to Indonesian
@@ -230,6 +256,18 @@ export const VoiceAssistant: React.FC = () => {
     return () => {
       if (silenceTimeoutRef.current) {
         clearTimeout(silenceTimeoutRef.current);
+      }
+      if (rec) {
+        try {
+          rec.onstart = null;
+          rec.onerror = null;
+          rec.onend = null;
+          rec.onresult = null;
+          rec.abort();
+        } catch (e) {}
+      }
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
       }
     };
   }, []);
@@ -324,6 +362,14 @@ export const VoiceAssistant: React.FC = () => {
       synthRef.current.cancel();
       setStatus('idle');
     }
+  };
+
+  const autoClosePanel = () => {
+    if (silenceTimeoutRef.current) {
+      clearTimeout(silenceTimeoutRef.current);
+    }
+    stopListening();
+    setShowPanel(false);
   };
 
   const closePanel = () => {
@@ -486,6 +532,7 @@ export const VoiceAssistant: React.FC = () => {
                       window.dispatchEvent(new CustomEvent('assistant-action', {
                         detail: { action: 'SHOW_NEWS', payload: {} }
                       }));
+                      autoClosePanel();
                     }}
                   >
                     📰 Buka Berita
@@ -510,6 +557,7 @@ export const VoiceAssistant: React.FC = () => {
                           payload: { title: 'Agenda Rapat Besok', content: '# Agenda Rapat Besok\n\n1. Pembahasan rencana kuartalan\n2. Alokasi budget divisi baru\n3. Tanya jawab' } 
                         }
                       }));
+                      autoClosePanel();
                     }}
                   >
                     📝 Buat Catatan Rapat
