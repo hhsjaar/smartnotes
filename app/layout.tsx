@@ -47,7 +47,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
+                function registerSW() {
                   navigator.serviceWorker.register('/sw.js').then(
                     function(reg) {
                       console.log('SW registered with scope:', reg.scope);
@@ -56,7 +56,12 @@ export default function RootLayout({
                       console.log('SW registration failed:', err);
                     }
                   );
-                });
+                }
+                if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                  registerSW();
+                } else {
+                  window.addEventListener('load', registerSW);
+                }
               }
             `
           }}
