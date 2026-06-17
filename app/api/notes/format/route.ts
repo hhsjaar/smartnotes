@@ -14,9 +14,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'GEMINI_API_KEY tidak dikonfigurasi di server.' }, { status: 500 });
     }
 
-    // Load existing folders from the database to map notes to folders
-    const folders = await prisma.folder.findMany({
-      select: { id: true, name: true }
+    // Load existing folders along with their latest notes from the database to map notes to folders
+    const foldersWithNotes = await prisma.folder.findMany({
+      select: {
+        id: true,
+        name: true,
+        notes: {
+          select: {
+            title: true,
+            summary: true,
+            tags: true,
+          },
+          orderBy: {
+            created_at: 'desc',
+          },
+          take: 5,
+        },
+      },
+    });
+
+    const foldersContext = foldersWithNotes.map((f) => {
+      const notesSummary = f.notes
+        .map((n) => `- Judul: "${n.title}", Ringkasan: "${n.summary}", Tags: [${n.tags.join(', ')}]`)
+        .join('\n');
+      return {
+        id: f.id,
+        name: f.name,
+        existing_notes_context: notesSummary || '(Belum ada catatan di folder ini)'
+      };
     });
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
@@ -32,14 +57,15 @@ export async function POST(request: Request) {
 
     if (formatType === 'intel') {
       prompt = `Anda adalah asisten AI editor catatan profesional intelijen/keamanan. Tugas Anda adalah mengambil teks mentah hasil transkripsi suara (Voice-to-Text) di bawah ini, menganalisis kontennya, dan merapikannya menjadi "Laporan Intel" awal (Pulbaket) dengan format yang SANGAT SPESIFIK dan kaku.
-Jika teks mengandung lebih dari satu topik pembicaraan/bahasan/kejadian intelijen yang berbeda, maka PECAHLAH isi rekaman tersebut menjadi beberapa catatan laporan intel yang berbeda secara logis. Jika hanya ada satu, buat 1 catatan saja.
+Jika teks mengandung lebih dari satu topik pembicaraan/bahasan/kejadian intelijen yang berbeda, maka PECAHLAH isi rekaman tersebut menjadi beberapa catatan laporan intel yang berbeda secara logis.
+Selain itu, jika teks dipecah menjadi beberapa catatan berbeda karena memiliki beberapa topik pembicaraan/bahasan/kejadian, Anda WAJIB membuat satu catatan tambahan sebagai 'Catatan Master' (versi utuh) yang menggabungkan seluruh kejadian/topik tersebut, diparafrase secara lengkap, diringkas secara profesional, dan secara khusus dimasukkan ke folder "Utuh" (isi 'folderName' dengan "Utuh" dan 'folderId' dengan null). Namun jika hanya ada satu topik intelijen, cukup buat 1 catatan saja (tidak perlu membuat Catatan Master di folder "Utuh").
 
 Teks Mentah Transkripsi:
 "${text}"
 
 Konteks Waktu Hari Ini (jika tidak disebutkan secara eksplisit di transkrip): ${currentDateTimeStr}
 
-Daftar Folder saat ini di database: ${JSON.stringify(folders)}
+Daftar Folder saat ini di database beserta rangkuman isi catatan di dalamnya: ${JSON.stringify(foldersContext)}
 
 Format Output bagian 'content' untuk setiap catatan harus mengikuti struktur Markdown berikut secara presisi:
 
@@ -57,11 +83,14 @@ Instruksi Tambahan:
 - Di bawah *Informasi Awal*, wajib menggunakan satu bullet point (- ) yang menjelaskan seluruh detail kejadian dalam satu paragraf bersambung (tidak boleh dipisah-pisah menjadi beberapa baris).
 - Di bawahnya wajib menyertakan baris teks persis: "Langkah awal di lapangan : Pulbaket yang di lakukan :" (tanpa heading markdown atau bold).
 - Di bawahnya tuliskan daftar langkah awal yang dilakukan secara bernomor (1., 2., 3., dst.) sesuai isi transkrip.
-- Judul Catatan ('title') harus berformat: "Laporan Intel: [Nama Kegiatan] di [Nama Lokasi/Gedung]" (maksimal 8 kata).
+- Judul Catatan ('title') harus berformat: "Laporan Intel: [Nama Kegiatan] di [Nama Lokasi/Gedung]" (maksimal 8 kata). Untuk Catatan Master di folder "Utuh", berikan judul seperti "Laporan Intel Utuh: [Ringkasan Topik-Topik]".
 - Kategori/Tags ('tags') harus menyertakan "Laporan", "Intel", serta 1-2 tag tambahan yang relevan.
 - Ekstrak daftar tugas/tindakan konkret lanjutan ke dalam 'todo_list' jika ada. Jika tidak ada, kembalikan [].
 
-Untuk setiap catatan, tentukan folder penyimpanannya. Cari dari Daftar Folder saat ini yang paling cocok. Jika ada yang sangat cocok, berikan 'folderId' sesuai ID folder tersebut. Jika tidak ada yang cocok namun topiknya memerlukan kategori baru, berikan 'folderName' dengan nama kategori baru tersebut, dan isi 'folderId' dengan null. Jika merupakan catatan umum tanpa folder khusus, berikan 'folderId': null dan 'folderName': null.
+Untuk setiap catatan, tentukan folder penyimpanannya. Cari dari Daftar Folder saat ini yang paling cocok.
+PENTING: Jangan hanya mencocokkan berdasarkan nama foldernya saja, melainkan analisis juga ringkasan isi catatan (existing_notes_context) yang sudah ada di dalam folder tersebut untuk menentukan apakah catatan baru ini relate (berkaitan erat) dengan isi catatan di folder tersebut. 
+Jika ada folder yang sangat cocok dan relate, berikan 'folderId' sesuai ID folder tersebut. Jika tidak ada yang cocok namun topiknya memerlukan kategori/folder baru, berikan 'folderName' dengan nama kategori baru tersebut, dan isi 'folderId' dengan null. Jika merupakan catatan umum tanpa folder khusus, berikan 'folderId': null dan 'folderName': null.
+Khusus untuk Catatan Master (yang menggabungkan beberapa topik jika ada pemecahan), wajib berikan 'folderName': "Utuh" dan 'folderId': null.
 
 Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
 {
@@ -81,14 +110,15 @@ Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
 PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan lainnya. Kembalikan HANYA string JSON murni yang valid.`;
     } else if (formatType === 'laporan') {
       prompt = `Anda adalah asisten AI editor catatan profesional untuk kepolisian dan satuan keamanan. Tugas Anda adalah mengambil teks mentah hasil transkripsi suara (Voice-to-Text) di bawah ini, menganalisis kontennya, dan merapikannya menjadi "Laporan Kegiatan" resmi dengan format yang SANGAT SPESIFIK dan kaku.
-Jika teks mengandung lebih dari satu topik kejadian/kegiatan keamanan yang berbeda, maka PECAHLAH isi rekaman tersebut menjadi beberapa catatan laporan kegiatan yang berbeda secara logis. Jika hanya ada satu, buat 1 catatan saja.
+Jika teks mengandung lebih dari satu topik kejadian/kegiatan keamanan yang berbeda, maka PECAHLAH isi rekaman tersebut menjadi beberapa catatan laporan kegiatan yang berbeda secara logis.
+Selain itu, jika teks dipecah menjadi beberapa catatan berbeda karena memiliki beberapa topik pembicaraan/bahasan/kejadian, Anda WAJIB membuat satu catatan tambahan sebagai 'Catatan Master' (versi utuh) yang menggabungkan seluruh kejadian/kegiatan tersebut, diparafrase secara lengkap, diringkas secara resmi, dan secara khusus dimasukkan ke folder "Utuh" (isi 'folderName' dengan "Utuh" dan 'folderId' dengan null). Namun jika hanya ada satu topik kejadian/kegiatan, cukup buat 1 catatan saja (tidak perlu membuat Catatan Master di folder "Utuh").
 
 Teks Mentah Transkripsi:
 "${text}"
 
 Konteks Waktu Hari Ini (jika tidak disebutkan secara eksplisit di transkrip): ${currentDateTimeStr}
 
-Daftar Folder saat ini di database: ${JSON.stringify(folders)}
+Daftar Folder saat ini di database beserta rangkuman isi catatan di dalamnya: ${JSON.stringify(foldersContext)}
 
 Format Output bagian 'content' untuk setiap catatan harus mengikuti struktur teks berikut secara presisi (tanpa header markdown ### atau ## atau # untuk judul bagian, dan tanpa bullet points/poin-poin pada bagian Informasi Kejadian):
 
@@ -107,11 +137,14 @@ Penanganan di Lokasi
 Instruksi Tambahan:
 - Jangan gunakan penanda markdown heading (###, ##, #) atau cetak tebal (**) pada judul "Informasi Kejadian" dan "Penanganan di Lokasi". Biarkan berupa baris teks biasa.
 - Jangan gunakan bullet points (-) di bawah Informasi Kejadian. Tuliskan dalam satu baris paragraf bersambung persis seperti di atas.
-- Judul Catatan ('title') harus berformat: "Laporan Kegiatan: [Nama Kejadian] di [Nama Lokasi/TKP]" (maksimal 8 kata).
+- Judul Catatan ('title') harus berformat: "Laporan Kegiatan: [Nama Kejadian] di [Nama Lokasi/TKP]" (maksimal 8 kata). Untuk Catatan Master di folder "Utuh", berikan judul seperti "Laporan Kegiatan Utuh: [Ringkasan Topik-Topik]".
 - Kategori/Tags ('tags') harus menyertakan "Laporan" dan "Kegiatan", serta 1-2 tag tambahan yang relevan.
 - Ekstrak daftar tugas/tindakan konkret lanjutan ke dalam 'todo_list' jika ada. Jika tidak ada, kembalikan [].
 
-Untuk setiap catatan, tentukan folder penyimpanannya. Cari dari Daftar Folder saat ini yang paling cocok. Jika ada yang sangat cocok, berikan 'folderId' sesuai ID folder tersebut. Jika tidak ada yang cocok namun topiknya memerlukan kategori baru, berikan 'folderName' dengan nama kategori baru tersebut, dan isi 'folderId' dengan null. Jika merupakan catatan umum tanpa folder khusus, berikan 'folderId': null dan 'folderName': null.
+Untuk setiap catatan, tentukan folder penyimpanannya. Cari dari Daftar Folder saat ini yang paling cocok.
+PENTING: Jangan hanya mencocokkan berdasarkan nama foldernya saja, melainkan analisis juga ringkasan isi catatan (existing_notes_context) yang sudah ada di dalam folder tersebut untuk menentukan apakah catatan baru ini relate (berkaitan erat) dengan isi catatan di folder tersebut. 
+Jika ada folder yang sangat cocok dan relate, berikan 'folderId' sesuai ID folder tersebut. Jika tidak ada yang cocok namun topiknya memerlukan kategori/folder baru, berikan 'folderName' dengan nama kategori baru tersebut, dan isi 'folderId' dengan null. Jika merupakan catatan umum tanpa folder khusus, berikan 'folderId': null dan 'folderName': null.
+Khusus untuk Catatan Master (yang menggabungkan beberapa topik jika ada pemecahan), wajib berikan 'folderName': "Utuh" dan 'folderId': null.
 
 Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
 {
@@ -131,16 +164,17 @@ Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
 PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan lainnya. Kembalikan HANYA string JSON murni yang valid.`;
     } else {
       prompt = `Anda adalah asisten AI editor catatan profesional. Tugas Anda adalah mengambil teks mentah hasil transkripsi suara (Voice-to-Text) di bawah ini, menganalisis kontennya, dan merapikannya menjadi catatan terstruktur yang sangat berkualitas dan rapi.
-Jika teks mengandung lebih dari satu topik pembicaraan/bahasan/ide yang berbeda, maka PECAHLAH isi rekaman tersebut menjadi beberapa catatan terpisah secara logis sesuai dengan masing-masing topik. Jika hanya ada satu, buat 1 catatan saja.
+Jika teks mengandung lebih dari satu topik pembicaraan/bahasan/ide yang berbeda, maka PECAHLAH isi rekaman tersebut menjadi beberapa catatan terpisah secara logis sesuai dengan masing-masing topik.
+Selain itu, jika teks dipecah menjadi beberapa catatan berbeda karena memiliki beberapa topik pembicaraan/bahasan/ide, Anda WAJIB membuat satu catatan tambahan sebagai 'Catatan Master' (versi utuh) yang menggabungkan seluruh topik/bahasan tersebut, diparafrase secara lengkap, diringkas secara rapi dengan sub-header/markdown, dan secara khusus dimasukkan ke folder "Utuh" (isi 'folderName' dengan "Utuh" dan 'folderId' dengan null). Namun jika hanya ada satu topik, cukup buat 1 catatan saja (tidak perlu membuat Catatan Master di folder "Utuh").
 
 Teks Mentah Transkripsi:
 "${text}"
 
-Daftar Folder saat ini di database: ${JSON.stringify(folders)}
+Daftar Folder saat ini di database beserta rangkuman isi catatan di dalamnya: ${JSON.stringify(foldersContext)}
 
 Instruksi Pemformatan Setiap Catatan:
 1. Perbaiki kesalahan ejaan, tanda baca, huruf kapital, dan tata bahasa (terutama dalam bahasa Indonesia atau Inggris, sesuaikan dengan bahasa yang diucapkan).
-2. Buat judul yang sangat relevan dan menarik untuk catatan ini (maksimal 6 kata).
+2. Buat judul yang sangat relevan dan menarik untuk catatan ini (maksimal 6 kata). Untuk Catatan Master di folder "Utuh", berikan judul seperti "Catatan Utuh: [Ringkasan Topik-Topik]".
 3. Formatlah isi catatan ('content') secara sangat rapi, berstruktur, dan nyaman dibaca menggunakan Markdown. Jangan hanya membuat paragraf panjang yang padat. Gunakan kombinasi:
    - Poin-poin / daftar bullet (-) untuk detail/informasi penting
    - Daftar berurutan / angka (1., 2., 3.) untuk proses langkah demi langkah atau kronologi
@@ -150,7 +184,10 @@ Instruksi Pemformatan Setiap Catatan:
 4. Ekstrak daftar tugas/tindakan konkret (Action Items / TODO checklist) yang harus dilakukan berdasarkan pembicaraan. Jika tidak ada tindakan nyata, buat daftar kosong [].
 5. Rekomendasikan 2-4 tag/kategori yang relevan untuk catatan ini (misalnya: Rapat, Ide, Tugas, Keuangan, Pribadi, dll).
 
-Untuk setiap catatan, tentukan folder penyimpanannya. Cari dari Daftar Folder saat ini yang paling cocok. Jika ada yang sangat cocok, berikan 'folderId' sesuai ID folder tersebut. Jika tidak ada yang cocok namun topiknya memerlukan kategori baru, berikan 'folderName' dengan nama kategori baru tersebut (misalnya 'Keuangan', 'Pribadi', 'Marketing', dll), dan isi 'folderId' dengan null. Jika merupakan catatan umum tanpa folder khusus, berikan 'folderId': null dan 'folderName': null.
+Untuk setiap catatan, tentukan folder penyimpanannya. Cari dari Daftar Folder saat ini yang paling cocok.
+PENTING: Jangan hanya mencocokkan berdasarkan nama foldernya saja, melainkan analisis juga ringkasan isi catatan (existing_notes_context) yang sudah ada di dalam folder tersebut untuk menentukan apakah catatan baru ini relate (berkaitan erat) dengan isi catatan di folder tersebut. 
+Jika ada folder yang sangat cocok dan relate, berikan 'folderId' sesuai ID folder tersebut. Jika tidak ada yang cocok namun topiknya memerlukan kategori/folder baru, berikan 'folderName' dengan nama kategori baru tersebut (misalnya 'Keuangan', 'Pribadi', 'Marketing', dll), dan isi 'folderId' dengan null. Jika merupakan catatan umum tanpa folder khusus, berikan 'folderId': null dan 'folderName': null.
+Khusus untuk Catatan Master (yang menggabungkan beberapa topik jika ada pemecahan), wajib berikan 'folderName': "Utuh" dan 'folderId': null.
 
 Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
 {
