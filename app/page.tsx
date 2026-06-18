@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock, GitMerge } from 'lucide-react';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { NoteCard } from '@/components/NoteCard';
 import { NoteEditor } from '@/components/NoteEditor';
@@ -10,6 +10,7 @@ import { GlowButton } from '@/components/ui/GlowButton';
 import { Calendar } from '@/components/Calendar';
 import { WhatsappChat } from '@/components/WhatsappChat';
 import { VoiceAssistant } from '@/components/VoiceAssistant';
+import { InteractiveMerge } from '@/components/InteractiveMerge';
 import styles from './page.module.css';
 
 interface Note {
@@ -110,10 +111,24 @@ export default function Home() {
   const [mobileView, setMobileView] = useState<'list' | 'editor'>('list');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
-  const [workspaceView, setWorkspaceView] = useState<'editor' | 'recorder'>('editor');
+  const [workspaceView, setWorkspaceView] = useState<'editor' | 'recorder' | 'merge'>('editor');
 
   const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [timeframeFilter, setTimeframeFilter] = useState<number | null>(null);
+  const [folderAiSummary, setFolderAiSummary] = useState<{
+    folderName: string;
+    timeframeText: string;
+    summaryText: string;
+    notesCount: number;
+  } | null>(null);
+
+  // Reset timeframe filter and AI summary when folder filter changes
+  useEffect(() => {
+    setTimeframeFilter(null);
+    setFolderAiSummary(null);
+  }, [selectedFolderId]);
+
   const [pendingNoteData, setPendingNoteData] = useState<any | null>(null);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -664,6 +679,35 @@ export default function Home() {
             setWorkspaceView('editor');
           }
         }
+      } else if (action === 'SUMMARIZE_FOLDER') {
+        let targetFolderId = payload.folderId;
+        let targetFolderName = payload.folderName;
+
+        if (!targetFolderId && targetFolderName) {
+          const matchedFolder = folders.find(f => f.name.toLowerCase() === targetFolderName.toLowerCase());
+          if (matchedFolder) {
+            targetFolderId = matchedFolder.id;
+            targetFolderName = matchedFolder.name;
+          }
+        }
+
+        setSelectedFolderId(targetFolderId);
+        if (payload.timeframeDays !== undefined) {
+          setTimeframeFilter(payload.timeframeDays);
+        }
+        if (payload.summary) {
+          setFolderAiSummary({
+            folderName: targetFolderName || (targetFolderId ? 'Folder' : 'Semua Catatan'),
+            timeframeText: payload.timeframeDays ? `${payload.timeframeDays} Hari Terakhir` : 'Semua Waktu',
+            summaryText: payload.summary,
+            notesCount: payload.notesSummarized ? payload.notesSummarized.length : 0
+          });
+        }
+        setWorkspaceView('merge');
+        setActiveTab('notes');
+        if (window.innerWidth <= 768) {
+          setMobileView('editor');
+        }
       } else if (action === 'SEND_WHATSAPP') {
         setActiveTab('whatsapp');
       } else if (action === 'SCHEDULE_JOB') {
@@ -704,7 +748,7 @@ export default function Home() {
     }
   };
 
-  // Filter notes based on search query, selected date, and selected folder
+  // Filter notes based on search query, selected date, selected folder, and timeframe duration
   const filteredNotes = notes.filter((note) => {
     // 1. Filter by date if selected
     if (selectedDate) {
@@ -717,7 +761,15 @@ export default function Home() {
       if (note.folder_id !== selectedFolderId) return false;
     }
 
-    // 3. Filter by search query
+    // 3. Filter by timeframe if selected
+    if (timeframeFilter !== null) {
+      const noteDate = new Date(note.created_at);
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - timeframeFilter);
+      if (noteDate < cutoffDate) return false;
+    }
+
+    // 4. Filter by search query
     const q = searchQuery.toLowerCase();
     const matchesTitle = (note.title || '').toLowerCase().includes(q);
     const matchesContent = (note.content || '').toLowerCase().includes(q);
@@ -1358,9 +1410,34 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
         <header className={styles.mobileHeader}>
           <div className={styles.mobileLogo}>SMART NOTES</div>
           {activeTab === 'notes' && mobileView === 'list' && (
-            <button className={styles.mobileNewNoteBtn} onClick={handleCreateNewNote}>
-              <Plus size={18} />
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {filteredNotes.length > 1 && (
+                <button
+                  onClick={() => {
+                    setWorkspaceView('merge');
+                    setMobileView('editor');
+                  }}
+                  title="Gabungkan Catatan"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid var(--glass-border)',
+                    borderRadius: '50%',
+                    width: '36px',
+                    height: '36px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <GitMerge size={18} />
+                </button>
+              )}
+              <button className={styles.mobileNewNoteBtn} onClick={handleCreateNewNote}>
+                <Plus size={18} />
+              </button>
+            </div>
           )}
         </header>
 
@@ -1420,6 +1497,87 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     ⚙️ Kelola
                   </button>
                 </div>
+
+                {/* Mobile Folder Timeframe Filter Row */}
+                <div className={styles.mobileTimeframeFilterRow}>
+                  <button
+                    type="button"
+                    className={`${styles.mobileTimeframeChip} ${timeframeFilter === null ? styles.mobileTimeframeChipActive : ''}`}
+                    onClick={() => setTimeframeFilter(null)}
+                  >
+                    Semua
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.mobileTimeframeChip} ${timeframeFilter === 1 ? styles.mobileTimeframeChipActive : ''}`}
+                    onClick={() => setTimeframeFilter(1)}
+                  >
+                    1 Hari
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.mobileTimeframeChip} ${timeframeFilter === 3 ? styles.mobileTimeframeChipActive : ''}`}
+                    onClick={() => setTimeframeFilter(3)}
+                  >
+                    3 Hari
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.mobileTimeframeChip} ${timeframeFilter === 7 ? styles.mobileTimeframeChipActive : ''}`}
+                    onClick={() => setTimeframeFilter(7)}
+                  >
+                    7 Hari
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.mobileTimeframeChip} ${timeframeFilter === 30 ? styles.mobileTimeframeChipActive : ''}`}
+                    onClick={() => setTimeframeFilter(30)}
+                  >
+                    1 Bulan
+                  </button>
+                </div>
+
+                {/* Mobile Folder AI Summary Card */}
+                {folderAiSummary && (
+                  <div className={`${styles.folderAiSummaryCard} glass-panel`} style={{ margin: '0 0 12px 0' }}>
+                    <div className={styles.folderAiSummaryHeader}>
+                      <div className={styles.folderAiSummaryTitle}>
+                        <Sparkles size={14} className="text-amber-400 animate-pulse" style={{ color: '#fbbf24' }} />
+                        <span>Rangkuman AI: {folderAiSummary.folderName} ({folderAiSummary.timeframeText})</span>
+                      </div>
+                      <button type="button" onClick={() => setFolderAiSummary(null)} className={styles.closeFolderSummaryBtn}>
+                        <X size={12} />
+                      </button>
+                    </div>
+                    <p className={styles.folderAiSummaryBody} style={{ fontSize: '0.75rem' }}>{folderAiSummary.summaryText}</p>
+                    <div className={styles.folderAiSummaryFooter} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
+                      <span>Mengidentifikasi {folderAiSummary.notesCount} catatan</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWorkspaceView('merge');
+                          setMobileView('editor');
+                        }}
+                        style={{
+                          background: 'linear-gradient(135deg, var(--primary) 0%, #4f46e5 100%)',
+                          border: 'none',
+                          color: '#fff',
+                          padding: '6px 12px',
+                          borderRadius: 'var(--border-radius-sm)',
+                          fontSize: '0.72rem',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <GitMerge size={12} />
+                        Gabung
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Mobile Calendar Bottom Sheet Modal */}
                 {isMobileCalendarOpen && (
@@ -1676,13 +1834,31 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               </div>
             ) : (
               <div className={styles.mobileEditorContainer}>
-                <NoteEditor
-                  note={selectedNote}
-                  onSave={handleSaveNote}
-                  onDelete={handleDeleteNote}
-                  onBack={() => setMobileView('list')}
-                  folders={folders}
-                />
+                {workspaceView === 'merge' ? (
+                  <InteractiveMerge
+                    filteredNotes={filteredNotes}
+                    folders={folders}
+                    currentFolderId={selectedFolderId}
+                    currentTimeframe={timeframeFilter}
+                    onCancel={() => {
+                      setWorkspaceView('editor');
+                      setMobileView('list');
+                    }}
+                    onSelectNote={(note) => {
+                      setSelectedNote(note);
+                      setWorkspaceView('editor');
+                      setMobileView('editor');
+                    }}
+                  />
+                ) : (
+                  <NoteEditor
+                    note={selectedNote}
+                    onSave={handleSaveNote}
+                    onDelete={handleDeleteNote}
+                    onBack={() => setMobileView('list')}
+                    folders={folders}
+                  />
+                )}
               </div>
             )
           )}
@@ -2102,7 +2278,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   onClick={handleCreateNewNote}
                 >
                   <Plus size={14} />
-                  Tulis Catatan
+                  Tulis
                 </button>
                 <button
                   className={styles.rekamAiBtn}
@@ -2112,18 +2288,36 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   }}
                 >
                   <Mic size={14} />
-                  Rekam AI
+                  Rekam
                 </button>
+                {filteredNotes.length > 1 && (
+                  <button
+                    className={styles.mergeBtn}
+                    onClick={() => {
+                      setWorkspaceView('merge');
+                    }}
+                    title="Gabungkan catatan terpilih"
+                  >
+                    <GitMerge size={14} />
+                    Gabung
+                  </button>
+                )}
               </div>
             </div>
 
             {/* Filter Chips Bar */}
-            {(selectedFolderId || selectedDate || searchQuery) && (
+            {(selectedFolderId || selectedDate || searchQuery || timeframeFilter !== null) && (
               <div className={styles.filterChipsRow}>
                 {selectedFolderId && (
                   <div className={styles.filterChip}>
                     <span>📂 {folders.find(f => f.id === selectedFolderId)?.name || 'Folder'}</span>
                     <button onClick={() => setSelectedFolderId(null)} title="Hapus Filter Folder">×</button>
+                  </div>
+                )}
+                {timeframeFilter !== null && (
+                  <div className={styles.filterChip}>
+                    <span>⏱️ {timeframeFilter === 30 ? '1 Bulan' : `${timeframeFilter} Hari`}</span>
+                    <button onClick={() => setTimeframeFilter(null)} title="Hapus Filter Waktu">×</button>
                   </div>
                 )}
                 {selectedDate && (
@@ -2138,6 +2332,87 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     <button onClick={() => setSearchQuery('')} title="Hapus Filter Pencarian">×</button>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Timeframe Filter Row */}
+            <div className={styles.timeframeFilterRow}>
+              <span className={styles.timeframeLabel}>Waktu:</span>
+              <button
+                type="button"
+                className={`${styles.timeframeBtn} ${timeframeFilter === null ? styles.timeframeBtnActive : ''}`}
+                onClick={() => setTimeframeFilter(null)}
+              >
+                Semua
+              </button>
+              <button
+                type="button"
+                className={`${styles.timeframeBtn} ${timeframeFilter === 1 ? styles.timeframeBtnActive : ''}`}
+                onClick={() => setTimeframeFilter(1)}
+              >
+                1 Hari
+              </button>
+              <button
+                type="button"
+                className={`${styles.timeframeBtn} ${timeframeFilter === 3 ? styles.timeframeBtnActive : ''}`}
+                onClick={() => setTimeframeFilter(3)}
+              >
+                3 Hari
+              </button>
+              <button
+                type="button"
+                className={`${styles.timeframeBtn} ${timeframeFilter === 7 ? styles.timeframeBtnActive : ''}`}
+                onClick={() => setTimeframeFilter(7)}
+              >
+                7 Hari
+              </button>
+              <button
+                type="button"
+                className={`${styles.timeframeBtn} ${timeframeFilter === 30 ? styles.timeframeBtnActive : ''}`}
+                onClick={() => setTimeframeFilter(30)}
+              >
+                1 Bulan
+              </button>
+            </div>
+
+            {/* Folder AI Summary Card */}
+            {folderAiSummary && (
+              <div className={`${styles.folderAiSummaryCard} glass-panel`}>
+                <div className={styles.folderAiSummaryHeader}>
+                  <div className={styles.folderAiSummaryTitle}>
+                    <Sparkles size={14} className="text-amber-400 animate-pulse" style={{ color: '#fbbf24' }} />
+                    <span>Rangkuman AI Folder: {folderAiSummary.folderName} ({folderAiSummary.timeframeText})</span>
+                  </div>
+                  <button type="button" onClick={() => setFolderAiSummary(null)} className={styles.closeFolderSummaryBtn}>
+                    <X size={12} />
+                  </button>
+                </div>
+                <p className={styles.folderAiSummaryBody}>{folderAiSummary.summaryText}</p>
+                <div className={styles.folderAiSummaryFooter} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
+                  <span>Mengidentifikasi {folderAiSummary.notesCount} catatan</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWorkspaceView('merge');
+                    }}
+                    style={{
+                      background: 'linear-gradient(135deg, var(--primary) 0%, #4f46e5 100%)',
+                      border: 'none',
+                      color: '#fff',
+                      padding: '6px 12px',
+                      borderRadius: 'var(--border-radius-sm)',
+                      fontSize: '0.75rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <GitMerge size={12} />
+                    Gabungkan
+                  </button>
+                </div>
               </div>
             )}
 
@@ -2278,6 +2553,23 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 </div>
                 <VoiceRecorder onFormatted={handleFormattedNote} />
               </div>
+            ) : workspaceView === 'merge' ? (
+              <InteractiveMerge
+                filteredNotes={filteredNotes}
+                folders={folders}
+                currentFolderId={selectedFolderId}
+                currentTimeframe={timeframeFilter}
+                onCancel={() => {
+                  setWorkspaceView('editor');
+                  if (!selectedNote && notes.length > 0) {
+                    setSelectedNote(notes[0]);
+                  }
+                }}
+                onSelectNote={(note) => {
+                  setSelectedNote(note);
+                  setWorkspaceView('editor');
+                }}
+              />
             ) : selectedNote ? (
               <NoteEditor
                 note={selectedNote}

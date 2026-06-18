@@ -20,8 +20,17 @@ export async function POST(request: Request) {
     });
 
     const notes = await prisma.note.findMany({
-      select: { id: true, title: true }
+      select: { id: true, title: true, created_at: true, folder_id: true, summary: true, tags: true }
     });
+
+    const formattedNotesForPrompt = notes.map((n) => ({
+      id: n.id,
+      title: n.title,
+      created_at: n.created_at,
+      folder_id: n.folder_id,
+      tags: n.tags,
+      summary: n.summary ? (n.summary.length > 120 ? n.summary.substring(0, 120) + '...' : n.summary) : ''
+    }));
 
     const currentDateTime = new Date();
     const currentDateTimeStr = currentDateTime.toLocaleString('id-ID', {
@@ -41,7 +50,7 @@ Anda adalah asisten AI suara pintar (seperti Siri pada Apple) untuk aplikasi "Ca
 
 Informasi Konteks Database & Aplikasi:
 - Daftar Folder saat ini: ${JSON.stringify(folders)}
-- Daftar Catatan saat ini (Judul & ID): ${JSON.stringify(notes)}
+- Daftar Catatan saat ini (termasuk Tanggal dibuat, Folder ID, Ringkasan, dan Tags): ${JSON.stringify(formattedNotesForPrompt)}
 - Daftar Kontak WhatsApp pengguna (Nama & Nomor): ${JSON.stringify(contacts || [])}
 - Catatan yang sedang dibuka/aktif saat ini: ${selectedNote ? JSON.stringify(selectedNote) : 'Tidak ada'}
 - Waktu server saat ini: ${currentDateTime.toISOString()} (Lokal: ${currentDateTimeStr})
@@ -86,12 +95,15 @@ Pilihan Aksi ("action") yang didukung:
    - Payload: Ambil/salin objek payload dari 'pendingAction' yang dikirimkan.
    - Response: Informasikan bahwa tugas berhasil dijadwalkan.
 10. CANCEL_JOB: Dipanggil jika pengguna membatalkan tindakan yang tertunda (pendingAction).
-   - ATURAN PENTING: Gunakan aksi ini jika terdapat 'pendingAction' di input dan perintah terbaru pengguna menyatakan pembatalan (seperti "batal", "jangan", "tidak jadi", "tidak").
-   - Payload: {}
-   - Response: Informasikan bahwa tindakan telah dibatalkan.
+    - ATURAN PENTING: Gunakan aksi ini jika terdapat 'pendingAction' di input dan perintah terbaru pengguna menyatakan pembatalan (seperti "batal", "jangan", "tidak jadi", "tidak").
+    - Payload: {}
+    - Response: Informasikan bahwa tindakan telah dibatalkan.
 11. CREATE_REMINDER: Membuat pengingat atau alarm baru berbasis waktu.
     - Pola: "buat pengingat...", "buat alarm...", "ingatkan saya..."
-    - Payload: { "title": "Judul Pengingat Singkat", "description": "Keterangan tambahan (optional)", "dateTime": "Waktu pengingat dalam format ISO String (hitung tanggal & jam relatif terhadap waktu server saat ini, pastikan dalam timezone lokal +07:00 jika sesuai)", "notify1Day": boolean (default true, set false jika pengguna secara eksplisit menolak pengingat H-1 hari seperti 'jangan ingatkan sehari sebelumnya' atau 'ingatkan pas hari h saja'), "notify1Hour": boolean (default true, set false jika pengguna menolak pengingat H-1 jam), "notifyExact": boolean (default true, set false jika pengguna menolak pengingat tepat waktu) }
+    - Payload: { "title": "Judul Pengingat Singkat", "description": "Keterangan tambahan (optional)", "dateTime": "Waktu pengingat dalam format ISO String (hitung tanggal & jam relatif terhadap waktu server saat ini, pastikan dalam timezone lokal +07:00 jika sesuai)", "notify1Day": boolean (default true), "notify1Hour": boolean (default true), "notifyExact": boolean (default true) }
+12. SUMMARIZE_FOLDER: Menggabungkan atau memfilter kumpulan catatan di dalam folder tertentu berdasarkan durasi waktu yang diminta (misalnya selama 1 hari, 3 hari, 7 hari, 1 bulan/30 hari, dsb.).
+    - Pola: "rangkum catatan di folder SOP selama 7 hari", "gabungkan catatan di folder SOP", "tampilkan catatan folder Keuangan minggu ini"
+    - Payload: { "folderId": "ID folder yang paling cocok dari daftar folder saat ini", "folderName": "Nama folder", "timeframeDays": number (jumlah hari filter: 1 untuk 1 hari, 3 untuk 3 hari, 7 untuk 7 hari, 30 untuk 1 bulan, atau null jika tidak ada batasan waktu), "notesSummarized": ["Judul Catatan 1", "Judul Catatan 2"], "summary": "Deskripsi singkat gabungan catatan yang diidentifikasi untuk digabungkan, mencantumkan jumlah catatan dan rentang waktunya." }
 
 Aturan Pemrosesan Multi-Turn & Pending Action:
 - Jika pengguna mengirim perintah baru yang tidak berhubungan dengan konfirmasi pendingAction (misalnya "buka berita"), abaikan pendingAction dan proses perintah baru tersebut secara normal.
@@ -99,7 +111,7 @@ Aturan Pemrosesan Multi-Turn & Pending Action:
 
 Format Keluaran (JSON murni):
 {
-  "action": "CREATE_NOTE" | "UPDATE_NOTE" | "VIEW_NOTE" | "CATEGORIZE_NOTE" | "SHOW_NEWS" | "SUMMARIZE_AI" | "SEND_WHATSAPP" | "ASK_CONFIRMATION" | "CONFIRM_JOB" | "CANCEL_JOB" | "CREATE_REMINDER" | null,
+  "action": "CREATE_NOTE" | "UPDATE_NOTE" | "VIEW_NOTE" | "CATEGORIZE_NOTE" | "SHOW_NEWS" | "SUMMARIZE_AI" | "SEND_WHATSAPP" | "ASK_CONFIRMATION" | "CONFIRM_JOB" | "CANCEL_JOB" | "CREATE_REMINDER" | "SUMMARIZE_FOLDER" | null,
   "payload": { ... },
   "response": "Tanggapan lisan ramah dari asisten suara dalam Bahasa Indonesia (singkat, padat, informatif)."
 }
@@ -169,7 +181,14 @@ Perintah Terbaru Pengguna: "${command}"
       return NextResponse.json({ error: 'Tidak ada respons dari model AI.' }, { status: 500 });
     }
 
-    const parsedResult = JSON.parse(resultText.trim());
+    let cleanedText = resultText.trim();
+    if (cleanedText.startsWith('```')) {
+      cleanedText = cleanedText.replace(/^```(json)?\n?/, '');
+      cleanedText = cleanedText.replace(/\n?```$/, '');
+    }
+    cleanedText = cleanedText.trim();
+
+    const parsedResult = JSON.parse(cleanedText);
 
     // If the action is CONFIRM_JOB, save the job into the database
     if (parsedResult.action === 'CONFIRM_JOB') {
