@@ -681,7 +681,9 @@
 
 .mobileContent {
   flex: 1;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 16px;
   padding-bottom: 80px; /* space for bottom nav */
 }
@@ -739,6 +741,8 @@
   flex-direction: column;
   gap: 16px;
   height: 100%;
+  min-height: 0;
+  flex: 1;
 }
 
 .mobileSearchBar {
@@ -790,6 +794,8 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding-bottom: 20px;
 }
@@ -1591,6 +1597,7 @@
   align-items: center;
   gap: 12px;
   width: 100%;
+  flex-shrink: 0;
 }
 
 .mobileSearchBar {
@@ -1649,9 +1656,12 @@
   align-items: center;
   gap: 8px;
   overflow-x: auto;
-  padding: 12px 4px 12px 4px;
+  overflow-y: hidden;
+  padding: 12px 4px;
   width: 100%;
   scrollbar-width: none; /* Firefox */
+  flex-shrink: 0;
+  touch-action: pan-x;
 }
 
 .mobileFolderScrollContainer::-webkit-scrollbar {
@@ -2494,10 +2504,13 @@
   display: flex;
   gap: 8px;
   overflow-x: auto;
+  overflow-y: hidden;
   width: 100%;
   scrollbar-width: none;
-  padding: 8px 4px 12px 4px;
+  padding: 12px 4px 16px 4px;
   margin-top: 2px;
+  flex-shrink: 0;
+  touch-action: pan-x;
 }
 
 .mobileTimeframeFilterRow::-webkit-scrollbar {
@@ -2546,6 +2559,7 @@
   box-shadow: 0 4px 12px rgba(251, 191, 36, 0.05);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  flex-shrink: 0;
 }
 
 .folderAiSummaryHeader {

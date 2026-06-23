@@ -1519,7 +1519,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 </div>
 
                 {/* Mobile Folder Timeframe Filter Row */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '14px 4px 4px 4px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '20px 4px 6px 4px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', flexShrink: 0 }}>
                   <span>⏱️ Rentang Waktu:</span>
                 </div>
                 <div className={styles.mobileTimeframeFilterRow}>
