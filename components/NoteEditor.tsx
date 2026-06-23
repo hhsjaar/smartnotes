@@ -29,9 +29,10 @@ interface NoteEditorProps {
   onBack?: () => void;
   folders: Folder[];
   onToggleRecorder?: () => void;
+  onCreateFolder?: (name: string) => Promise<Folder | null>;
 }
 
-export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, onBack, folders, onToggleRecorder }) => {
+export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, onBack, folders, onToggleRecorder, onCreateFolder }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -287,6 +288,24 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
                     </option>
                   ))}
                 </select>
+                {onCreateFolder && (
+                  <button
+                    type="button"
+                    className={styles.newFolderBtn}
+                    onClick={async () => {
+                      const name = prompt('Masukkan nama folder baru:');
+                      if (name && name.trim()) {
+                        const newFolder = await onCreateFolder(name.trim());
+                        if (newFolder) {
+                          setFolderId(newFolder.id);
+                        }
+                      }
+                    }}
+                    title="Tambah Folder Baru"
+                  >
+                    <Plus size={14} />
+                  </button>
+                )}
               </div>
             ) : (
               note.folder_id && folders.find(f => f.id === note.folder_id) && (

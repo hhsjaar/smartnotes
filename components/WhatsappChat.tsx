@@ -10,7 +10,12 @@ interface Contact {
   number: string;
 }
 
-export const WhatsappChat: React.FC = () => {
+interface WhatsappChatProps {
+  pendingWhatsApp?: { recipient: string; message: string } | null;
+  clearPendingWhatsApp?: () => void;
+}
+
+export const WhatsappChat: React.FC<WhatsappChatProps> = ({ pendingWhatsApp, clearPendingWhatsApp }) => {
   const [targetNumber, setTargetNumber] = useState('');
   const [message, setMessage] = useState('');
   const [recentNumbers, setRecentNumbers] = useState<string[]>([]);
@@ -106,66 +111,62 @@ export const WhatsappChat: React.FC = () => {
     }
   };
 
-  // Listen for SEND_WHATSAPP action from Voice Assistant to automatically send the message
+  // Automatically process pending WhatsApp command from assistant when tab changes / component mounts
   useEffect(() => {
-    const handleAssistantWhatsApp = async (e: Event) => {
-      const { action, payload } = (e as CustomEvent).detail;
-      if (action === 'SEND_WHATSAPP') {
-        const { recipient, message: msgText } = payload;
-        if (recipient && msgText) {
-          // Set states
-          setTargetNumber(recipient);
-          setMessage(msgText);
-          setIsLoading(true);
-          setStatus('idle');
-          setErrorMsg('');
+    if (pendingWhatsApp && pendingWhatsApp.recipient && pendingWhatsApp.message) {
+      const { recipient, message: msgText } = pendingWhatsApp;
+      setTargetNumber(recipient);
+      setMessage(msgText);
+      
+      const sendDirect = async () => {
+        setIsLoading(true);
+        setStatus('idle');
+        setErrorMsg('');
+        
+        try {
+          const res = await fetch('/api/whatsapp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              target: recipient,
+              message: msgText,
+            }),
+          });
+
+          const data = await res.json();
+
+          if (!res.ok || !data.success) {
+            throw new Error(data.error || 'Gagal mengirim WhatsApp.');
+          }
+
+          setStatus('success');
           
-          try {
-            const res = await fetch('/api/whatsapp', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                target: recipient,
-                message: msgText,
-              }),
-            });
+          const cleanNum = recipient.trim();
+          setRecentNumbers(prev => {
+            const updated = [
+              cleanNum,
+              ...prev.filter(n => n !== cleanNum)
+            ].slice(0, 5);
+            localStorage.setItem('recent_wa_numbers', JSON.stringify(updated));
+            return updated;
+          });
 
-            const data = await res.json();
-
-            if (!res.ok || !data.success) {
-              throw new Error(data.error || 'Gagal mengirim WhatsApp.');
-            }
-
-            setStatus('success');
-            
-            // Update history in localStorage
-            const cleanNum = recipient.trim();
-            setRecentNumbers(prev => {
-              const updated = [
-                cleanNum,
-                ...prev.filter(n => n !== cleanNum)
-              ].slice(0, 5);
-              localStorage.setItem('recent_wa_numbers', JSON.stringify(updated));
-              return updated;
-            });
-
-            setMessage('');
-          } catch (err: any) {
-            console.error(err);
-            setStatus('error');
-            setErrorMsg(err.message || 'Gagal mengirim WhatsApp.');
-          } finally {
-            setIsLoading(false);
+          setMessage('');
+        } catch (err: any) {
+          console.error('Failed to send WhatsApp from assistant:', err);
+          setStatus('error');
+          setErrorMsg(err.message || 'Gagal mengirim WhatsApp.');
+        } finally {
+          setIsLoading(false);
+          if (clearPendingWhatsApp) {
+            clearPendingWhatsApp();
           }
         }
-      }
-    };
+      };
 
-    window.addEventListener('assistant-action', handleAssistantWhatsApp);
-    return () => {
-      window.removeEventListener('assistant-action', handleAssistantWhatsApp);
-    };
-  }, []);
+      sendDirect();
+    }
+  }, [pendingWhatsApp, clearPendingWhatsApp]);
 
   const handleClearHistory = () => {
     if (confirm('Hapus semua riwayat nomor telepon?')) {

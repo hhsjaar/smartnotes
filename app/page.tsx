@@ -130,6 +130,7 @@ export default function Home() {
   }, [selectedFolderId]);
 
   const [pendingNoteData, setPendingNoteData] = useState<any | null>(null);
+  const [pendingWhatsApp, setPendingWhatsApp] = useState<{ recipient: string; message: string } | null>(null);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
@@ -709,6 +710,9 @@ export default function Home() {
           setMobileView('editor');
         }
       } else if (action === 'SEND_WHATSAPP') {
+        if (payload.recipient && payload.message) {
+          setPendingWhatsApp({ recipient: payload.recipient, message: payload.message });
+        }
         setActiveTab('whatsapp');
       } else if (action === 'SCHEDULE_JOB') {
         // Trigger check
@@ -1490,6 +1494,22 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   ))}
                   <button
                     type="button"
+                    className={styles.mobileFolderChip}
+                    onClick={async () => {
+                      const name = prompt('Masukkan nama folder baru:');
+                      if (name && name.trim()) {
+                        const newF = await handleCreateFolder(name.trim());
+                        if (newF) {
+                          setSelectedFolderId(newF.id);
+                        }
+                      }
+                    }}
+                    title="Tambah Folder Baru"
+                  >
+                    ➕ Baru
+                  </button>
+                  <button
+                    type="button"
                     className={`${styles.mobileFolderChip} ${styles.mobileFolderChipManage}`}
                     onClick={() => setIsMobileFoldersOpen(true)}
                     title="Kelola Folder"
@@ -1860,6 +1880,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     onDelete={handleDeleteNote}
                     onBack={() => setMobileView('list')}
                     folders={folders}
+                    onCreateFolder={handleCreateFolder}
                   />
                 )}
               </div>
@@ -1886,7 +1907,10 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
           {activeTab === 'whatsapp' && (
             <div className={styles.mobileNewsContainer}>
-              <WhatsappChat />
+              <WhatsappChat
+                pendingWhatsApp={pendingWhatsApp}
+                clearPendingWhatsApp={() => setPendingWhatsApp(null)}
+              />
             </div>
           )}
         </div>
@@ -2580,6 +2604,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 onDelete={handleDeleteNote}
                 folders={folders}
                 onToggleRecorder={() => setWorkspaceView('recorder')}
+                onCreateFolder={handleCreateFolder}
               />
             ) : (
               <div className={styles.welcomeState}>
@@ -2694,7 +2719,10 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
         </div>
       ) : (
         <div className={styles.fullWidthNewsArea}>
-          <WhatsappChat />
+          <WhatsappChat
+            pendingWhatsApp={pendingWhatsApp}
+            clearPendingWhatsApp={() => setPendingWhatsApp(null)}
+          />
         </div>
       )}
 

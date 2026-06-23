@@ -65,6 +65,8 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
   const [pendingAction, setPendingAction] = useState<any | null>(null);
   const [contacts, setContacts] = useState<any[]>([]);
 
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const dialogEndRef = useRef<HTMLDivElement | null>(null);
@@ -87,6 +89,24 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
   useEffect(() => {
     chatHistoryRef.current = chatHistory;
   }, [chatHistory]);
+
+  // Load and listen to speechSynthesis voices change
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      const updateVoices = () => {
+        if (window.speechSynthesis) {
+          setVoices(window.speechSynthesis.getVoices());
+        }
+      };
+      updateVoices();
+      window.speechSynthesis.onvoiceschanged = updateVoices;
+      return () => {
+        if (window.speechSynthesis) {
+          window.speechSynthesis.onvoiceschanged = null;
+        }
+      };
+    }
+  }, []);
 
   useEffect(() => {
     pendingActionRef.current = pendingAction;
@@ -248,6 +268,9 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
         };
         
         rec.onerror = (event: any) => {
+          if (event.error === 'no-speech' || event.error === 'aborted') {
+            return;
+          }
           console.error('Speech recognition error', event);
           if (event.error === 'not-allowed') {
             setErrorMsg('Izin mikrofon ditolak.');
@@ -403,13 +426,22 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
       return;
     }
     
-    synthRef.current.cancel(); // cancel any active speech
+    // Stop and resume to clear any stuck state
+    synthRef.current.cancel();
+    if (synthRef.current.paused) {
+      synthRef.current.resume();
+    }
     
     const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'id-ID'; // Force Indonesian language locale
     
     // Choose Indonesian voice if available
-    const voices = synthRef.current.getVoices();
-    const idVoice = voices.find(v => v.lang.startsWith('id') || v.lang.startsWith('in'));
+    const voicesList = voices.length > 0 ? voices : (synthRef.current ? synthRef.current.getVoices() : []);
+    const idVoice = voicesList.find(v => 
+      v.lang.startsWith('id') || 
+      v.lang.startsWith('in') || 
+      v.lang.toLowerCase().includes('indonesia')
+    );
     if (idVoice) {
       utterance.voice = idVoice;
     }
@@ -423,12 +455,16 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
       autoListenNext();
     };
     
-    utterance.onerror = () => {
+    utterance.onerror = (event: any) => {
+      console.warn('SpeechSynthesisUtterance error:', event);
       setStatus('idle');
       autoListenNext();
     };
     
     activeUtteranceRef.current = utterance;
+    // Workaround for Chrome garbage collection bug
+    (window as any)._activeUtterance = utterance;
+    
     synthRef.current.speak(utterance);
   };
 
