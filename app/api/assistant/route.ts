@@ -67,10 +67,10 @@ Jika perintah pengguna menyebutkan nama kontak (seperti "kirim WA ke Budi...", "
 Pilihan Aksi ("action") yang didukung:
 1. CREATE_NOTE: Membuat catatan baru (transkripsi suara/voice over).
    - Pola: "buat catatan baru tentang...", "tulis catatan...", "catat..."
-   - Payload: { "title": "Judul Catatan Singkat", "content": "Konten/isi catatan rapi berbasis markdown", "summary": "Ringkasan pendek isi catatan dalam 1-2 kalimat.", "tags": ["Tag1", "Tag2"], "todo_list": ["Tugas 1", "Tugas 2"] }
+   - Payload: { "title": "Judul Catatan Singkat", "content": "Konten/isi catatan rapi berbasis markdown", "summary": "Teks asli perintah suara/ketikan dari pengguna (verbatim tanpa parafrase atau ringkasan AI).", "tags": ["Tag1", "Tag2"], "todo_list": ["Tugas 1", "Tugas 2"] }
 2. UPDATE_NOTE: Mengedit, mengisi, mengganti, atau menambahkan isi ke dalam catatan yang sedang aktif/dibuka saat ini (atau catatan tertentu yang dirujuk).
    - ATURAN PENTING: Jika pengguna merujuk ke catatan yang baru dibuat, sedang aktif, atau dibuka saat ini (misalnya dengan kata 'catatan itu', 'catatan ini', 'isi catatan itu dengan...', dll.), dan ingin mengisi atau mengubah konten/judulnya, gunakan UPDATE_NOTE daripada CREATE_NOTE agar tidak membuat catatan baru yang duplikat/sia-sia. Gunakan data 'Catatan yang sedang dibuka/aktif saat ini' untuk menyusun konten gabungan atau konten baru yang rapi.
-   - Payload: { "noteId": "ID catatan yang akan diupdate (wajib diisi, ambil dari ID catatan aktif saat ini)", "title": "Judul baru (optional, isi hanya jika diminta mengubah judul)", "content": "Konten baru atau tambahan yang rapi (markdown) menggabungkan data lama dan instruksi baru", "summary": "Ringkasan pendek isi catatan yang telah diperbarui dalam 1-2 kalimat.", "tags": ["Tag1", "Tag2"], "todo_list": ["Tugas 1", "Tugas 2"] }
+   - Payload: { "noteId": "ID catatan yang akan diupdate (wajib diisi, ambil dari ID catatan aktif saat ini)", "title": "Judul baru (optional, isi hanya jika diminta mengubah judul)", "content": "Konten baru atau tambahan yang rapi (markdown) menggabungkan data lama dan instruksi baru", "summary": "Teks asli perintah suara/ketikan dari pengguna (verbatim tanpa parafrase atau ringkasan AI).", "tags": ["Tag1", "Tag2"], "todo_list": ["Tugas 1", "Tugas 2"] }
 3. VIEW_NOTE: Membuka/melihat isi catatan tertentu.
    - Pola: "buka catatan...", "lihat catatan...", "baca catatan..."
    - Payload: { "noteId": "ID catatan yang paling cocok dari daftar catatan saat ini" }

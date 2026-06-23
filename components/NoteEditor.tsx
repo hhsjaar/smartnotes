@@ -513,7 +513,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
                 >
                   <div className={styles.collapsibleHeaderTitle}>
                     <Sparkles size={16} style={{ color: 'var(--accent)' }} />
-                    <span>Teks Asli Rekaman (AI Transkrip)</span>
+                    <span>Teks Asli Rekaman</span>
                   </div>
                   <span className={`${styles.collapsibleArrow} ${isSummaryExpanded ? styles.arrowUp : ''}`}>▼</span>
                 </button>

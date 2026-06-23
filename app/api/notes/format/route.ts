@@ -85,10 +85,11 @@ Instruksi Tambahan:
 - Judul Catatan ('title') harus berformat: "Laporan Intel: [Nama Kegiatan] di [Nama Lokasi/Gedung]" (maksimal 8 kata). Untuk Catatan Master di folder "Utuh", berikan judul seperti "Laporan Intel Utuh: [Ringkasan Topik-Topik]".
 - Kategori/Tags ('tags') harus menyertakan "Laporan", "Intel", serta 1-2 tag tambahan yang relevan.
 - Ekstrak daftar tugas/tindakan konkret lanjutan ke dalam 'todo_list' jika ada. Jika tidak ada, kembalikan [].
+- Nilai dari 'summary' harus berupa teks transkripsi asli (mentah/verbatim) yang diambil langsung dari "Teks Mentah Transkripsi" yang berhubungan dengan catatan/laporan ini, tanpa parafrase, perubahan kata, atau ringkasan dari AI. Jika catatan ini adalah Catatan Master atau jika hanya ada satu catatan, isi 'summary' dengan seluruh isi teks transkripsi asli secara utuh.
 
 Untuk setiap catatan, tentukan folder penyimpanannya. Cari dari Daftar Folder saat ini yang paling cocok.
 PENTING: Jangan hanya mencocokkan berdasarkan nama foldernya saja, melainkan analisis juga ringkasan isi catatan (existing_notes_context) yang sudah ada di dalam folder tersebut untuk menentukan apakah catatan baru ini relate (berkaitan erat) dengan isi catatan di folder tersebut. 
-Jika ada folder yang sangat cocok dan relate, berikan 'folderId' sesuai ID folder tersebut. Jika tidak ada yang cocok namun topiknya memerlukan kategori/folder baru, berikan 'folderName' dengan nama kategori baru tersebut, dan isi 'folderId' dengan null. Jika merupakan catatan umum tanpa folder khusus, berikan 'folderId': null dan 'folderName': null.
+Jika ada folder yang sangat cocok dan relate, berikan 'folderId' sesuai ID folder tersebut. Jika tidak ada yang cocok namun topiknya memerlukan kategori/folder baru, berikan 'folderName' dengan nama kategori baru tersebut, dan isi 'folderId' with null. Jika merupakan catatan umum tanpa folder khusus, berikan 'folderId': null and 'folderName': null.
 Khusus untuk Catatan Master (yang menggabungkan beberapa topik jika ada pemecahan), wajib berikan 'folderName': "Utuh" dan 'folderId': null.
 
 Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
@@ -97,7 +98,7 @@ Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
     {
       "title": "Judul Catatan",
       "content": "Isi laporan intel lengkap dengan format persis seperti template di atas. Jangan berikan pengantar atau teks tambahan di luar format.",
-      "summary": "Ringkasan pendek isi laporan intel ini dalam 1-2 kalimat.",
+      "summary": "Teks transkripsi asli (mentah/verbatim) dari hasil rekaman suara yang bersangkutan dengan bagian laporan intel ini, tanpa parafrase, pemformatan, atau ringkasan AI.",
       "tags": ["Laporan", "Intel", "TagLain"],
       "todo_list": ["Tugas 1", "Tugas 2"],
       "folderId": "id-folder-yang-cocok-atau-null",
@@ -139,6 +140,7 @@ Instruksi Tambahan:
 - Judul Catatan ('title') harus berformat: "Laporan Kegiatan: [Nama Kejadian] di [Nama Lokasi/TKP]" (maksimal 8 kata). Untuk Catatan Master di folder "Utuh", berikan judul seperti "Laporan Kegiatan Utuh: [Ringkasan Topik-Topik]".
 - Kategori/Tags ('tags') harus menyertakan "Laporan" dan "Kegiatan", serta 1-2 tag tambahan yang relevan.
 - Ekstrak daftar tugas/tindakan konkret lanjutan ke dalam 'todo_list' jika ada. Jika tidak ada, kembalikan [].
+- Nilai dari 'summary' harus berupa teks transkripsi asli (mentah/verbatim) yang diambil langsung dari "Teks Mentah Transkripsi" yang berhubungan dengan catatan/laporan ini, tanpa parafrase, perubahan kata, atau ringkasan dari AI. Jika catatan ini adalah Catatan Master atau jika hanya ada satu catatan, isi 'summary' dengan seluruh isi teks transkripsi asli secara utuh.
 
 Untuk setiap catatan, tentukan folder penyimpanannya. Cari dari Daftar Folder saat ini yang paling cocok.
 PENTING: Jangan hanya mencocokkan berdasarkan nama foldernya saja, melainkan analisis juga ringkasan isi catatan (existing_notes_context) yang sudah ada di dalam folder tersebut untuk menentukan apakah catatan baru ini relate (berkaitan erat) dengan isi catatan di folder tersebut. 
@@ -151,7 +153,7 @@ Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
     {
       "title": "Judul Catatan",
       "content": "Isi laporan kegiatan lengkap dengan format teks persis seperti template di atas. Gunakan teks biasa untuk 'Informasi Kejadian' dan 'Penanganan di Lokasi'. Jangan gunakan bullet points (-) pada Informasi Kejadian. Jangan berikan pengantar atau teks tambahan di luar format.",
-      "summary": "Ringkasan pendek isi laporan kegiatan ini dalam 1-2 kalimat.",
+      "summary": "Teks transkripsi asli (mentah/verbatim) dari hasil rekaman suara yang bersangkutan dengan bagian laporan kegiatan ini, tanpa parafrase, pemformatan, atau ringkasan AI.",
       "tags": ["Laporan", "Kegiatan", "TagLain"],
       "todo_list": ["Tugas 1", "Tugas 2"],
       "folderId": "id-folder-yang-cocok-atau-null",
@@ -182,6 +184,7 @@ Instruksi Pemformatan Setiap Catatan:
    - Cetak tebal (bold) pada konsep/istilah kunci untuk meningkatkan visual hierarki
 4. Ekstrak daftar tugas/tindakan konkret (Action Items / TODO checklist) yang harus dilakukan berdasarkan pembicaraan. Jika tidak ada tindakan nyata, buat daftar kosong [].
 5. Rekomendasikan 2-4 tag/kategori yang relevan untuk catatan ini (misalnya: Rapat, Ide, Tugas, Keuangan, Pribadi, dll).
+6. Nilai dari 'summary' harus berupa teks transkripsi asli (mentah/verbatim) yang diambil langsung dari "Teks Mentah Transkripsi" yang berhubungan dengan catatan ini, tanpa parafrase, perubahan kata, atau ringkasan dari AI. Jika catatan ini adalah Catatan Master atau jika hanya ada satu catatan, isi 'summary' dengan seluruh isi teks transkripsi asli secara utuh.
 
 Untuk setiap catatan, tentukan folder penyimpanannya. Cari dari Daftar Folder saat ini yang paling cocok.
 PENTING: Jangan hanya mencocokkan berdasarkan nama foldernya saja, melainkan analisis juga ringkasan isi catatan (existing_notes_context) yang sudah ada di dalam folder tersebut untuk menentukan apakah catatan baru ini relate (berkaitan erat) dengan isi catatan di folder tersebut. 
@@ -194,7 +197,7 @@ Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
     {
       "title": "Judul Catatan",
       "content": "Isi catatan yang diformat sangat rapi dengan sub-header, daftar poin/bullet points, tebal, dll. agar nyaman dibaca. Jangan sertakan todo list di dalam 'content' ini.",
-      "summary": "Ringkasan pendek isi catatan ini dalam 1-2 kalimat.",
+      "summary": "Teks transkripsi asli (mentah/verbatim) dari hasil rekaman suara yang bersangkutan dengan catatan ini, tanpa parafrase, pemformatan, atau ringkasan AI.",
       "tags": ["Tag1", "Tag2"],
       "todo_list": ["Tugas 1", "Tugas 2"],
       "folderId": "id-folder-yang-cocok-atau-null",
