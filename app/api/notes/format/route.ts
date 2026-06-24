@@ -57,7 +57,17 @@ export async function POST(request: Request) {
 
     if (formatType === 'intel') {
       prompt = `Anda adalah asisten AI editor catatan profesional intelijen/keamanan. Tugas Anda adalah mengambil teks mentah hasil transkripsi suara (Voice-to-Text) di bawah ini, menganalisis kontennya, dan merapikannya menjadi "Laporan Intel" awal (Pulbaket) dengan format yang SANGAT SPESIFIK dan kaku.
-Selain catatan pecahan tersebut, Anda wajib membuat satu catatan tambahan sebagai 'Catatan Master' (versi utuh) yang menggabungkan seluruh kejadian/topik tersebut menjadi 1 catatan terstruktur (bukan diringkas dalam format baru yang menghilangkan detail, melainkan digabungkan dan diparafrase secara rapi dengan mengelompokkannya per topik). Format konten ('content') Catatan Master ini harus mencantumkan Hari/Tanggal transkrip, diikuti dengan rincian detail masing-masing topik (Judul Topik & Isi Catatan Laporan Intel lengkapnya per topik secara berurutan). Catatan Master ini secara khusus dimasukkan ke folder "Utuh" (isi 'folderName' dengan "Utuh" dan 'folderId' dengan null). Namun jika hanya ada satu topik intelijen, cukup buat 1 catatan saja (tidak perlu membuat Catatan Master di folder "Utuh").
+PENTING: Buatlah semua ringkasan dan catatan Anda (baik catatan pecahan maupun Catatan Master) secara sangat detail, komprehensif, mendalam, dan sangat jelas. Jangan menyederhanakan, merangkum terlalu pendek, atau menghilangkan detail spesifik seperti nama orang, nama tempat/lokasi, waktu/jam, angka-angka penting, kutipan ucapan, atau konteks pembicaraan.
+Selain catatan pecahan tersebut, Anda wajib membuat satu catatan tambahan sebagai 'Catatan Master' (versi utuh) yang menggabungkan seluruh kejadian/topik tersebut menjadi 1 catatan terstruktur (bukan diringkas dalam format baru yang menghilangkan detail, melainkan digabungkan dan diparafrase secara rapi dengan mengelompokkannya per topik). Format konten ('content') Catatan Master ini harus mencantumkan Hari/Tanggal transkrip, diikuti dengan rincian detail masing-masing topik (Judul Topik & Isi Catatan Laporan Intel lengkapnya per topik secara berurutan). 
+Di bagian paling bawah konten ('content') Catatan Master, setelah laporan gabungan detail yang komprehensif, Anda wajib menambahkan pemisah horizontal (---) dan bagian khusus berjudul '### Rincian Topik per Folder'. Bagian ini berisi daftar ringkasan/catatan AI dari masing-masing topik pecahan yang telah dikelompokkan ke dalam foldernya masing-masing dengan format yang jelas, seperti berikut:
+---
+### Rincian Topik per Folder
+
+**Folder: [Nama Folder]**
+- Judul Catatan: [Judul Catatan Pecahan]
+- Isi Catatan: [Isi Lengkap Catatan Pecahan]
+
+Catatan Master ini secara khusus dimasukkan ke folder "Utuh" (isi 'folderName' dengan "Utuh" dan 'folderId' dengan null). Namun jika hanya ada satu topik intelijen, cukup buat 1 catatan saja (tidak perlu membuat Catatan Master di folder "Utuh" dan tidak perlu menambahkan bagian 'Rincian Topik per Folder').
 
 Teks Mentah Transkripsi:
 "${text}"
@@ -107,11 +117,20 @@ Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
   ]
 }
 
-PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan lainnya. Kembalikan HANYA string JSON murni yang valid.`;
-    } else if (formatType === 'laporan') {
+PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan lainnya. Kembalikan HANYA string JSON murni yang valid.`;    } else if (formatType === 'laporan') {
       prompt = `Anda adalah asisten AI editor catatan profesional untuk kepolisian dan satuan keamanan. Tugas Anda adalah mengambil teks mentah hasil transkripsi suara (Voice-to-Text) di bawah ini, menganalisis kontennya, dan merapikannya menjadi "Laporan Kegiatan" resmi dengan format yang SANGAT SPESIFIK dan kaku.
+PENTING: Buatlah semua ringkasan dan catatan Anda (baik catatan pecahan maupun Catatan Master) secara sangat detail, komprehensif, mendalam, dan sangat jelas. Jangan menyederhanakan, merangkum terlalu pendek, atau menghilangkan detail spesifik seperti nama orang, nama tempat/lokasi, waktu/jam, angka-angka penting, penyebab kejadian, atau tindakan yang diambil.
 Jika teks mengandung lebih dari satu topik kejadian/kegiatan keamanan yang berbeda, maka PECAHLAH isi rekaman tersebut menjadi beberapa catatan laporan kegiatan yang berbeda secara logis.
-Selain itu, jika teks dipecah menjadi beberapa catatan berbeda karena memiliki beberapa topik pembicaraan/bahasan/kejadian, Anda WAJIB membuat satu catatan tambahan sebagai 'Catatan Master' (versi utuh) yang menggabungkan seluruh kejadian/kegiatan tersebut menjadi 1 catatan terstruktur (bukan diringkas dalam format baru yang menghilangkan detail, melainkan digabungkan dan diparafrase secara rapi dengan mengelompokkannya per topik). Format konten ('content') Catatan Master ini harus mencantumkan Hari/Tanggal transkrip, diikuti dengan rincian detail masing-masing topik (Judul Topik & Isi Catatan Laporan Kegiatan lengkapnya per topik secara berurutan). Catatan Master ini secara khusus dimasukkan ke folder "Utuh" (isi 'folderName' dengan "Utuh" dan 'folderId' dengan null). Namun jika hanya ada satu topik kejadian/kegiatan, cukup buat 1 catatan saja (tidak perlu membuat Catatan Master di folder "Utuh").
+Selain itu, jika teks dipecah menjadi beberapa catatan berbeda karena memiliki beberapa topik pembicaraan/bahasan/kejadian, Anda WAJIB membuat satu catatan tambahan sebagai 'Catatan Master' (versi utuh) yang menggabungkan seluruh kejadian/kegiatan tersebut menjadi 1 catatan terstruktur (bukan diringkas dalam format baru yang menghilangkan detail, melainkan digabungkan dan diparafrase secara rapi dengan mengelompokkannya per topik). Format konten ('content') Catatan Master ini harus mencantumkan Hari/Tanggal transkrip, diikuti dengan rincian detail masing-masing topik (Judul Topik & Isi Catatan Laporan Kegiatan lengkapnya per topik secara berurutan). 
+Di bagian paling bawah konten ('content') Catatan Master, setelah laporan gabungan detail yang komprehensif, Anda wajib menambahkan pemisah horizontal (---) dan bagian khusus berjudul '### Rincian Topik per Folder'. Bagian ini berisi daftar ringkasan/catatan AI dari masing-masing topik pecahan yang telah dikelompokkan ke dalam foldernya masing-masing dengan format yang jelas, seperti berikut:
+---
+### Rincian Topik per Folder
+
+**Folder: [Nama Folder]**
+- Judul Catatan: [Judul Catatan Pecahan]
+- Isi Catatan: [Isi Lengkap Catatan Pecahan]
+
+Catatan Master ini secara khusus dimasukkan ke folder "Utuh" (isi 'folderName' dengan "Utuh" dan 'folderId' dengan null). Namun jika hanya ada satu topik kejadian/kegiatan, cukup buat 1 catatan saja (tidak perlu membuat Catatan Master di folder "Utuh" dan tidak perlu menambahkan bagian 'Rincian Topik per Folder').
 
 Teks Mentah Transkripsi:
 "${text}"
@@ -162,11 +181,20 @@ Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
   ]
 }
 
-PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan lainnya. Kembalikan HANYA string JSON murni yang valid.`;
-    } else {
+PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan lainnya. Kembalikan HANYA string JSON murni yang valid.`;    } else {
       prompt = `Anda adalah asisten AI editor catatan profesional. Tugas Anda adalah mengambil teks mentah hasil transkripsi suara (Voice-to-Text) di bawah ini, menganalisis kontennya, dan merapikannya menjadi catatan terstruktur yang sangat berkualitas dan rapi.
+PENTING: Buatlah semua ringkasan dan catatan Anda (baik catatan pecahan maupun Catatan Master) secara sangat detail, komprehensif, mendalam, dan sangat jelas. Jangan menyederhanakan, merangkum terlalu pendek, atau menghilangkan detail spesifik seperti nama, tanggal/hari, waktu/jam, angka-angka penting, detail pembahasan, ide-ide kunci, atau penjelasan detail lainnya.
 Jika teks mengandung lebih dari satu topik pembicaraan/bahasan/ide yang berbeda, maka PECAHLAH isi rekaman tersebut menjadi beberapa catatan terpisah secara logis sesuai dengan masing-masing topik.
-Selain itu, jika teks dipecah menjadi beberapa catatan berbeda karena memiliki beberapa topik pembicaraan/bahasan/ide, Anda WAJIB membuat satu catatan tambahan sebagai 'Catatan Master' (versi utuh) yang menggabungkan seluruh topik/bahasan tersebut menjadi 1 catatan terstruktur (bukan diringkas dalam format baru yang menghilangkan detail, melainkan digabungkan dan diparafrase secara rapi dengan mengelompokkannya per topik). Format konten ('content') Catatan Master ini harus mencantumkan Hari/Tanggal transkrip, diikuti dengan rincian detail masing-masing topik (Judul Topik & Isi Catatan lengkapnya per topik secara berurutan). Catatan Master ini secara khusus dimasukkan ke folder "Utuh" (isi 'folderName' dengan "Utuh" dan 'folderId' dengan null). Namun jika hanya ada satu topik, cukup buat 1 catatan saja (tidak perlu membuat Catatan Master di folder "Utuh").
+Selain itu, jika teks dipecah menjadi beberapa catatan berbeda karena memiliki beberapa topik pembicaraan/bahasan/ide, Anda WAJIB membuat satu catatan tambahan sebagai 'Catatan Master' (versi utuh) yang menggabungkan seluruh topik/bahasan tersebut menjadi 1 catatan terstruktur (bukan diringkas dalam format baru yang menghilangkan detail, melainkan digabungkan dan diparafrase secara rapi dengan mengelompokkannya per topik). Format konten ('content') Catatan Master ini harus mencantumkan Hari/Tanggal transkrip, diikuti dengan rincian detail masing-masing topik (Judul Topik & Isi Catatan lengkapnya per topik secara berurutan). 
+Di bagian paling bawah konten ('content') Catatan Master, setelah ringkasan gabungan detail yang komprehensif, Anda wajib menambahkan pemisah horizontal (---) dan bagian khusus berjudul '### Rincian Topik per Folder'. Bagian ini berisi daftar ringkasan/catatan AI dari masing-masing topik pecahan yang telah dikelompokkan ke dalam foldernya masing-masing dengan format yang jelas, seperti berikut:
+---
+### Rincian Topik per Folder
+
+**Folder: [Nama Folder]**
+- Judul Catatan: [Judul Catatan Pecahan]
+- Isi Catatan: [Isi Lengkap Catatan Pecahan]
+
+Catatan Master ini secara khusus dimasukkan ke folder "Utuh" (isi 'folderName' dengan "Utuh" dan 'folderId' dengan null). Namun jika hanya ada satu topik, cukup buat 1 catatan saja (tidak perlu membuat Catatan Master di folder "Utuh" dan tidak perlu menambahkan bagian 'Rincian Topik per Folder').
 
 Teks Mentah Transkripsi:
 "${text}"
