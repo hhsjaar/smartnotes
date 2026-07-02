@@ -2612,5 +2612,19 @@
   text-align: right;
 }
 
+.reminderWaInfo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: #10b981;
+  margin: 8px 0;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  padding: 6px 10px;
+  border-radius: var(--border-radius-sm);
+  width: fit-content;
+}
+
 
 

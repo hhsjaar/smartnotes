@@ -17,7 +17,7 @@ export async function GET() {
 // Create a new reminder
 export async function POST(request: Request) {
   try {
-    const { title, description, dateTime, notify1Day, notify1Hour, notifyExact } = await request.json();
+    const { title, description, dateTime, notify1Day, notify1Hour, notifyExact, whatsappNumber } = await request.json();
     if (!title || !dateTime) {
       return NextResponse.json({ error: 'Judul dan tanggal/waktu wajib diisi' }, { status: 400 });
     }
@@ -32,7 +32,8 @@ export async function POST(request: Request) {
         notifyExact: notifyExact !== undefined ? notifyExact : true,
         sent1Day: false,
         sent1Hour: false,
-        sentExact: false
+        sentExact: false,
+        whatsappNumber: whatsappNumber || null
       }
     });
 

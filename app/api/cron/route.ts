@@ -167,6 +167,41 @@ async function processReminders(now: Date) {
           data: updatedFields
         });
 
+        // Send WhatsApp notification if whatsappNumber is set
+        if (reminder.whatsappNumber) {
+          try {
+            const token = process.env.FONNTE_API_TOKEN;
+            if (token) {
+              const cleanedTarget = cleanTargetNumber(reminder.whatsappNumber);
+              const waMessage = `*Alarm / Pengingat AI ⏰*\n\n${notifyBody}\n\n${reminder.description ? `_${reminder.description}_` : ''}`.trim();
+              
+              const formData = new FormData();
+              formData.append('target', cleanedTarget);
+              formData.append('message', waMessage);
+              formData.append('countryCode', '62');
+
+              const waRes = await fetch('https://api.fonnte.com/send', {
+                method: 'POST',
+                headers: {
+                  'Authorization': token,
+                },
+                body: formData,
+              });
+
+              const waData = await waRes.json();
+              if (!waRes.ok || !waData.status) {
+                console.error('Failed to send WhatsApp reminder:', waData.reason || 'Unknown error');
+              } else {
+                console.log('WhatsApp reminder sent successfully to:', cleanedTarget);
+              }
+            } else {
+              console.error('FONNTE_API_TOKEN is not configured for cron reminders.');
+            }
+          } catch (waErr: any) {
+            console.error('Error sending WhatsApp reminder in cron:', waErr.message);
+          }
+        }
+
         let successCount = 0;
         let failCount = 0;
 

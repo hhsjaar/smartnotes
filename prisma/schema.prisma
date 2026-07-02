@@ -46,17 +46,18 @@ model ScheduledJob {
 }
 
 model Reminder {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  dateTime    DateTime
-  notify1Day  Boolean  @default(true)
-  notify1Hour Boolean  @default(true)
-  notifyExact Boolean  @default(true)
-  sent1Day    Boolean  @default(false)
-  sent1Hour   Boolean  @default(false)
-  sentExact   Boolean  @default(false)
-  created_at  DateTime @default(now())
+  id             String   @id @default(uuid())
+  title          String
+  description    String?
+  dateTime       DateTime
+  notify1Day     Boolean  @default(true)
+  notify1Hour    Boolean  @default(true)
+  notifyExact    Boolean  @default(true)
+  sent1Day       Boolean  @default(false)
+  sent1Hour      Boolean  @default(false)
+  sentExact      Boolean  @default(false)
+  created_at     DateTime @default(now())
+  whatsappNumber String?
 
   @@map("reminders")
 }

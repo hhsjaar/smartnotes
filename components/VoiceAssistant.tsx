@@ -281,9 +281,9 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
         };
         
         rec.onend = () => {
-          // Workaround for Chrome Android bug that automatically stops recognition on short silences.
-          // If the 5-second silence timeout is still active, we restart it so the user can continue thinking.
-          if (silenceTimeoutRef.current && statusRef.current === 'listening') {
+          // Keep listening indefinitely if the status is still 'listening'
+          // This prevents automatic browser cutoffs from ending the voice session
+          if (statusRef.current === 'listening') {
             try {
               rec.start();
             } catch (e) {
@@ -292,10 +292,6 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
             return;
           }
 
-          if (silenceTimeoutRef.current) {
-            clearTimeout(silenceTimeoutRef.current);
-            silenceTimeoutRef.current = null;
-          }
           setStatus(prev => {
             if (prev === 'listening') return 'idle';
             return prev;
@@ -325,21 +321,29 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
           const currentText = (totalFinal + ' ' + interimTranscript).trim();
           setTranscript(currentText);
 
-          // Reset the silence debounce timer
-          if (silenceTimeoutRef.current) {
-            clearTimeout(silenceTimeoutRef.current);
-          }
+          // Check if user spoke the trigger word "cukup" at the end of the text
+          const cleanText = currentText.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"").trim().toLowerCase();
+          const words = cleanText.split(/\s+/);
+          const hasCukupTrigger = words.length > 0 && words[words.length - 1] === 'cukup';
 
-          if (currentText) {
-            // Set 5-second debounce timer to wait for thinking pauses
-            silenceTimeoutRef.current = setTimeout(() => {
-              silenceTimeoutRef.current = null;
-              accumulatedTranscriptRef.current = totalFinal;
-              try {
-                rec.stop();
-              } catch (e) {}
-              processCommandRef.current(currentText);
-            }, 5000);
+          if (hasCukupTrigger) {
+            const cleanedText = currentText.replace(/\s*cukup[.,\/#!$%\^&\*;:{}=\-_`~()]*$/i, '').trim();
+            
+            // Set statusRef.current directly to processing to prevent onend restart
+            statusRef.current = 'processing';
+            setStatus('processing');
+            accumulatedTranscriptRef.current = '';
+            
+            try {
+              rec.stop();
+            } catch (e) {}
+
+            if (cleanedText) {
+              processCommandRef.current(cleanedText);
+            } else {
+              speak("Baik, sampai jumpa!");
+              autoClosePanel();
+            }
           }
         };
         
@@ -348,9 +352,6 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
     }
 
     return () => {
-      if (silenceTimeoutRef.current) {
-        clearTimeout(silenceTimeoutRef.current);
-      }
       if (rec) {
         try {
           rec.onstart = null;
@@ -393,25 +394,29 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
     if (!showPanel) {
       setChatHistory([]);
       setPendingAction(null);
-    }
-    
-    if (recognition) {
       setShowPanel(true);
-      try {
-        recognition.start();
-      } catch (e) {
-        console.warn('SpeechRecognition already started', e);
+      
+      const welcomeMsg = "Halo! Saya asisten suara cerdas Anda. Ada yang bisa saya bantu hari ini?";
+      setChatHistory([{ role: 'model', text: welcomeMsg }]);
+      speak(welcomeMsg);
+    } else {
+      if (recognition) {
+        try {
+          recognition.start();
+        } catch (e) {
+          console.warn('SpeechRecognition already started', e);
+        }
       }
     }
   };
 
   const stopListening = () => {
-    if (silenceTimeoutRef.current) {
-      clearTimeout(silenceTimeoutRef.current);
-      silenceTimeoutRef.current = null;
-    }
+    statusRef.current = 'idle';
+    setStatus('idle');
     if (recognition) {
-      recognition.stop();
+      try {
+        recognition.stop();
+      } catch (e) {}
     }
     // If user clicked stop manually and there is spoken text, process it immediately
     if (transcriptRef.current && transcriptRef.current.trim() !== '') {

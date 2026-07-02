@@ -50,6 +50,7 @@ interface Reminder {
   sent1Day: boolean;
   sent1Hour: boolean;
   sentExact: boolean;
+  whatsappNumber?: string | null;
   created_at: string;
 }
 
@@ -102,6 +103,8 @@ export default function Home() {
   const [opt1Day, setOpt1Day] = useState(true);
   const [opt1Hour, setOpt1Hour] = useState(true);
   const [optExact, setOptExact] = useState(true);
+  const [enableWaReminder, setEnableWaReminder] = useState(false);
+  const [waReminderNumber, setWaReminderNumber] = useState('');
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -304,7 +307,8 @@ export default function Home() {
     dateTime: string,
     notify1Day?: boolean,
     notify1Hour?: boolean,
-    notifyExact?: boolean
+    notifyExact?: boolean,
+    whatsappNumber?: string
   ) => {
     try {
       const res = await fetch('/api/reminders', {
@@ -316,7 +320,8 @@ export default function Home() {
           dateTime,
           notify1Day: notify1Day !== undefined ? notify1Day : true,
           notify1Hour: notify1Hour !== undefined ? notify1Hour : true,
-          notifyExact: notifyExact !== undefined ? notifyExact : true
+          notifyExact: notifyExact !== undefined ? notifyExact : true,
+          whatsappNumber: whatsappNumber || null
         })
       });
       if (res.ok) {
@@ -487,6 +492,14 @@ export default function Home() {
     loadFolders();
     loadReminders();
 
+    if (typeof window !== 'undefined') {
+      const savedWaNum = localStorage.getItem('default_wa_reminder_number');
+      if (savedWaNum) {
+        setWaReminderNumber(savedWaNum);
+        setEnableWaReminder(true);
+      }
+    }
+
     if (typeof window !== 'undefined' && 'Notification' in window) {
       setPushPermissionStatus(Notification.permission);
       
@@ -530,6 +543,10 @@ export default function Home() {
         setActiveTab('news');
       } else if (action === 'CREATE_REMINDER') {
         try {
+          let waNum = payload.whatsappNumber;
+          if (waNum === 'default') {
+            waNum = localStorage.getItem('default_wa_reminder_number') || '';
+          }
           const res = await fetch('/api/reminders', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -539,7 +556,8 @@ export default function Home() {
               dateTime: payload.dateTime,
               notify1Day: payload.notify1Day,
               notify1Hour: payload.notify1Hour,
-              notifyExact: payload.notifyExact
+              notifyExact: payload.notifyExact,
+              whatsappNumber: waNum || null
             })
           });
           if (res.ok) {
@@ -1131,6 +1149,10 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
         alert('Judul, tanggal, dan waktu pengingat wajib diisi!');
         return;
       }
+      if (enableWaReminder && !waReminderNumber.trim()) {
+        alert('Nomor WhatsApp wajib diisi jika notifikasi WhatsApp diaktifkan!');
+        return;
+      }
 
       // Parse date and time components locally to ensure timezone offset is included
       const [year, month, day] = reminderDate.split('-').map(Number);
@@ -1150,10 +1172,14 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
         dateTimeStr,
         opt1Day,
         opt1Hour,
-        optExact
+        optExact,
+        enableWaReminder ? waReminderNumber.trim() : undefined
       );
 
       if (success) {
+        if (enableWaReminder) {
+          localStorage.setItem('default_wa_reminder_number', waReminderNumber.trim());
+        }
         setReminderTitle('');
         setReminderDescription('');
         setReminderDate('');
@@ -1308,8 +1334,34 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       <span className={styles.slider}></span>
                     </label>
                   </div>
+
+                  <div className={styles.toggleItem}>
+                    <span>Kirim Notifikasi via WhatsApp</span>
+                    <label className={styles.switch}>
+                      <input
+                        type="checkbox"
+                        checked={enableWaReminder}
+                        onChange={(e) => setEnableWaReminder(e.target.checked)}
+                      />
+                      <span className={styles.slider}></span>
+                    </label>
+                  </div>
                 </div>
               </div>
+
+              {enableWaReminder && (
+                <div className={styles.formGroup}>
+                  <label htmlFor="wa-reminder-number">📲 Nomor WhatsApp Penerima</label>
+                  <input
+                    id="wa-reminder-number"
+                    type="text"
+                    placeholder="Contoh: 08123456789"
+                    value={waReminderNumber}
+                    onChange={(e) => setWaReminderNumber(e.target.value)}
+                    required={enableWaReminder}
+                  />
+                </div>
+              )}
 
               <GlowButton type="submit" variant="primary" style={{ width: '100%', marginTop: '8px' }}>
                 🔔 Simpan Pengingat
@@ -1352,6 +1404,12 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                           <span>{formatDateTime(reminder.dateTime)}</span>
                           {isPast && <span className={styles.pastLabel}>Selesai</span>}
                         </div>
+
+                        {reminder.whatsappNumber && (
+                          <div className={styles.reminderWaInfo}>
+                            <span>📲 WhatsApp: <strong>{reminder.whatsappNumber}</strong></span>
+                          </div>
+                        )}
 
                         <div className={styles.reminderStages}>
                           {reminder.notify1Day ? (
