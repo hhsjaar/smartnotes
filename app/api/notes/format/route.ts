@@ -14,11 +14,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'GEMINI_API_KEY tidak dikonfigurasi di server.' }, { status: 500 });
     }
 
-    // Load existing folders along with their latest notes from the database to map notes to folders
-    const foldersWithNotes = await prisma.folder.findMany({
-      select: {
-        id: true,
-        name: true,
+    // Load existing folders along with their hierarchy and latest notes
+    const allFolders = await prisma.folder.findMany({
+      include: {
         notes: {
           select: {
             title: true,
@@ -28,19 +26,27 @@ export async function POST(request: Request) {
           orderBy: {
             created_at: 'desc',
           },
-          take: 5,
-        },
-      },
+          take: 3,
+        }
+      }
     });
 
-    const foldersContext = foldersWithNotes.map((f) => {
-      const notesSummary = f.notes
-        .map((n) => `- Judul: "${n.title}", Ringkasan: "${n.summary}", Tags: [${n.tags.join(', ')}]`)
-        .join('\n');
+    const rootFolders = allFolders.filter(f => !f.parentId);
+    const foldersContext = rootFolders.map(parent => {
+      const subfolders = allFolders.filter(f => f.parentId === parent.id);
       return {
-        id: f.id,
-        name: f.name,
-        existing_notes_context: notesSummary || '(Belum ada catatan di folder ini)'
+        id: parent.id,
+        name: parent.name,
+        existing_notes_context: parent.notes
+          .map((n) => `- Judul: "${n.title}", Ringkasan: "${n.summary}", Tags: [${n.tags.join(', ')}]`)
+          .join('\n') || '(Belum ada catatan di folder ini)',
+        subfolders: subfolders.map(child => ({
+          id: child.id,
+          name: child.name,
+          existing_notes_context: child.notes
+            .map((n) => `- Judul: "${n.title}", Ringkasan: "${n.summary}", Tags: [${n.tags.join(', ')}]`)
+            .join('\n') || '(Belum ada catatan di subfolder ini)'
+        }))
       };
     });
 
@@ -97,10 +103,18 @@ Instruksi Tambahan:
 - Ekstrak daftar tugas/tindakan konkret lanjutan ke dalam 'todo_list' jika ada. Jika tidak ada, kembalikan [].
 - Nilai dari 'summary' harus berupa teks transkripsi asli (mentah/verbatim) yang diambil langsung dari "Teks Mentah Transkripsi" yang berhubungan dengan catatan/laporan ini, tanpa parafrase, perubahan kata, atau ringkasan dari AI. Jika catatan ini adalah Catatan Master atau jika hanya ada satu catatan, isi 'summary' dengan seluruh isi teks transkripsi asli secara utuh.
 
-Untuk setiap catatan, tentukan folder penyimpanannya. Cari dari Daftar Folder saat ini yang paling cocok.
-PENTING: Jangan hanya mencocokkan berdasarkan nama foldernya saja, melainkan analisis juga ringkasan isi catatan (existing_notes_context) yang sudah ada di dalam folder tersebut untuk menentukan apakah catatan baru ini relate (berkaitan erat) dengan isi catatan di folder tersebut. 
-Jika ada folder yang sangat cocok dan relate, berikan 'folderId' sesuai ID folder tersebut. Jika tidak ada yang cocok namun topiknya memerlukan kategori/folder baru, berikan 'folderName' dengan nama kategori baru tersebut, dan isi 'folderId' with null. Jika merupakan catatan umum tanpa folder khusus, berikan 'folderId': null and 'folderName': null.
-Khusus untuk Catatan Master (yang menggabungkan beberapa topik jika ada pemecahan), wajib berikan 'folderName': "Utuh" dan 'folderId': null.
+Aturan Klasifikasi Folder & Subfolder (Berdasarkan Konteks Isi Catatan):
+Anda WAJIB menaruh catatan baru ke dalam folder/subfolder yang paling relevan berdasarkan acuan utama di bawah ini:
+1. Acuan Awal Klasifikasi adalah menentukan Folder Induk (Parent Folder) terlebih dahulu:
+   - **Perusahaan**: Masukkan ke folder ini jika catatan membahas tentang warung, burjolevelup, cafe, restoran, bisnis kuliner, operasional warung, belanjaan/pembelian bahan makanan, briefing operasional, SOP, laporan kantor, dsb. Setelah menentukan folder "Perusahaan", cocokkan dan pilih subfolder yang paling sesuai di bawahnya (misalnya: 'Belanjaan', 'Briefing Operasional', 'Laporan Kantor', 'Pengembangan Produk', 'SOP', 'Temuan Harian', 'Progres Harian').
+   - **Polsek**: Masukkan ke folder ini jika catatan membahas tentang masyarakat, laporan keamanan, ketertiban umum, kepolisian, tugas intel, pengumpulan informasi intelijen, data teks sambutan tokoh masyarakat, pemberdayaan masyarakat, dsb. Setelah menentukan folder "Polsek", cocokkan dan pilih subfolder yang paling sesuai di bawahnya (misalnya: 'Temuan Harian', 'Progres Harian', 'Laporan Keamanan', 'Pemberdayaan Masyarakat').
+   - **Pribadi**: Masukkan ke folder ini jika catatan membahas tentang wawasan, pengetahuan, pengembangan diri (self-development), catatan pribadi (self-notes), edukasi, keuangan pribadi/personal, diskusi ilmiah/edukatif, dsb. Setelah menentukan folder "Pribadi", cocokkan dan pilih subfolder yang paling sesuai di bawahnya (misalnya: 'Keuangan', 'Diskusi & Edukasi').
+   - **Utuh**: Khusus untuk 'Catatan Master' (Catatan Utuh yang menggabungkan beberapa topik pecahan), wajib dimasukkan ke folder "Utuh" (folderName: "Utuh", folderId: null).
+2. Cara menentukan 'folderId', 'folderName', dan 'parentFolderName' dalam output JSON:
+   - Jika catatan cocok dengan suatu subfolder (misalnya subfolder 'Belanjaan' di bawah parent 'Perusahaan'), isi 'folderId' dengan ID subfolder tersebut dari Daftar Folder, 'folderName' dengan nama subfolder tersebut, dan 'parentFolderName' dengan nama parent foldernya ("Perusahaan").
+   - Jika catatan cocok dengan folder induk namun tidak ada subfolder yang spesifik, isi 'folderId' dengan ID folder induk tersebut, 'folderName' dengan nama folder induk tersebut, dan 'parentFolderName' dengan null.
+   - Jika tidak ada folder/subfolder yang cocok sama sekali di database namun diperlukan kategori baru, buat subfolder/folder baru dengan mengisi 'folderName' sesuai nama kategori baru tersebut, isi 'folderId' dengan null, dan 'parentFolderName' dengan nama folder induknya (misalnya "Perusahaan", "Polsek", atau "Pribadi") jika kategori baru itu merupakan subkategori.
+   - Jika merupakan catatan umum yang tidak memerlukan folder khusus, isi 'folderId': null, 'folderName': null, dan 'parentFolderName': null.
 
 Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
 {
@@ -112,7 +126,8 @@ Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
       "tags": ["Laporan", "Intel", "TagLain"],
       "todo_list": ["Tugas 1", "Tugas 2"],
       "folderId": "id-folder-yang-cocok-atau-null",
-      "folderName": "NamaFolderBaruAtauNull"
+      "folderName": "NamaFolderBaruAtauNull",
+      "parentFolderName": "NamaFolderIndukJikaSubfolderAtauNull"
     }
   ]
 }
@@ -161,10 +176,18 @@ Instruksi Tambahan:
 - Ekstrak daftar tugas/tindakan konkret lanjutan ke dalam 'todo_list' jika ada. Jika tidak ada, kembalikan [].
 - Nilai dari 'summary' harus berupa teks transkripsi asli (mentah/verbatim) yang diambil langsung dari "Teks Mentah Transkripsi" yang berhubungan dengan catatan/laporan ini, tanpa parafrase, perubahan kata, atau ringkasan dari AI. Jika catatan ini adalah Catatan Master atau jika hanya ada satu catatan, isi 'summary' dengan seluruh isi teks transkripsi asli secara utuh.
 
-Untuk setiap catatan, tentukan folder penyimpanannya. Cari dari Daftar Folder saat ini yang paling cocok.
-PENTING: Jangan hanya mencocokkan berdasarkan nama foldernya saja, melainkan analisis juga ringkasan isi catatan (existing_notes_context) yang sudah ada di dalam folder tersebut untuk menentukan apakah catatan baru ini relate (berkaitan erat) dengan isi catatan di folder tersebut. 
-Jika ada folder yang sangat cocok dan relate, berikan 'folderId' sesuai ID folder tersebut. Jika tidak ada yang cocok namun topiknya memerlukan kategori/folder baru, berikan 'folderName' dengan nama kategori baru tersebut, dan isi 'folderId' dengan null. Jika merupakan catatan umum tanpa folder khusus, berikan 'folderId': null dan 'folderName': null.
-Khusus untuk Catatan Master (yang menggabungkan beberapa topik jika ada pemecahan), wajib berikan 'folderName': "Utuh" dan 'folderId': null.
+Aturan Klasifikasi Folder & Subfolder (Berdasarkan Konteks Isi Catatan):
+Anda WAJIB menaruh catatan baru ke dalam folder/subfolder yang paling relevan berdasarkan acuan utama di bawah ini:
+1. Acuan Awal Klasifikasi adalah menentukan Folder Induk (Parent Folder) terlebih dahulu:
+   - **Perusahaan**: Masukkan ke folder ini jika catatan membahas tentang warung, burjolevelup, cafe, restoran, bisnis kuliner, operasional warung, belanjaan/pembelian bahan makanan, briefing operasional, SOP, laporan kantor, dsb. Setelah menentukan folder "Perusahaan", cocokkan dan pilih subfolder yang paling sesuai di bawahnya (misalnya: 'Belanjaan', 'Briefing Operasional', 'Laporan Kantor', 'Pengembangan Produk', 'SOP', 'Temuan Harian', 'Progres Harian').
+   - **Polsek**: Masukkan ke folder ini jika catatan membahas tentang masyarakat, laporan keamanan, ketertiban umum, kepolisian, tugas intel, pengumpulan informasi intelijen, data teks sambutan tokoh masyarakat, pemberdayaan masyarakat, dsb. Setelah menentukan folder "Polsek", cocokkan dan pilih subfolder yang paling sesuai di bawahnya (misalnya: 'Temuan Harian', 'Progres Harian', 'Laporan Keamanan', 'Pemberdayaan Masyarakat').
+   - **Pribadi**: Masukkan ke folder ini jika catatan membahas tentang wawasan, pengetahuan, pengembangan diri (self-development), catatan pribadi (self-notes), edukasi, keuangan pribadi/personal, diskusi ilmiah/edukatif, dsb. Setelah menentukan folder "Pribadi", cocokkan dan pilih subfolder yang paling sesuai di bawahnya (misalnya: 'Keuangan', 'Diskusi & Edukasi').
+   - **Utuh**: Khusus untuk 'Catatan Master' (Catatan Utuh yang menggabungkan beberapa topik pecahan), wajib dimasukkan ke folder "Utuh" (folderName: "Utuh", folderId: null).
+2. Cara menentukan 'folderId', 'folderName', dan 'parentFolderName' dalam output JSON:
+   - Jika catatan cocok dengan suatu subfolder (misalnya subfolder 'Belanjaan' di bawah parent 'Perusahaan'), isi 'folderId' dengan ID subfolder tersebut dari Daftar Folder, 'folderName' dengan nama subfolder tersebut, dan 'parentFolderName' dengan nama parent foldernya ("Perusahaan").
+   - Jika catatan cocok dengan folder induk namun tidak ada subfolder yang spesifik, isi 'folderId' dengan ID folder induk tersebut, 'folderName' dengan nama folder induk tersebut, dan 'parentFolderName' dengan null.
+   - Jika tidak ada folder/subfolder yang cocok sama sekali di database namun diperlukan kategori baru, buat subfolder/folder baru dengan mengisi 'folderName' sesuai nama kategori baru tersebut, isi 'folderId' dengan null, dan 'parentFolderName' dengan nama folder induknya (misalnya "Perusahaan", "Polsek", atau "Pribadi") jika kategori baru itu merupakan subkategori.
+   - Jika merupakan catatan umum yang tidak memerlukan folder khusus, isi 'folderId': null, 'folderName': null, dan 'parentFolderName': null.
 
 Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
 {
@@ -176,7 +199,8 @@ Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
       "tags": ["Laporan", "Kegiatan", "TagLain"],
       "todo_list": ["Tugas 1", "Tugas 2"],
       "folderId": "id-folder-yang-cocok-atau-null",
-      "folderName": "NamaFolderBaruAtauNull"
+      "folderName": "NamaFolderBaruAtauNull",
+      "parentFolderName": "NamaFolderIndukJikaSubfolderAtauNull"
     }
   ]
 }
@@ -214,10 +238,18 @@ Instruksi Pemformatan Setiap Catatan:
 5. Rekomendasikan 2-4 tag/kategori yang relevan untuk catatan ini (misalnya: Rapat, Ide, Tugas, Keuangan, Pribadi, dll).
 6. Nilai dari 'summary' harus berupa teks transkripsi asli (mentah/verbatim) yang diambil langsung dari "Teks Mentah Transkripsi" yang berhubungan dengan catatan ini, tanpa parafrase, perubahan kata, atau ringkasan dari AI. Jika catatan ini adalah Catatan Master atau jika hanya ada satu catatan, isi 'summary' dengan seluruh isi teks transkripsi asli secara utuh.
 
-Untuk setiap catatan, tentukan folder penyimpanannya. Cari dari Daftar Folder saat ini yang paling cocok.
-PENTING: Jangan hanya mencocokkan berdasarkan nama foldernya saja, melainkan analisis juga ringkasan isi catatan (existing_notes_context) yang sudah ada di dalam folder tersebut untuk menentukan apakah catatan baru ini relate (berkaitan erat) dengan isi catatan di folder tersebut. 
-Jika ada folder yang sangat cocok dan relate, berikan 'folderId' sesuai ID folder tersebut. Jika tidak ada yang cocok namun topiknya memerlukan kategori/folder baru, berikan 'folderName' dengan nama kategori baru tersebut (misalnya 'Keuangan', 'Pribadi', 'Marketing', dll), dan isi 'folderId' dengan null. Jika merupakan catatan umum tanpa folder khusus, berikan 'folderId': null dan 'folderName': null.
-Khusus untuk Catatan Master (yang menggabungkan beberapa topik jika ada pemecahan), wajib berikan 'folderName': "Utuh" dan 'folderId': null.
+Aturan Klasifikasi Folder & Subfolder (Berdasarkan Konteks Isi Catatan):
+Anda WAJIB menaruh catatan baru ke dalam folder/subfolder yang paling relevan berdasarkan acuan utama di bawah ini:
+1. Acuan Awal Klasifikasi adalah menentukan Folder Induk (Parent Folder) terlebih dahulu:
+   - **Perusahaan**: Masukkan ke folder ini jika catatan membahas tentang warung, burjolevelup, cafe, restoran, bisnis kuliner, operasional warung, belanjaan/pembelian bahan makanan, briefing operasional, SOP, laporan kantor, dsb. Setelah menentukan folder "Perusahaan", cocokkan dan pilih subfolder yang paling sesuai di bawahnya (misalnya: 'Belanjaan', 'Briefing Operasional', 'Laporan Kantor', 'Pengembangan Produk', 'SOP', 'Temuan Harian', 'Progres Harian').
+   - **Polsek**: Masukkan ke folder ini jika catatan membahas tentang masyarakat, laporan keamanan, ketertiban umum, kepolisian, tugas intel, pengumpulan informasi intelijen, data teks sambutan tokoh masyarakat, pemberdayaan masyarakat, dsb. Setelah menentukan folder "Polsek", cocokkan dan pilih subfolder yang paling sesuai di bawahnya (misalnya: 'Temuan Harian', 'Progres Harian', 'Laporan Keamanan', 'Pemberdayaan Masyarakat').
+   - **Pribadi**: Masukkan ke folder ini jika catatan membahas tentang wawasan, pengetahuan, pengembangan diri (self-development), catatan pribadi (self-notes), edukasi, keuangan pribadi/personal, diskusi ilmiah/edukatif, dsb. Setelah menentukan folder "Pribadi", cocokkan dan pilih subfolder yang paling sesuai di bawahnya (misalnya: 'Keuangan', 'Diskusi & Edukasi').
+   - **Utuh**: Khusus untuk 'Catatan Master' (Catatan Utuh yang menggabungkan beberapa topik pecahan), wajib dimasukkan ke folder "Utuh" (folderName: "Utuh", folderId: null).
+2. Cara menentukan 'folderId', 'folderName', dan 'parentFolderName' dalam output JSON:
+   - Jika catatan cocok dengan suatu subfolder (misalnya subfolder 'Belanjaan' di bawah parent 'Perusahaan'), isi 'folderId' dengan ID subfolder tersebut dari Daftar Folder, 'folderName' dengan nama subfolder tersebut, dan 'parentFolderName' dengan nama parent foldernya ("Perusahaan").
+   - Jika catatan cocok dengan folder induk namun tidak ada subfolder yang spesifik, isi 'folderId' dengan ID folder induk tersebut, 'folderName' dengan nama folder induk tersebut, dan 'parentFolderName' dengan null.
+   - Jika tidak ada folder/subfolder yang cocok sama sekali di database namun diperlukan kategori baru, buat subfolder/folder baru dengan mengisi 'folderName' sesuai nama kategori baru tersebut, isi 'folderId' dengan null, dan 'parentFolderName' dengan nama folder induknya (misalnya "Perusahaan", "Polsek", atau "Pribadi") jika kategori baru itu merupakan subkategori.
+   - Jika merupakan catatan umum yang tidak memerlukan folder khusus, isi 'folderId': null, 'folderName': null, dan 'parentFolderName': null.
 
 Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
 {
@@ -229,7 +261,8 @@ Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
       "tags": ["Tag1", "Tag2"],
       "todo_list": ["Tugas 1", "Tugas 2"],
       "folderId": "id-folder-yang-cocok-atau-null",
-      "folderName": "NamaFolderBaruAtauNull"
+      "folderName": "NamaFolderBaruAtauNull",
+      "parentFolderName": "NamaFolderIndukJikaSubfolderAtauNull"
     }
   ]
 }
@@ -294,7 +327,8 @@ PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan l
       tags: note.tags || [],
       todo_list: note.todo_list || [],
       folderId: note.folderId || null,
-      folderName: note.folderName || null
+      folderName: note.folderName || null,
+      parentFolderName: note.parentFolderName || null
     }));
 
     return NextResponse.json({ notes: finalNotes });

@@ -20,7 +20,30 @@ interface Folder {
   id: string;
   name: string;
   created_at: string;
+  parentId?: string | null;
 }
+
+const getSortedFolderTree = (foldersList: Folder[]) => {
+  const rootFolders = foldersList.filter(f => !f.parentId);
+  const result: (Folder & { depth: number })[] = [];
+  
+  rootFolders.forEach(root => {
+    result.push({ ...root, depth: 0 });
+    const children = foldersList.filter(f => f.parentId === root.id);
+    children.forEach(child => {
+      result.push({ ...child, depth: 1 });
+    });
+  });
+
+  // Include orphans if any
+  foldersList.forEach(folder => {
+    if (folder.parentId && !result.find(r => r.id === folder.id)) {
+      result.push({ ...folder, depth: 1 });
+    }
+  });
+  
+  return result;
+};
 
 interface NoteEditorProps {
   note: Note | null;
@@ -282,9 +305,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
                   onChange={(e) => setFolderId(e.target.value || null)}
                 >
                   <option value="">Tanpa Folder (Umum)</option>
-                  {folders.map((f) => (
+                  {getSortedFolderTree(folders).map((f) => (
                     <option key={f.id} value={f.id}>
-                      {f.name}
+                      {f.depth > 0 ? `↳ ${f.name}` : f.name}
                     </option>
                   ))}
                 </select>

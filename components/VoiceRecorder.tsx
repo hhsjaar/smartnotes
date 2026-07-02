@@ -55,9 +55,11 @@ function mergeTranscripts(accumulated: string, current: string): string {
 
 interface VoiceRecorderProps {
   onFormatted: (note: FormattedNote) => void;
+  autoStart?: boolean;
+  onAutoStartTriggered?: () => void;
 }
 
-export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => {
+export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted, autoStart, onAutoStartTriggered }) => {
   const [activeTab, setActiveTab] = useState<'record' | 'upload'>('record');
   const [isRecording, setIsRecording] = useState(false);
   const [language, setLanguage] = useState('id-ID');
@@ -186,6 +188,24 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted }) => 
       }
     };
   }, [language]);
+
+  useEffect(() => {
+    if (autoStart) {
+      const checkAndStart = () => {
+        if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) {
+          setTimeout(checkAndStart, 250);
+        } else {
+          startRecording();
+          if (onAutoStartTriggered) {
+            onAutoStartTriggered();
+          }
+        }
+      };
+      
+      const timer = setTimeout(checkAndStart, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [autoStart]);
 
   const startRecording = async () => {
     setErrorMsg('');

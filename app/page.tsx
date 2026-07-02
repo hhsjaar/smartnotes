@@ -28,6 +28,7 @@ interface Folder {
   id: string;
   name: string;
   created_at: string;
+  parentId?: string | null;
 }
 
 interface NewsItem {
@@ -90,6 +91,28 @@ const getGroupedNotes = (notesList: Note[]) => {
   return groups;
 };
 
+const getSortedFolderTree = (foldersList: Folder[]) => {
+  const rootFolders = foldersList.filter(f => !f.parentId);
+  const result: (Folder & { depth: number; parentName?: string })[] = [];
+  
+  rootFolders.forEach(root => {
+    result.push({ ...root, depth: 0 });
+    const children = foldersList.filter(f => f.parentId === root.id);
+    children.forEach(child => {
+      result.push({ ...child, depth: 1, parentName: root.name });
+    });
+  });
+
+  // Include orphans if any
+  foldersList.forEach(folder => {
+    if (folder.parentId && !result.find(r => r.id === folder.id)) {
+      result.push({ ...folder, depth: 1 });
+    }
+  });
+  
+  return result;
+};
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'notes' | 'news' | 'whatsapp' | 'calendar' | 'recorder' | 'reminders'>('notes');
   const [notes, setNotes] = useState<Note[]>([]);
@@ -132,12 +155,17 @@ export default function Home() {
     setFolderAiSummary(null);
   }, [selectedFolderId]);
 
+  const activeParentFolder = selectedFolderId ? folders.find((f) => f.id === selectedFolderId) : null;
+  const activeParentId = activeParentFolder ? (activeParentFolder.parentId || activeParentFolder.id) : null;
+
+  const [autoStartRecorder, setAutoStartRecorder] = useState(false);
   const [pendingNoteData, setPendingNoteData] = useState<any | null>(null);
   const [pendingWhatsApp, setPendingWhatsApp] = useState<{ recipient: string; message: string } | null>(null);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState('');
+  const [editingFolderParentId, setEditingFolderParentId] = useState<string>('');
   const [isFoldersListOpen, setIsFoldersListOpen] = useState(true);
   
   const [isMobileCalendarOpen, setIsMobileCalendarOpen] = useState(false);
@@ -418,13 +446,13 @@ export default function Home() {
   };
 
   // Create Folder
-  const handleCreateFolder = async (name: string) => {
+  const handleCreateFolder = async (name: string, parentId?: string | null) => {
     if (!name || name.trim() === '') return null;
     try {
       const res = await fetch('/api/folders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, parentId: parentId || null }),
       });
       if (!res.ok) {
         const errorData = await res.json();
@@ -440,13 +468,13 @@ export default function Home() {
   };
 
   // Rename Folder
-  const handleRenameFolder = async (id: string, name: string) => {
+  const handleRenameFolder = async (id: string, name: string, parentId?: string | null) => {
     if (!name || name.trim() === '') return;
     try {
       const res = await fetch('/api/folders', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, name }),
+        body: JSON.stringify({ id, name, parentId: parentId || null }),
       });
       if (!res.ok) {
         const errorData = await res.json();
@@ -570,36 +598,12 @@ export default function Home() {
           console.error('Failed to create reminder via assistant:', err);
         }
       } else if (action === 'CREATE_NOTE') {
-        // Automatically create note from Assistant payload
-        try {
-          const parsedTodos = payload.todo_list ? payload.todo_list.map((task: string) => ({
-            text: task,
-            completed: false,
-          })) : [];
-
-          const res = await fetch('/api/notes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              title: payload.title || 'Catatan Baru',
-              content: payload.content || '',
-              summary: payload.summary || 'Dibuat melalui Asisten Suara.',
-              tags: payload.tags || ['Asisten Suara', 'AI'],
-              todo_list: parsedTodos
-            })
-          });
-          if (res.ok) {
-            const data = await res.json();
-            setNotes(prev => [data, ...prev]);
-            setSelectedNote(data);
-            setActiveTab('notes');
-            setWorkspaceView('editor');
-            if (window.innerWidth <= 768) {
-              setMobileView('editor');
-            }
-          }
-        } catch (err) {
-          console.error('Failed to create note via assistant:', err);
+        setAutoStartRecorder(true);
+        if (window.innerWidth <= 768) {
+          setActiveTab('recorder');
+        } else {
+          setActiveTab('notes');
+          setWorkspaceView('recorder');
         }
       } else if (action === 'UPDATE_NOTE') {
         if (payload.noteId) {
@@ -780,7 +784,11 @@ export default function Home() {
 
     // 2. Filter by folder if selected
     if (selectedFolderId) {
-      if (note.folder_id !== selectedFolderId) return false;
+      const childFolderIds = folders
+        .filter((f) => f.parentId === selectedFolderId)
+        .map((f) => f.id);
+      const allowedFolderIds = [selectedFolderId, ...childFolderIds];
+      if (!note.folder_id || !allowedFolderIds.includes(note.folder_id)) return false;
     }
 
     // 3. Filter by timeframe if selected
@@ -809,6 +817,7 @@ export default function Home() {
       todo_list: string[];
       folderId: string | null;
       folderName: string | null;
+      parentFolderName?: string | null;
     }>;
   }) => {
     if (!formattedData.notes || !Array.isArray(formattedData.notes)) return;
@@ -818,21 +827,38 @@ export default function Home() {
       let lastSavedNote: any = null;
       const localFolders = [...folders];
       const notificationNotes: Array<{ title: string; folderName: string }> = [];
-
+ 
       for (const note of formattedData.notes) {
         let folderId = note.folderId;
         let finalFolderName = note.folderName || 'Tanpa Folder';
         
         // Resolve folderId if folderName is suggested but folderId is null
         if (!folderId && note.folderName) {
+          let parentFolderId: string | null = null;
+          
+          if (note.parentFolderName) {
+            const existingParent = localFolders.find(
+              (f) => !f.parentId && f.name.toLowerCase() === note.parentFolderName!.toLowerCase()
+            );
+            if (existingParent) {
+              parentFolderId = existingParent.id;
+            } else {
+              const newParent = await handleCreateFolder(note.parentFolderName, null);
+              if (newParent) {
+                parentFolderId = newParent.id;
+                localFolders.push(newParent);
+              }
+            }
+          }
+
           const existingFolder = localFolders.find(
-            (f) => f.name.toLowerCase() === note.folderName!.toLowerCase()
+            (f) => f.name.toLowerCase() === note.folderName!.toLowerCase() && f.parentId === parentFolderId
           );
           if (existingFolder) {
             folderId = existingFolder.id;
             finalFolderName = existingFolder.name;
           } else {
-            const newFolder = await handleCreateFolder(note.folderName);
+            const newFolder = await handleCreateFolder(note.folderName, parentFolderId);
             if (newFolder) {
               folderId = newFolder.id;
               finalFolderName = newFolder.name;
@@ -1540,16 +1566,22 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   >
                     📂 Semua
                   </button>
-                  {folders.map((folder) => (
-                    <button
-                      key={folder.id}
-                      type="button"
-                      className={`${styles.mobileFolderChip} ${selectedFolderId === folder.id ? styles.mobileFolderChipActive : ''}`}
-                      onClick={() => setSelectedFolderId(folder.id)}
-                    >
-                      📁 {folder.name}
-                    </button>
-                  ))}
+                  
+                  {/* Render Root/Parent Folders */}
+                  {folders.filter(f => !f.parentId).map((parentFolder) => {
+                    const isParentActive = activeParentId === parentFolder.id;
+                    return (
+                      <button
+                        key={parentFolder.id}
+                        type="button"
+                        className={`${styles.mobileFolderChip} ${isParentActive ? styles.mobileFolderChipActive : ''}`}
+                        onClick={() => setSelectedFolderId(parentFolder.id)}
+                      >
+                        📁 {parentFolder.name}
+                      </button>
+                    );
+                  })}
+                  
                   <button
                     type="button"
                     className={styles.mobileFolderChip}
@@ -1575,6 +1607,29 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     ⚙️ Kelola
                   </button>
                 </div>
+
+                {/* Subfolder Sub-tier Row */}
+                {activeParentId && folders.some(f => f.parentId === activeParentId) && (
+                  <div className={styles.mobileSubfolderScrollContainer}>
+                    <button
+                      type="button"
+                      className={`${styles.mobileSubfolderChip} ${selectedFolderId === activeParentId ? styles.mobileSubfolderChipActive : ''}`}
+                      onClick={() => setSelectedFolderId(activeParentId)}
+                    >
+                      ↳ Semua
+                    </button>
+                    {folders.filter(f => f.parentId === activeParentId).map((subfolder) => (
+                      <button
+                        key={subfolder.id}
+                        type="button"
+                        className={`${styles.mobileSubfolderChip} ${selectedFolderId === subfolder.id ? styles.mobileSubfolderChipActive : ''}`}
+                        onClick={() => setSelectedFolderId(subfolder.id)}
+                      >
+                        📁 {subfolder.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* Mobile Folder Timeframe Filter Row */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '20px 4px 6px 4px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', flexShrink: 0 }}>
@@ -1720,70 +1775,118 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                             </p>
                           ) : (
                             <div className={styles.mobileFoldersEditList}>
-                              {folders.map((folder) => (
-                                <div key={folder.id} className={styles.mobileFolderEditRow}>
+                              {getSortedFolderTree(folders).map((folder) => (
+                                <div key={folder.id} className={`${styles.mobileFolderEditRow} ${folder.depth > 0 ? styles.subfolderEditRow : ''}`}>
                                   {editingFolderId === folder.id ? (
-                                    <input
-                                      type="text"
-                                      className={styles.folderRenameInput}
-                                      value={editingFolderName}
-                                      onChange={(e) => setEditingFolderName(e.target.value)}
-                                      onBlur={() => handleRenameFolder(folder.id, editingFolderName)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') handleRenameFolder(folder.id, editingFolderName);
-                                        if (e.key === 'Escape') setEditingFolderId(null);
-                                      }}
-                                      autoFocus
-                                    />
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
+                                      <input
+                                        type="text"
+                                        className={styles.folderRenameInput}
+                                        value={editingFolderName}
+                                        onChange={(e) => setEditingFolderName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') handleRenameFolder(folder.id, editingFolderName, editingFolderParentId || null);
+                                          if (e.key === 'Escape') setEditingFolderId(null);
+                                        }}
+                                        autoFocus
+                                      />
+                                      <select
+                                        className={styles.folderParentEditSelect}
+                                        value={editingFolderParentId}
+                                        onChange={(e) => setEditingFolderParentId(e.target.value)}
+                                        style={{ fontSize: '0.75rem', padding: '4px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border)', color: '#fff', borderRadius: '4px' }}
+                                      >
+                                        <option value="">— Induk (Root) —</option>
+                                        {folders.filter(f => !f.parentId && f.id !== folder.id).map(f => (
+                                          <option key={f.id} value={f.id}>{f.name}</option>
+                                        ))}
+                                      </select>
+                                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
+                                        <button
+                                          style={{ padding: '4px 8px', fontSize: '0.75rem', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                          onClick={() => handleRenameFolder(folder.id, editingFolderName, editingFolderParentId || null)}
+                                        >
+                                          Simpan
+                                        </button>
+                                        <button
+                                          style={{ padding: '4px 8px', fontSize: '0.75rem', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                          onClick={() => setEditingFolderId(null)}
+                                        >
+                                          Batal
+                                        </button>
+                                      </div>
+                                    </div>
                                   ) : (
-                                    <span className={styles.folderNameText}>{folder.name}</span>
+                                    <span className={styles.folderNameText}>
+                                      {folder.depth > 0 ? `↳ ${folder.name}` : folder.name}
+                                    </span>
                                   )}
                                   
-                                  <div className={styles.folderActions}>
-                                    <button
-                                      title="Ubah Nama"
-                                      onClick={() => {
-                                        setEditingFolderId(folder.id);
-                                        setEditingFolderName(folder.name);
-                                      }}
-                                    >
-                                      <Edit3 size={14} />
-                                    </button>
-                                    <button
-                                      title="Hapus"
-                                      onClick={() => handleDeleteFolder(folder.id)}
-                                    >
-                                      <Trash2 size={14} />
-                                    </button>
-                                  </div>
+                                  {editingFolderId !== folder.id && (
+                                    <div className={styles.folderActions}>
+                                      <button
+                                        title="Ubah"
+                                        onClick={() => {
+                                          setEditingFolderId(folder.id);
+                                          setEditingFolderName(folder.name);
+                                          setEditingFolderParentId(folder.parentId || '');
+                                        }}
+                                      >
+                                        <Edit3 size={14} />
+                                      </button>
+                                      <button
+                                        title="Hapus"
+                                        onClick={() => handleDeleteFolder(folder.id)}
+                                      >
+                                        <Trash2 size={14} />
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>
                           )}
                           
-                          <div className={styles.mobileAddFolderForm}>
-                            <input
-                              type="text"
-                              placeholder="Nama folder baru..."
-                              className={styles.addFolderInput}
-                              value={newFolderName}
-                              onChange={(e) => setNewFolderName(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  handleCreateFolder(newFolderName);
+                          <div className={styles.mobileAddFolderForm} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                              <input
+                                type="text"
+                                placeholder="Nama folder baru..."
+                                className={styles.addFolderInput}
+                                value={newFolderName}
+                                onChange={(e) => setNewFolderName(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    const select = document.getElementById('mobile-add-folder-parent-select') as HTMLSelectElement;
+                                    handleCreateFolder(newFolderName, select?.value || null);
+                                    setNewFolderName('');
+                                    if (select) select.value = '';
+                                  }
+                                }}
+                              />
+                              <button
+                                className={styles.addFolderBtn}
+                                onClick={() => {
+                                  const select = document.getElementById('mobile-add-folder-parent-select') as HTMLSelectElement;
+                                  handleCreateFolder(newFolderName, select?.value || null);
                                   setNewFolderName('');
-                                }
-                              }}
-                            />
-                            <button
-                              className={styles.addFolderBtn}
-                              onClick={() => {
-                                handleCreateFolder(newFolderName);
-                                setNewFolderName('');
-                              }}
+                                  if (select) select.value = '';
+                                }}
+                              >
+                                <Plus size={14} />
+                              </button>
+                            </div>
+                            <select
+                              id="mobile-add-folder-parent-select"
+                              className={styles.addFolderParentSelect}
+                              style={{ width: '100%', fontSize: '0.75rem', padding: '4px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border)', color: '#fff', borderRadius: '4px' }}
+                              defaultValue=""
                             >
-                              <Plus size={16} />
-                            </button>
+                              <option value="">— Folder Induk (Root) —</option>
+                              {folders.filter(f => !f.parentId).map(f => (
+                                <option key={f.id} value={f.id}>{f.name}</option>
+                              ))}
+                            </select>
                           </div>
                         </div>
                       </div>
@@ -1947,7 +2050,11 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
           {activeTab === 'recorder' && (
             <div className={styles.mobileRecorderContainer}>
-              <VoiceRecorder onFormatted={handleFormattedNote} />
+              <VoiceRecorder 
+                onFormatted={handleFormattedNote} 
+                autoStart={autoStartRecorder}
+                onAutoStartTriggered={() => setAutoStartRecorder(false)}
+              />
             </div>
           )}
 
@@ -2029,9 +2136,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   defaultValue={selectedFolderId || ""}
                 >
                   <option value="">Tanpa Folder (Umum)</option>
-                  {folders.map((folder) => (
+                  {getSortedFolderTree(folders).map((folder) => (
                     <option key={folder.id} value={folder.id}>
-                      {folder.name}
+                      {folder.depth > 0 ? `↳ ${folder.name}` : folder.name}
                     </option>
                   ))}
                 </select>
@@ -2263,77 +2370,225 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   <span>Semua Catatan</span>
                 </button>
                 
-                {folders.map((folder) => (
-                  <div key={folder.id} className={`${styles.folderItemContainer} ${selectedFolderId === folder.id ? styles.activeFolderItemContainer : ''}`}>
-                    {editingFolderId === folder.id ? (
-                      <input
-                        type="text"
-                        className={styles.folderRenameInput}
-                        value={editingFolderName}
-                        onChange={(e) => setEditingFolderName(e.target.value)}
-                        onBlur={() => handleRenameFolder(folder.id, editingFolderName)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleRenameFolder(folder.id, editingFolderName);
-                          if (e.key === 'Escape') setEditingFolderId(null);
-                        }}
-                        autoFocus
-                      />
-                    ) : (
-                      <button
-                        className={styles.folderItemBtn}
-                        onClick={() => setSelectedFolderId(folder.id)}
-                      >
-                        <FolderIcon size={14} />
-                        <span className={styles.folderNameText}>{folder.name}</span>
-                      </button>
-                    )}
-                    <div className={styles.folderActions}>
-                      <button
-                        title="Ubah Nama"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingFolderId(folder.id);
-                          setEditingFolderName(folder.name);
-                        }}
-                      >
-                        <Edit3 size={12} />
-                      </button>
-                      <button
-                        title="Hapus"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteFolder(folder.id);
-                        }}
-                      >
-                        <Trash2 size={12} />
-                      </button>
+                {/* Render folders in tree structure */}
+                {folders.filter(f => !f.parentId).map((parentFolder) => {
+                  const subfolders = folders.filter(f => f.parentId === parentFolder.id);
+                  const isParentSelected = selectedFolderId === parentFolder.id;
+                  
+                  return (
+                    <div key={parentFolder.id} className={styles.folderGroup}>
+                      <div className={`${styles.folderItemContainer} ${isParentSelected ? styles.activeFolderItemContainer : ''}`}>
+                        {editingFolderId === parentFolder.id ? (
+                          <div className={styles.folderEditRow}>
+                            <input
+                              type="text"
+                              className={styles.folderRenameInput}
+                              value={editingFolderName}
+                              onChange={(e) => setEditingFolderName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleRenameFolder(parentFolder.id, editingFolderName, editingFolderParentId || null);
+                                if (e.key === 'Escape') setEditingFolderId(null);
+                              }}
+                              autoFocus
+                            />
+                            <select
+                              className={styles.folderParentEditSelect}
+                              value={editingFolderParentId}
+                              onChange={(e) => setEditingFolderParentId(e.target.value)}
+                            >
+                              <option value="">— Induk (Root) —</option>
+                              {folders.filter(f => !f.parentId && f.id !== parentFolder.id).map(f => (
+                                <option key={f.id} value={f.id}>{f.name}</option>
+                              ))}
+                            </select>
+                            <div className={styles.editRowBtns}>
+                              <button
+                                className={styles.editSaveBtn}
+                                onClick={() => handleRenameFolder(parentFolder.id, editingFolderName, editingFolderParentId || null)}
+                              >
+                                Simpan
+                              </button>
+                              <button
+                                className={styles.editCancelBtn}
+                                onClick={() => setEditingFolderId(null)}
+                              >
+                                Batal
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              className={styles.folderItemBtn}
+                              onClick={() => setSelectedFolderId(parentFolder.id)}
+                            >
+                              <FolderIcon size={14} />
+                              <span className={styles.folderNameText}>{parentFolder.name}</span>
+                            </button>
+                            <div className={styles.folderActions}>
+                              <button
+                                title="Tambah Subfolder"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const name = prompt(`Buat subfolder di bawah ${parentFolder.name}:`);
+                                  if (name && name.trim()) {
+                                    handleCreateFolder(name.trim(), parentFolder.id);
+                                  }
+                                }}
+                              >
+                                <Plus size={12} />
+                              </button>
+                              <button
+                                title="Ubah"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingFolderId(parentFolder.id);
+                                  setEditingFolderName(parentFolder.name);
+                                  setEditingFolderParentId(parentFolder.parentId || '');
+                                }}
+                              >
+                                <Edit3 size={12} />
+                              </button>
+                              <button
+                                title="Hapus"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteFolder(parentFolder.id);
+                                }}
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      
+                      {/* Render Subfolders */}
+                      {subfolders.length > 0 && (
+                        <div className={styles.subfoldersList}>
+                          {subfolders.map((subfolder) => {
+                            const isSubSelected = selectedFolderId === subfolder.id;
+                            return (
+                              <div key={subfolder.id} className={`${styles.folderItemContainer} ${styles.subfolderItemContainer} ${isSubSelected ? styles.activeFolderItemContainer : ''}`}>
+                                {editingFolderId === subfolder.id ? (
+                                  <div className={styles.folderEditRow}>
+                                    <input
+                                      type="text"
+                                      className={styles.folderRenameInput}
+                                      value={editingFolderName}
+                                      onChange={(e) => setEditingFolderName(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleRenameFolder(subfolder.id, editingFolderName, editingFolderParentId || null);
+                                        if (e.key === 'Escape') setEditingFolderId(null);
+                                      }}
+                                      autoFocus
+                                    />
+                                    <select
+                                      className={styles.folderParentEditSelect}
+                                      value={editingFolderParentId}
+                                      onChange={(e) => setEditingFolderParentId(e.target.value)}
+                                    >
+                                      <option value="">— Induk (Root) —</option>
+                                      {folders.filter(f => !f.parentId && f.id !== subfolder.id).map(f => (
+                                        <option key={f.id} value={f.id}>{f.name}</option>
+                                      ))}
+                                    </select>
+                                    <div className={styles.editRowBtns}>
+                                      <button
+                                        className={styles.editSaveBtn}
+                                        onClick={() => handleRenameFolder(subfolder.id, editingFolderName, editingFolderParentId || null)}
+                                      >
+                                        Simpan
+                                      </button>
+                                      <button
+                                        className={styles.editCancelBtn}
+                                        onClick={() => setEditingFolderId(null)}
+                                      >
+                                        Batal
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <button
+                                      className={styles.folderItemBtn}
+                                      onClick={() => setSelectedFolderId(subfolder.id)}
+                                    >
+                                      <FolderIcon size={14} />
+                                      <span className={styles.folderNameText}>{subfolder.name}</span>
+                                    </button>
+                                    <div className={styles.folderActions}>
+                                      <button
+                                        title="Ubah"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditingFolderId(subfolder.id);
+                                          setEditingFolderName(subfolder.name);
+                                          setEditingFolderParentId(subfolder.parentId || '');
+                                        }}
+                                      >
+                                        <Edit3 size={12} />
+                                      </button>
+                                      <button
+                                        title="Hapus"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteFolder(subfolder.id);
+                                        }}
+                                      >
+                                        <Trash2 size={12} />
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 
-                <div className={styles.addFolderContainer}>
-                  <input
-                    type="text"
-                    placeholder="Folder Baru..."
-                    className={styles.addFolderInput}
-                    value={newFolderName}
-                    onChange={(e) => setNewFolderName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleCreateFolder(newFolderName);
+                <div className={styles.addFolderWrapper}>
+                  <div className={styles.addFolderContainer}>
+                    <input
+                      type="text"
+                      placeholder="Folder Baru..."
+                      className={styles.addFolderInput}
+                      value={newFolderName}
+                      onChange={(e) => setNewFolderName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const select = document.getElementById('add-folder-parent-select') as HTMLSelectElement;
+                          handleCreateFolder(newFolderName, select?.value || null);
+                          setNewFolderName('');
+                          if (select) select.value = '';
+                        }
+                      }}
+                    />
+                    <button
+                      className={styles.addFolderBtn}
+                      onClick={() => {
+                        const select = document.getElementById('add-folder-parent-select') as HTMLSelectElement;
+                        handleCreateFolder(newFolderName, select?.value || null);
                         setNewFolderName('');
-                      }
-                    }}
-                  />
-                  <button
-                    className={styles.addFolderBtn}
-                    onClick={() => {
-                      handleCreateFolder(newFolderName);
-                      setNewFolderName('');
-                    }}
+                        if (select) select.value = '';
+                      }}
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                  <select
+                    id="add-folder-parent-select"
+                    className={styles.addFolderParentSelect}
+                    defaultValue=""
                   >
-                    <Plus size={14} />
-                  </button>
+                    <option value="">— Folder Induk (Root) —</option>
+                    {folders.filter(f => !f.parentId).map(f => (
+                      <option key={f.id} value={f.id}>{f.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             )}
@@ -2636,7 +2891,11 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     ← Kembali ke Catatan
                   </button>
                 </div>
-                <VoiceRecorder onFormatted={handleFormattedNote} />
+                <VoiceRecorder 
+                  onFormatted={handleFormattedNote} 
+                  autoStart={autoStartRecorder}
+                  onAutoStartTriggered={() => setAutoStartRecorder(false)}
+                />
               </div>
             ) : workspaceView === 'merge' ? (
               <InteractiveMerge
@@ -2798,9 +3057,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 defaultValue={selectedFolderId || ""}
               >
                 <option value="">Tanpa Folder (Umum)</option>
-                {folders.map((folder) => (
+                {getSortedFolderTree(folders).map((folder) => (
                   <option key={folder.id} value={folder.id}>
-                    {folder.name}
+                    {folder.depth > 0 ? `↳ ${folder.name}` : folder.name}
                   </option>
                 ))}
               </select>

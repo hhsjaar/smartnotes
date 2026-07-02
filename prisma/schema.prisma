@@ -26,8 +26,11 @@ model Note {
 
 model Folder {
   id         String   @id @default(uuid())
-  name       String   @unique
+  name       String
   created_at DateTime @default(now())
+  parentId   String?  @map("parent_id")
+  parent     Folder?  @relation("Subfolders", fields: [parentId], references: [id], onDelete: Cascade)
+  subfolders Folder[] @relation("Subfolders")
   notes      Note[]
 
   @@map("folders")
