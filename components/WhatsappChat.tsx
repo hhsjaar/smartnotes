@@ -67,6 +67,12 @@ export const WhatsappChat: React.FC<WhatsappChatProps> = ({ pendingWhatsApp, cle
         setContacts(defaultContacts);
         localStorage.setItem('wa_contacts', JSON.stringify(defaultContacts));
       }
+
+      // Load default WhatsApp number if available
+      const defaultWaNumber = localStorage.getItem('default_wa_reminder_number');
+      if (defaultWaNumber) {
+        setTargetNumber(defaultWaNumber);
+      }
     }
   }, []);
 

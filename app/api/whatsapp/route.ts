@@ -25,17 +25,17 @@ export async function POST(request: Request) {
 
     // Fonnte accepts targets with or without country code. We pass countryCode = '62' by default
     // to handle numbers starting with 0 (e.g. 0812... -> 62812...)
-    const formData = new FormData();
-    formData.append('target', cleanedTarget);
-    formData.append('message', message);
-    formData.append('countryCode', '62');
-
     const res = await fetch('https://api.fonnte.com/send', {
       method: 'POST',
       headers: {
         'Authorization': token,
+        'Content-Type': 'application/json',
       },
-      body: formData,
+      body: JSON.stringify({
+        target: cleanedTarget,
+        message: message,
+        countryCode: '62',
+      }),
     });
 
     const data = await res.json();

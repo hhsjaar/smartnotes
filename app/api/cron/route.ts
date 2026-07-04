@@ -175,17 +175,17 @@ async function processReminders(now: Date) {
               const cleanedTarget = cleanTargetNumber(reminder.whatsappNumber);
               const waMessage = `*Alarm / Pengingat AI ⏰*\n\n${notifyBody}\n\n${reminder.description ? `_${reminder.description}_` : ''}`.trim();
               
-              const formData = new FormData();
-              formData.append('target', cleanedTarget);
-              formData.append('message', waMessage);
-              formData.append('countryCode', '62');
-
               const waRes = await fetch('https://api.fonnte.com/send', {
                 method: 'POST',
                 headers: {
                   'Authorization': token,
+                  'Content-Type': 'application/json',
                 },
-                body: formData,
+                body: JSON.stringify({
+                  target: cleanedTarget,
+                  message: waMessage,
+                  countryCode: '62',
+                }),
               });
 
               const waData = await waRes.json();
@@ -276,17 +276,17 @@ export async function GET(request: Request) {
           if (!token) throw new Error('FONNTE_API_TOKEN tidak diset di server.');
 
           const cleanedTarget = cleanTargetNumber(payload.recipient);
-          const formData = new FormData();
-          formData.append('target', cleanedTarget);
-          formData.append('message', payload.message);
-          formData.append('countryCode', '62');
-
           const waRes = await fetch('https://api.fonnte.com/send', {
             method: 'POST',
             headers: {
               'Authorization': token,
+              'Content-Type': 'application/json',
             },
-            body: formData,
+            body: JSON.stringify({
+              target: cleanedTarget,
+              message: payload.message,
+              countryCode: '62',
+            }),
           });
 
           const waData = await waRes.json();

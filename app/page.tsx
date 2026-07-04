@@ -561,6 +561,17 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
+  // Save default WhatsApp number to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (waReminderNumber.trim() !== '') {
+        localStorage.setItem('default_wa_reminder_number', waReminderNumber.trim());
+      } else {
+        localStorage.removeItem('default_wa_reminder_number');
+      }
+    }
+  }, [waReminderNumber]);
+
   // Handle actions sent from Voice Assistant
   useEffect(() => {
     const handleAssistantAction = async (e: Event) => {
@@ -572,7 +583,7 @@ export default function Home() {
       } else if (action === 'CREATE_REMINDER') {
         try {
           let waNum = payload.whatsappNumber;
-          if (waNum === 'default') {
+          if (!waNum || waNum === 'default') {
             waNum = localStorage.getItem('default_wa_reminder_number') || '';
           }
           const res = await fetch('/api/reminders', {
@@ -1386,6 +1397,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     onChange={(e) => setWaReminderNumber(e.target.value)}
                     required={enableWaReminder}
                   />
+                  <small style={{ color: '#10b981', opacity: 0.9, fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+                    ✓ Nomor disimpan otomatis sebagai default pengingat & asisten suara.
+                  </small>
                 </div>
               )}
 
