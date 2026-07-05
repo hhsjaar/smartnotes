@@ -610,7 +610,9 @@ export default function Home() {
           console.error('Failed to create reminder via assistant:', err);
         }
       } else if (action === 'CREATE_NOTE') {
-        if (payload && payload.folderId) {
+        if (payload && payload.folderIds && Array.isArray(payload.folderIds)) {
+          setAssistantSelectedFolderIds(payload.folderIds);
+        } else if (payload && payload.folderId) {
           setAssistantSelectedFolderIds([payload.folderId]);
         } else {
           setAssistantSelectedFolderIds([]);

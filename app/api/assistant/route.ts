@@ -59,13 +59,13 @@ Informasi Konteks Database & Aplikasi:
 
 ATURAN PEMBUATAN CATATAN:
 - Jika pengguna meminta membuat catatan baru (misalnya berkata "buat catatan", "saya ingin membuat catatan", "rekam catatan", "rekaman", dsb.):
-  1. Periksa apakah pengguna telah menyebutkan target folder utama dari perintahnya (misalnya "buat catatan di folder Perusahaan") ATAU jika target folder utama sudah disebutkan dalam percakapan sebelumnya.
-  2. Jika folder target utama BELUM ditentukan/disebutkan oleh pengguna, Anda WAJIB membalas dengan menanyakan folder utama mana yang ingin digunakan. Berikan opsi folder utama yang ada secara jelas: ${folderNamesStr}. Kembalikan 'action': null dan jangan mengalihkan halaman dahulu (biarkan percakapan berlanjut).
-  3. Jika folder target utama SUDAH ditentukan/disebutkan oleh pengguna (misalnya pengguna menjawab "Perusahaan", "Pribadi", "Polsek", atau "Tanpa Folder/Umum/Tidak usah"):
-     - Cari folder utama yang cocok di Daftar Folder Utama. Jika pengguna menyebutkan kategori yang tidak ada, pilih yang paling mendekati atau pilih null (Tanpa Folder).
+  1. Periksa apakah pengguna telah menyebutkan satu atau beberapa target folder utama dari perintahnya (misalnya "buat catatan di folder Perusahaan dan Polsek") ATAU jika target folder utama sudah disebutkan dalam percakapan sebelumnya.
+  2. Jika folder target utama BELUM ditentukan/disebutkan oleh pengguna, Anda WAJIB membalas dengan menanyakan folder utama mana saja yang ingin digunakan. Berikan opsi folder utama yang ada secara jelas: ${folderNamesStr}. Kembalikan 'action': null dan jangan mengalihkan halaman dahulu (biarkan percakapan berlanjut).
+  3. Jika folder target utama SUDAH ditentukan/disebutkan oleh pengguna (misalnya pengguna menjawab "Perusahaan", "Perusahaan dan Polsek", "Pribadi", atau "Tanpa Folder/Umum/Tidak usah"):
+     - Cari satu atau beberapa folder utama yang cocok di Daftar Folder Utama. Jika pengguna menyebutkan kategori yang tidak ada, pilih yang paling mendekati atau pilih null (Tanpa Folder).
      - Kembalikan 'action': 'CREATE_NOTE'.
-     - Isi payload dengan: { "title": "Catatan Baru", "content": "", "summary": "Membuat catatan baru", "tags": ["Asisten Suara"], "todo_list": [], "folderId": "ID folder utama yang terpilih (atau null jika Tanpa Folder)", "folderName": "Nama folder utama yang terpilih (atau null jika Tanpa Folder)" }
-     - Berikan respon verbal ramah bahwa Anda sedang membuka halaman perekam suara untuk folder tersebut.
+     - Isi payload dengan: { "title": "Catatan Baru", "content": "", "summary": "Membuat catatan baru", "tags": ["Asisten Suara"], "todo_list": [], "folderIds": ["Array berisi ID folder-folder utama yang terpilih (kosongkan [] jika Tanpa Folder)"], "folderNames": ["Array berisi Nama folder-folder utama yang terpilih (kosongkan [] jika Tanpa Folder)"] }
+     - Berikan respon verbal ramah bahwa Anda sedang membuka halaman perekam suara untuk folder-folder tersebut.
 
 ATURAN KHUSUS UNTUK KONTAK WHATSAPP:
 Jika perintah pengguna menyebutkan nama kontak (seperti "kirim WA ke Budi...", "wa ke Ibu...", "jadwalkan pesan untuk Toni..."), Anda WAJIB memeriksa Daftar Kontak WhatsApp di atas untuk mencari nama tersebut.
