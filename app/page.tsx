@@ -141,6 +141,7 @@ export default function Home() {
 
   const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [assistantSelectedFolderIds, setAssistantSelectedFolderIds] = useState<string[]>([]);
   const [timeframeFilter, setTimeframeFilter] = useState<number | null>(null);
   const [folderAiSummary, setFolderAiSummary] = useState<{
     folderName: string;
@@ -609,6 +610,11 @@ export default function Home() {
           console.error('Failed to create reminder via assistant:', err);
         }
       } else if (action === 'CREATE_NOTE') {
+        if (payload && payload.folderId) {
+          setAssistantSelectedFolderIds([payload.folderId]);
+        } else {
+          setAssistantSelectedFolderIds([]);
+        }
         setAutoStartRecorder(true);
         if (window.innerWidth <= 768) {
           setActiveTab('recorder');
@@ -819,18 +825,21 @@ export default function Home() {
   });
 
   // Handle formatted notes from voice recorder - processes array, resolves folders, and auto-saves
-  const handleFormattedNote = async (formattedData: {
-    notes?: Array<{
-      title: string;
-      content: string;
-      summary: string;
-      tags: string[];
-      todo_list: string[];
-      folderId: string | null;
-      folderName: string | null;
-      parentFolderName?: string | null;
-    }>;
-  }) => {
+  const handleFormattedNote = async (
+    formattedData: {
+      notes?: Array<{
+        title: string;
+        content: string;
+        summary: string;
+        tags: string[];
+        todo_list: string[];
+        folderId: string | null;
+        folderName: string | null;
+        parentFolderName?: string | null;
+      }>;
+    },
+    targetFolderIds?: string[]
+  ) => {
     if (!formattedData.notes || !Array.isArray(formattedData.notes)) return;
     
     try {
@@ -842,6 +851,36 @@ export default function Home() {
       for (const note of formattedData.notes) {
         let folderId = note.folderId;
         let finalFolderName = note.folderName || 'Tanpa Folder';
+
+        // Override classification if user checked target folder(s) and this note is not classified in one of them or its subfolders,
+        // unless it's the "Utuh" Master note.
+        if (targetFolderIds && targetFolderIds.length > 0 && note.folderName !== 'Utuh') {
+          const resolvedFolder = folderId ? localFolders.find(f => f.id === folderId) : null;
+          const isValidTarget = resolvedFolder && (
+            targetFolderIds.includes(resolvedFolder.id) ||
+            (resolvedFolder.parentId && targetFolderIds.includes(resolvedFolder.parentId))
+          );
+
+          if (!isValidTarget) {
+            // Try to find if there is a matching folder (either parent or subfolder under target parents)
+            // matching the note's suggested folderName
+            const matchedFolder = localFolders.find(
+              (f) => (targetFolderIds.includes(f.id) || (f.parentId && targetFolderIds.includes(f.parentId))) &&
+              (note.folderName && f.name.toLowerCase() === note.folderName.toLowerCase())
+            );
+            if (matchedFolder) {
+              folderId = matchedFolder.id;
+              finalFolderName = matchedFolder.name;
+            } else {
+              // Otherwise fallback to the first target folder ID (the parent folder itself)
+              const fallbackFolder = localFolders.find((f) => f.id === targetFolderIds[0]);
+              if (fallbackFolder) {
+                folderId = fallbackFolder.id;
+                finalFolderName = fallbackFolder.name;
+              }
+            }
+          }
+        }
         
         // Resolve folderId if folderName is suggested but folderId is null
         if (!folderId && note.folderName) {
@@ -2065,6 +2104,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           {activeTab === 'recorder' && (
             <div className={styles.mobileRecorderContainer}>
               <VoiceRecorder 
+                folders={folders}
+                initialCheckedFolderIds={assistantSelectedFolderIds}
                 onFormatted={handleFormattedNote} 
                 autoStart={autoStartRecorder}
                 onAutoStartTriggered={() => setAutoStartRecorder(false)}
@@ -2906,6 +2947,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   </button>
                 </div>
                 <VoiceRecorder 
+                  folders={folders}
+                  initialCheckedFolderIds={assistantSelectedFolderIds}
                   onFormatted={handleFormattedNote} 
                   autoStart={autoStartRecorder}
                   onAutoStartTriggered={() => setAutoStartRecorder(false)}

@@ -288,6 +288,88 @@
   to { height: 28px; }
 }
 
+.folderChecklistSection {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-md);
+  padding: 16px;
+  margin-bottom: 20px;
+  text-align: left;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.folderChecklistTitle {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+}
+
+.folderChecklistGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.folderChecklistItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+  outline: none;
+  font-family: inherit;
+  width: 100%;
+  text-align: left;
+}
+
+.folderChecklistItem:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: var(--foreground);
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.folderChecklistItemChecked {
+  background: rgba(99, 102, 241, 0.14) !important;
+  border-color: var(--primary) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.2) !important;
+}
+
+.folderChecklistIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: inherit;
+  transition: transform 0.2s ease;
+}
+
+.folderChecklistItemChecked .folderChecklistIcon {
+  transform: scale(1.1);
+  color: var(--secondary);
+}
+
+.folderChecklistName {
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @media (max-width: 768px) {
   .container {
     gap: 12px;

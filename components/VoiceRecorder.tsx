@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, Square, Upload, Trash2, Sparkles, FileAudio, AlertCircle, FileText } from 'lucide-react';
+import { Mic, Square, Upload, Trash2, Sparkles, FileAudio, AlertCircle, FileText, Folder, FolderCheck } from 'lucide-react';
 import { GlowButton } from './ui/GlowButton';
 import styles from './VoiceRecorder.module.css';
 
@@ -53,13 +53,49 @@ function mergeTranscripts(accumulated: string, current: string): string {
   return `${accClean} ${currClean}`;
 }
 
+interface Folder {
+  id: string;
+  name: string;
+  parentId?: string | null;
+}
+
 interface VoiceRecorderProps {
-  onFormatted: (note: FormattedNote) => void;
+  folders?: Folder[];
+  initialCheckedFolderIds?: string[];
+  onFormatted: (note: FormattedNote, targetFolderIds?: string[]) => void;
   autoStart?: boolean;
   onAutoStartTriggered?: () => void;
 }
 
-export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted, autoStart, onAutoStartTriggered }) => {
+const getSortedFolderTree = (foldersList: Folder[]) => {
+  const rootFolders = foldersList.filter(f => !f.parentId);
+  const result: (Folder & { depth: number })[] = [];
+  
+  rootFolders.forEach(root => {
+    result.push({ ...root, depth: 0 });
+    const children = foldersList.filter(f => f.parentId === root.id);
+    children.forEach(child => {
+      result.push({ ...child, depth: 1 });
+    });
+  });
+
+  // Include orphans if any
+  foldersList.forEach(folder => {
+    if (folder.parentId && !result.find(r => r.id === folder.id)) {
+      result.push({ ...folder, depth: 1 });
+    }
+  });
+  
+  return result;
+};
+
+export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ 
+  folders = [], 
+  initialCheckedFolderIds = [],
+  onFormatted, 
+  autoStart, 
+  onAutoStartTriggered 
+}) => {
   const [activeTab, setActiveTab] = useState<'record' | 'upload'>('record');
   const [isRecording, setIsRecording] = useState(false);
   const [language, setLanguage] = useState('id-ID');
@@ -69,6 +105,24 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted, autoS
   const [loadingType, setLoadingType] = useState<'standard' | 'laporan' | 'intel' | null>(null);
   const [statusMsg, setStatusMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [checkedFolderIds, setCheckedFolderIds] = useState<string[]>([]);
+
+  // Sync initialCheckedFolderIds prop to state
+  useEffect(() => {
+    if (initialCheckedFolderIds && initialCheckedFolderIds.length > 0) {
+      setCheckedFolderIds(initialCheckedFolderIds);
+    } else {
+      setCheckedFolderIds([]);
+    }
+  }, [initialCheckedFolderIds]);
+
+  const handleFolderToggle = (folderId: string) => {
+    setCheckedFolderIds((prev) =>
+      prev.includes(folderId)
+        ? prev.filter((id) => id !== folderId)
+        : [...prev, folderId]
+    );
+  };
 
   const recognitionRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -324,7 +378,11 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted, autoS
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text: rawText, formatType }),
+        body: JSON.stringify({ 
+          text: rawText, 
+          formatType,
+          selectedFolderIds: checkedFolderIds
+        }),
       });
 
       if (!res.ok) {
@@ -333,7 +391,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted, autoS
       }
 
       const formattedNote = await res.json();
-      onFormatted(formattedNote);
+      onFormatted(formattedNote, checkedFolderIds);
       setTranscript('');
       setFile(null);
       
@@ -393,6 +451,42 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onFormatted, autoS
             Unggah File Audio
           </GlowButton>
         </div>
+
+        {/* Folder Target Checklist */}
+        {folders && folders.length > 0 && (
+          <div className={styles.folderChecklistSection}>
+            <div className={styles.folderChecklistTitle}>
+              Folder Indikator (Tujuan Penyimpanan):
+            </div>
+            <div className={styles.folderChecklistGrid}>
+              {folders
+                .filter((f) => !f.parentId && f.name.toLowerCase() !== 'utuh')
+                .map((folder) => {
+                  const isChecked = checkedFolderIds.includes(folder.id);
+                  return (
+                    <button
+                      key={folder.id}
+                      type="button"
+                      className={`${styles.folderChecklistItem} ${
+                        isChecked ? styles.folderChecklistItemChecked : ''
+                      }`}
+                      onClick={() => handleFolderToggle(folder.id)}
+                      disabled={isRecording || isLoading}
+                    >
+                      <span className={styles.folderChecklistIcon}>
+                        {isChecked ? (
+                          <FolderCheck size={16} />
+                        ) : (
+                          <Folder size={16} />
+                        )}
+                      </span>
+                      <span className={styles.folderChecklistName}>{folder.name}</span>
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        )}
 
         {activeTab === 'record' ? (
           <>

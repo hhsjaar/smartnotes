@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
   try {
-    const { text, formatType } = await request.json();
+    const { text, formatType, selectedFolderIds } = await request.json();
 
     if (!text || text.trim() === '') {
       return NextResponse.json({ error: 'Text tidak boleh kosong' }, { status: 400 });
@@ -49,6 +49,25 @@ export async function POST(request: Request) {
         }))
       };
     });
+
+    let folderConstraintPrompt = '';
+    if (selectedFolderIds && Array.isArray(selectedFolderIds) && selectedFolderIds.length > 0) {
+      const selectedParents = allFolders.filter(f => !f.parentId && selectedFolderIds.includes(f.id));
+      if (selectedParents.length > 0) {
+        const listStr = selectedParents.map(f => `- Folder Utama: "${f.name}" (ID: "${f.id}")`).join('\n');
+        
+        folderConstraintPrompt = `
+PENTING - BATASAN TARGET PENYIMPANAN:
+Pengguna telah membatasi folder penyimpanan hanya pada folder utama berikut:
+${listStr}
+
+Anda WAJIB mengklasifikasikan catatan baru ini ke dalam salah satu dari folder utama yang dipilih tersebut, ATAU ke dalam salah satu dari subfolder-nya yang sesuai di bawah folder utama tersebut (berdasarkan daftar subfolder di atas).
+- Jika catatan cocok dengan salah satu subfolder dari folder utama pilihan, isi 'folderId' dengan ID subfolder tersebut, 'folderName' dengan nama subfolder tersebut, dan 'parentFolderName' dengan nama folder utamanya.
+- Jika tidak ada subfolder yang cocok secara spesifik, isi 'folderId' dengan ID folder utama tersebut dan 'folderName' dengan nama folder utama tersebut.
+- Jangan mengklasifikasikannya ke folder utama lain atau subfolder di luar folder utama pilihan pengguna.
+`;
+      }
+    }
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
 
@@ -115,6 +134,7 @@ Anda WAJIB menaruh catatan baru ke dalam folder/subfolder yang paling relevan be
    - Jika catatan cocok dengan folder induk namun tidak ada subfolder yang spesifik, isi 'folderId' dengan ID folder induk tersebut, 'folderName' dengan nama folder induk tersebut, dan 'parentFolderName' dengan null.
    - Jika tidak ada folder/subfolder yang cocok sama sekali di database namun diperlukan kategori baru, buat subfolder/folder baru dengan mengisi 'folderName' sesuai nama kategori baru tersebut, isi 'folderId' dengan null, dan 'parentFolderName' dengan nama folder induknya (misalnya "Perusahaan", "Polsek", atau "Pribadi") jika kategori baru itu merupakan subkategori.
    - Jika merupakan catatan umum yang tidak memerlukan folder khusus, isi 'folderId': null, 'folderName': null, dan 'parentFolderName': null.
+${folderConstraintPrompt}
 
 Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
 {
@@ -188,6 +208,7 @@ Anda WAJIB menaruh catatan baru ke dalam folder/subfolder yang paling relevan be
    - Jika catatan cocok dengan folder induk namun tidak ada subfolder yang spesifik, isi 'folderId' dengan ID folder induk tersebut, 'folderName' dengan nama folder induk tersebut, dan 'parentFolderName' dengan null.
    - Jika tidak ada folder/subfolder yang cocok sama sekali di database namun diperlukan kategori baru, buat subfolder/folder baru dengan mengisi 'folderName' sesuai nama kategori baru tersebut, isi 'folderId' dengan null, dan 'parentFolderName' dengan nama folder induknya (misalnya "Perusahaan", "Polsek", atau "Pribadi") jika kategori baru itu merupakan subkategori.
    - Jika merupakan catatan umum yang tidak memerlukan folder khusus, isi 'folderId': null, 'folderName': null, dan 'parentFolderName': null.
+${folderConstraintPrompt}
 
 Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
 {
@@ -250,6 +271,7 @@ Anda WAJIB menaruh catatan baru ke dalam folder/subfolder yang paling relevan be
    - Jika catatan cocok dengan folder induk namun tidak ada subfolder yang spesifik, isi 'folderId' dengan ID folder induk tersebut, 'folderName' dengan nama folder induk tersebut, dan 'parentFolderName' dengan null.
    - Jika tidak ada folder/subfolder yang cocok sama sekali di database namun diperlukan kategori baru, buat subfolder/folder baru dengan mengisi 'folderName' sesuai nama kategori baru tersebut, isi 'folderId' dengan null, dan 'parentFolderName' dengan nama folder induknya (misalnya "Perusahaan", "Polsek", atau "Pribadi") jika kategori baru itu merupakan subkategori.
    - Jika merupakan catatan umum yang tidak memerlukan folder khusus, isi 'folderId': null, 'folderName': null, dan 'parentFolderName': null.
+${folderConstraintPrompt}
 
 Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
 {

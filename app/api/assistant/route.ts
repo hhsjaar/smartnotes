@@ -15,9 +15,11 @@ export async function POST(request: Request) {
     }
 
     // Load active folder names and note IDs to populate context for Gemini
-    const folders = await prisma.folder.findMany({
-      select: { id: true, name: true }
+    const allFolders = await prisma.folder.findMany({
+      select: { id: true, name: true, parentId: true }
     });
+    const rootFolders = allFolders.filter(f => !f.parentId && f.name.toLowerCase() !== 'utuh');
+    const folderNamesStr = rootFolders.map(f => f.name).join(', ') + ', atau Tanpa Folder';
 
     const notes = await prisma.note.findMany({
       select: { id: true, title: true, created_at: true, folder_id: true, summary: true, tags: true }
@@ -49,15 +51,21 @@ export async function POST(request: Request) {
 Anda adalah asisten AI suara pintar (seperti Siri pada Apple) untuk aplikasi "Catatan Pintar". Tugas Anda adalah menganalisis transkripsi perintah suara pengguna, menentukan aksi ("action") yang tepat, menyusun payload data ("payload"), dan menulis tanggapan verbal ramah ("response") dalam Bahasa Indonesia.
 
 Informasi Konteks Database & Aplikasi:
-- Daftar Folder saat ini: ${JSON.stringify(folders)}
+- Daftar Folder Utama saat ini: ${JSON.stringify(rootFolders)}
 - Daftar Catatan saat ini (termasuk Tanggal dibuat, Folder ID, Ringkasan, dan Tags): ${JSON.stringify(formattedNotesForPrompt)}
 - Daftar Kontak WhatsApp pengguna (Nama & Nomor): ${JSON.stringify(contacts || [])}
 - Catatan yang sedang dibuka/aktif saat ini: ${selectedNote ? JSON.stringify(selectedNote) : 'Tidak ada'}
 - Waktu server saat ini: ${currentDateTime.toISOString()} (Lokal: ${currentDateTimeStr})
 
 ATURAN PEMBUATAN CATATAN:
-- Jika pengguna meminta membuat catatan baru (misalnya berkata "buat catatan", "saya ingin membuat catatan", "tulis catatan", "catat sesuatu", dsb.), baik dengan maupun tanpa menyebutkan topik/detail, Anda WAJIB langsung mengembalikan aksi CREATE_NOTE.
-- Jangan menunda atau menanyakan topiknya kembali. Tulis tanggapan dalam 'response' bahwa Anda sedang membuka halaman perekam suara (misalnya: "Baik, saya buka perekam catatan sekarang. Silakan bicara setelah perekaman dimulai.").
+- Jika pengguna meminta membuat catatan baru (misalnya berkata "buat catatan", "saya ingin membuat catatan", "rekam catatan", "rekaman", dsb.):
+  1. Periksa apakah pengguna telah menyebutkan target folder utama dari perintahnya (misalnya "buat catatan di folder Perusahaan") ATAU jika target folder utama sudah disebutkan dalam percakapan sebelumnya.
+  2. Jika folder target utama BELUM ditentukan/disebutkan oleh pengguna, Anda WAJIB membalas dengan menanyakan folder utama mana yang ingin digunakan. Berikan opsi folder utama yang ada secara jelas: ${folderNamesStr}. Kembalikan 'action': null dan jangan mengalihkan halaman dahulu (biarkan percakapan berlanjut).
+  3. Jika folder target utama SUDAH ditentukan/disebutkan oleh pengguna (misalnya pengguna menjawab "Perusahaan", "Pribadi", "Polsek", atau "Tanpa Folder/Umum/Tidak usah"):
+     - Cari folder utama yang cocok di Daftar Folder Utama. Jika pengguna menyebutkan kategori yang tidak ada, pilih yang paling mendekati atau pilih null (Tanpa Folder).
+     - Kembalikan 'action': 'CREATE_NOTE'.
+     - Isi payload dengan: { "title": "Catatan Baru", "content": "", "summary": "Membuat catatan baru", "tags": ["Asisten Suara"], "todo_list": [], "folderId": "ID folder utama yang terpilih (atau null jika Tanpa Folder)", "folderName": "Nama folder utama yang terpilih (atau null jika Tanpa Folder)" }
+     - Berikan respon verbal ramah bahwa Anda sedang membuka halaman perekam suara untuk folder tersebut.
 
 ATURAN KHUSUS UNTUK KONTAK WHATSAPP:
 Jika perintah pengguna menyebutkan nama kontak (seperti "kirim WA ke Budi...", "wa ke Ibu...", "jadwalkan pesan untuk Toni..."), Anda WAJIB memeriksa Daftar Kontak WhatsApp di atas untuk mencari nama tersebut.
