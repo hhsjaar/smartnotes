@@ -329,7 +329,27 @@ PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan l
       return NextResponse.json({ error: 'Tidak ada respons dari model AI.' }, { status: 500 });
     }
 
-    const formattedResponse = JSON.parse(resultText.trim());
+    let cleanedText = resultText.trim();
+    if (cleanedText.startsWith('```')) {
+      cleanedText = cleanedText.replace(/^```(json)?\n?/, '');
+      cleanedText = cleanedText.replace(/\n?```$/, '');
+      cleanedText = cleanedText.trim();
+    }
+    const firstBrace = cleanedText.indexOf('{');
+    const firstBracket = cleanedText.indexOf('[');
+    let start = -1;
+    let end = -1;
+    if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+      start = firstBrace;
+      end = cleanedText.lastIndexOf('}');
+    } else if (firstBracket !== -1) {
+      start = firstBracket;
+      end = cleanedText.lastIndexOf(']');
+    }
+    if (start !== -1 && end !== -1 && start < end) {
+      cleanedText = cleanedText.substring(start, end + 1);
+    }
+    const formattedResponse = JSON.parse(cleanedText);
 
     // If "notes" array is not returned but it returned a single note format, wrap it in notes array
     let finalNotes = [];

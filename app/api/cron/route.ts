@@ -99,7 +99,27 @@ Kembalikan jawaban HANYA dalam format JSON dengan skema berikut (jangan tambahka
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('No content returned from Gemini.');
   
-  return JSON.parse(text.trim());
+  let cleanedText = text.trim();
+  if (cleanedText.startsWith('```')) {
+    cleanedText = cleanedText.replace(/^```(json)?\n?/, '');
+    cleanedText = cleanedText.replace(/\n?```$/, '');
+    cleanedText = cleanedText.trim();
+  }
+  const firstBrace = cleanedText.indexOf('{');
+  const firstBracket = cleanedText.indexOf('[');
+  let start = -1;
+  let end = -1;
+  if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+    start = firstBrace;
+    end = cleanedText.lastIndexOf('}');
+  } else if (firstBracket !== -1) {
+    start = firstBracket;
+    end = cleanedText.lastIndexOf(']');
+  }
+  if (start !== -1 && end !== -1 && start < end) {
+    cleanedText = cleanedText.substring(start, end + 1);
+  }
+  return JSON.parse(cleanedText);
 }
 
 async function processReminders(now: Date) {

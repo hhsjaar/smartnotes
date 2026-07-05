@@ -230,7 +230,27 @@ PENTING: Jangan sertakan teks penjelasan lainnya atau tag markdown seperti \`\`\
             const data = await res.json();
             const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
             if (resultText) {
-              const selectedIds = JSON.parse(resultText.trim());
+              let cleanedText = resultText.trim();
+              if (cleanedText.startsWith('```')) {
+                cleanedText = cleanedText.replace(/^```(json)?\n?/, '');
+                cleanedText = cleanedText.replace(/\n?```$/, '');
+                cleanedText = cleanedText.trim();
+              }
+              const firstBrace = cleanedText.indexOf('{');
+              const firstBracket = cleanedText.indexOf('[');
+              let start = -1;
+              let end = -1;
+              if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+                start = firstBrace;
+                end = cleanedText.lastIndexOf('}');
+              } else if (firstBracket !== -1) {
+                start = firstBracket;
+                end = cleanedText.lastIndexOf(']');
+              }
+              if (start !== -1 && end !== -1 && start < end) {
+                cleanedText = cleanedText.substring(start, end + 1);
+              }
+              const selectedIds = JSON.parse(cleanedText);
               if (Array.isArray(selectedIds)) {
                 selectedItems = selectedIds
                   .filter(id => id >= 0 && id < candidateItems.length)
