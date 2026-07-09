@@ -588,4 +588,44 @@
   color: #fff;
 }
 
+.copyBtn {
+  background: rgba(14, 165, 233, 0.1);
+  border-color: rgba(14, 165, 233, 0.2);
+  color: #38bdf8;
+}
+.copyBtn:hover {
+  background: rgba(14, 165, 233, 0.25);
+  border-color: rgba(14, 165, 233, 0.4);
+}
+
+.moveBtn {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+.moveBtn:hover {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.moveActionsWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.moveFolderSelect {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--glass-border);
+  color: #fff;
+  border-radius: var(--border-radius-sm);
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  outline: none;
+  cursor: pointer;
+}
+.moveFolderSelect:focus {
+  border-color: var(--primary);
+}
+
 

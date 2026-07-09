@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Edit3, Check, Trash2, Calendar, FileText, CheckSquare, Sparkles, Tag, Plus, X, ArrowLeft, Copy, Mic } from 'lucide-react';
+import { Edit3, Check, Trash2, Calendar, FileText, CheckSquare, Sparkles, Tag, Plus, X, ArrowLeft, Copy, Mic, FolderInput } from 'lucide-react';
 import { GlowButton } from './ui/GlowButton';
 import styles from './NoteEditor.module.css';
 
@@ -53,9 +53,11 @@ interface NoteEditorProps {
   folders: Folder[];
   onToggleRecorder?: () => void;
   onCreateFolder?: (name: string) => Promise<Folder | null>;
+  onCopy?: (id: string) => void;
+  onMove?: (id: string, folderId: string | null) => void;
 }
 
-export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, onBack, folders, onToggleRecorder, onCreateFolder }) => {
+export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, onBack, folders, onToggleRecorder, onCreateFolder, onCopy, onMove }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -65,6 +67,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
   const [todos, setTodos] = useState<{ text: string; completed: boolean }[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [folderId, setFolderId] = useState<string | null>(null);
+  const [isMoving, setIsMoving] = useState(false);
+  const [targetMoveFolderId, setTargetMoveFolderId] = useState<string | null>(null);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
   const [isTodosExpanded, setIsTodosExpanded] = useState(false);
 
@@ -104,10 +108,19 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
       }
       setTodos(parsedTodos);
       setFolderId(note.folder_id || null);
+      setTargetMoveFolderId(note.folder_id || null);
+      setIsMoving(false);
       setIsEditing(false);
       setActiveSubTab('content'); // Reset sub-tab on note switch
     }
   }, [note]);
+
+  const handleConfirmMove = () => {
+    if (note && onMove) {
+      onMove(note.id, targetMoveFolderId);
+      setIsMoving(false);
+    }
+  };
 
   if (!note) {
     return (
@@ -209,6 +222,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
     html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
 
     // Bold
+    html = html.replace(/\*\*(.*?)\*\//gim, '<strong>$1</strong>');
     html = html.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
 
     // Italics (rendered as bold)
@@ -217,14 +231,67 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
     // Blockquotes
     html = html.replace(/^\>\s+(.*$)/gim, '<blockquote>$1</blockquote>');
 
-    // Split lines and parse lists and paragraphs
+    // Split lines and parse lists, tables, and paragraphs
     const lines = html.split('\n');
     let output: string[] = [];
     let inList = false;
     let listType: 'ul' | 'ol' | null = null;
+    let inTable = false;
+    let tableAlignments: Array<'left' | 'center' | 'right' | null> = [];
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
+      const isTableRow = line.startsWith('|') && line.endsWith('|') && line.length > 1;
+
+      if (isTableRow) {
+        if (inList) {
+          output.push(`</${listType}>`);
+          inList = false;
+          listType = null;
+        }
+
+        const rawCells = line.split('|').slice(1, -1);
+        const cells = rawCells.map(c => c.trim());
+        const isSeparator = cells.every(c => c.match(/^[:\-\s]+$/));
+
+        if (isSeparator) {
+          tableAlignments = cells.map(c => {
+            const trimmed = c.trim();
+            const left = trimmed.startsWith(':');
+            const right = trimmed.endsWith(':');
+            if (left && right) return 'center';
+            if (right) return 'right';
+            if (left) return 'left';
+            return null;
+          });
+          continue;
+        }
+
+        if (!inTable) {
+          output.push('<div style="overflow-x: auto; margin: 16px 0;"><table style="width:100%; border-collapse:collapse; margin-bottom:1em; font-size:14px; text-align:left;">');
+          inTable = true;
+          output.push('<thead><tr style="border-bottom:2px solid var(--border-color); background-color:rgba(255,255,255,0.03);">');
+          cells.forEach((cell, idx) => {
+            const align = tableAlignments[idx] || 'left';
+            output.push(`<th style="padding:10px 12px; font-weight:600; text-align:${align}; border:1px solid var(--border-color);">${cell}</th>`);
+          });
+          output.push('</tr></thead><tbody>');
+        } else {
+          output.push('<tr style="border-bottom:1px solid var(--border-color); transition: background-color 0.2s;">');
+          cells.forEach((cell, idx) => {
+            const align = tableAlignments[idx] || 'left';
+            output.push(`<td style="padding:10px 12px; text-align:${align}; border:1px solid var(--border-color);">${cell}</td>`);
+          });
+          output.push('</tr>');
+        }
+        continue;
+      } else {
+        if (inTable) {
+          output.push('</tbody></table></div>');
+          inTable = false;
+          tableAlignments = [];
+        }
+      }
 
       // Check for bullet list item
       const bulletMatch = lines[i].match(/^(\s*)[\-\*]\s+(.*$)/);
@@ -256,8 +323,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
 
         if (line === '') {
           output.push('<br/>');
-        } else if (line.startsWith('<h') || line.startsWith('<block')) {
-          output.push(lines[i]); // Already formatted
+        } else if (line.startsWith('<h') || line.startsWith('<block') || line.startsWith('<div')) {
+          output.push(lines[i]); // Already formatted or wrapper
         } else {
           output.push(`<p>${lines[i]}</p>`);
         }
@@ -266,6 +333,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
 
     if (inList) {
       output.push(`</${listType}>`);
+    }
+    if (inTable) {
+      output.push('</tbody></table></div>');
     }
 
     return { __html: output.join('\n') };
@@ -341,7 +411,30 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
         </div>
 
         <div className={styles.actions}>
-          {isEditing ? (
+          {isMoving ? (
+            <div className={styles.moveActionsWrapper}>
+              <select
+                className={styles.moveFolderSelect}
+                value={targetMoveFolderId || ''}
+                onChange={(e) => setTargetMoveFolderId(e.target.value || null)}
+              >
+                <option value="">Tanpa Folder (Umum)</option>
+                {getSortedFolderTree(folders).map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.depth > 0 ? `↳ ${f.name}` : f.name}
+                  </option>
+                ))}
+              </select>
+              <button className={`${styles.actionIconBtn} ${styles.saveBtn}`} onClick={handleConfirmMove}>
+                <Check size={16} />
+                <span>Pindahkan</span>
+              </button>
+              <button className={`${styles.actionIconBtn} ${styles.deleteBtn}`} onClick={() => setIsMoving(false)}>
+                <X size={16} />
+                <span>Batal</span>
+              </button>
+            </div>
+          ) : isEditing ? (
             <button className={`${styles.actionIconBtn} ${styles.saveBtn}`} onClick={handleSave} disabled={isSaving}>
               <Check size={18} />
               {!isMobile && <span style={{ marginLeft: '6px' }}>Simpan</span>}
@@ -354,17 +447,28 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
                   {!isMobile && <span>Input Suara AI</span>}
                 </button>
               )}
-              <button className={`${styles.actionIconBtn} ${styles.editBtn}`} onClick={() => setIsEditing(true)}>
+              <button className={`${styles.actionIconBtn} ${styles.editBtn}`} onClick={() => setIsEditing(true)} title="Edit Catatan">
                 <Edit3 size={16} />
                 {!isMobile && <span style={{ marginLeft: '6px' }}>Edit</span>}
               </button>
-
+              {onCopy && (
+                <button className={`${styles.actionIconBtn} ${styles.copyBtn}`} onClick={() => onCopy(note.id)} title="Salin Catatan">
+                  <Copy size={16} />
+                  {!isMobile && <span style={{ marginLeft: '6px' }}>Salin</span>}
+                </button>
+              )}
+              <button className={`${styles.actionIconBtn} ${styles.moveBtn}`} onClick={() => setIsMoving(true)} title="Pindahkan Catatan ke Folder Lain">
+                <FolderInput size={16} />
+                {!isMobile && <span style={{ marginLeft: '6px' }}>Pindahkan</span>}
+              </button>
             </>
           )}
-          <button className={`${styles.actionIconBtn} ${styles.deleteBtn}`} onClick={() => onDelete(note.id)}>
-            <Trash2 size={16} />
-            {!isMobile && <span style={{ marginLeft: '6px' }}>Hapus</span>}
-          </button>
+          {!isMoving && (
+            <button className={`${styles.actionIconBtn} ${styles.deleteBtn}`} onClick={() => onDelete(note.id)}>
+              <Trash2 size={16} />
+              {!isMobile && <span style={{ marginLeft: '6px' }}>Hapus</span>}
+            </button>
+          )}
         </div>
       </div>
 

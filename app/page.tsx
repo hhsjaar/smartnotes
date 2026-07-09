@@ -624,6 +624,41 @@ export default function Home() {
           setActiveTab('notes');
           setWorkspaceView('recorder');
         }
+      } else if (action === 'CREATE_NOTE_DIRECT') {
+        if (payload) {
+          try {
+            const parsedTodos = payload.todo_list ? payload.todo_list.map((task: string) => ({
+              text: task,
+              completed: false,
+            })) : [];
+
+            const res = await fetch('/api/notes', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: payload.title,
+                content: payload.content,
+                summary: payload.summary,
+                tags: payload.tags || ['Draft Rapat'],
+                todo_list: parsedTodos,
+                folder_id: payload.folderId || null,
+              })
+            });
+            if (res.ok) {
+              const data = await res.json();
+              setNotes(prev => [data, ...prev]);
+              setSelectedNote(data);
+              loadFolders(); // Refresh folders to ensure new subfolders are displayed
+              setActiveTab('notes');
+              setWorkspaceView('editor');
+              if (window.innerWidth <= 768) {
+                setMobileView('editor');
+              }
+            }
+          } catch (err) {
+            console.error('Failed to create note directly via assistant:', err);
+          }
+        }
       } else if (action === 'UPDATE_NOTE') {
         if (payload.noteId) {
           try {
@@ -849,36 +884,62 @@ export default function Home() {
       let lastSavedNote: any = null;
       const localFolders = [...folders];
       const notificationNotes: Array<{ title: string; folderName: string }> = [];
- 
+
+      // Pre-process notes to duplicate the "Utuh" Master note for each checked folder
+      const notesToSave: any[] = [];
       for (const note of formattedData.notes) {
+        const isUtuh = note.folderName?.trim().toLowerCase() === 'utuh' || 
+                       note.title?.toLowerCase().includes('utuh') || 
+                       note.title?.toLowerCase().includes('master');
+        if (isUtuh && targetFolderIds && targetFolderIds.length > 0) {
+          for (const targetFolderId of targetFolderIds) {
+            notesToSave.push({
+              ...note,
+              folderId: null,
+              folderName: 'Utuh',
+              parentFolderId: targetFolderId,
+            });
+          }
+        } else {
+          notesToSave.push(note);
+        }
+      }
+ 
+      for (const note of notesToSave) {
         let folderId = note.folderId;
         let finalFolderName = note.folderName || 'Tanpa Folder';
+        const isUtuh = note.folderName?.trim().toLowerCase() === 'utuh' || 
+                       note.title?.toLowerCase().includes('utuh') || 
+                       note.title?.toLowerCase().includes('master');
 
-        // Override classification if user checked target folder(s) and this note is not classified in one of them or its subfolders,
-        // unless it's the "Utuh" Master note.
-        if (targetFolderIds && targetFolderIds.length > 0 && note.folderName !== 'Utuh') {
-          const resolvedFolder = folderId ? localFolders.find(f => f.id === folderId) : null;
-          const isValidTarget = resolvedFolder && (
-            targetFolderIds.includes(resolvedFolder.id) ||
-            (resolvedFolder.parentId && targetFolderIds.includes(resolvedFolder.parentId))
-          );
-
-          if (!isValidTarget) {
-            // Try to find if there is a matching folder (either parent or subfolder under target parents)
-            // matching the note's suggested folderName
-            const matchedFolder = localFolders.find(
-              (f) => (targetFolderIds.includes(f.id) || (f.parentId && targetFolderIds.includes(f.parentId))) &&
-              (note.folderName && f.name.toLowerCase() === note.folderName.toLowerCase())
+        // Override classification if user checked target folder(s) and this note is not classified in one of them or its subfolders.
+        if (targetFolderIds && targetFolderIds.length > 0) {
+          if (isUtuh) {
+            // "Utuh" note will be resolved in the folder resolve block using its parentFolderId!
+          } else {
+            const resolvedFolder = folderId ? localFolders.find(f => f.id === folderId) : null;
+            const isValidTarget = resolvedFolder && (
+              targetFolderIds.includes(resolvedFolder.id) ||
+              (resolvedFolder.parentId && targetFolderIds.includes(resolvedFolder.parentId))
             );
-            if (matchedFolder) {
-              folderId = matchedFolder.id;
-              finalFolderName = matchedFolder.name;
-            } else {
-              // Otherwise fallback to the first target folder ID (the parent folder itself)
-              const fallbackFolder = localFolders.find((f) => f.id === targetFolderIds[0]);
-              if (fallbackFolder) {
-                folderId = fallbackFolder.id;
-                finalFolderName = fallbackFolder.name;
+
+            if (!isValidTarget) {
+              // Try to find if there is a matching folder (either parent or subfolder under target parents)
+              // matching the note's suggested folderName
+              const matchedFolder = localFolders.find(
+                (f) => (targetFolderIds.includes(f.id) || (f.parentId && targetFolderIds.includes(f.parentId))) &&
+                (note.folderName && f.name.toLowerCase() === note.folderName.toLowerCase())
+              );
+              if (matchedFolder) {
+                folderId = matchedFolder.id;
+                finalFolderName = matchedFolder.name;
+              } else {
+                // Otherwise fallback to the first target folder ID (the parent folder itself)
+                const fallbackFolder = localFolders.find((f) => f.id === targetFolderIds[0]);
+                if (fallbackFolder) {
+                  folderId = fallbackFolder.id;
+                  finalFolderName = fallbackFolder.name;
+                }
               }
             }
           }
@@ -888,7 +949,9 @@ export default function Home() {
         if (!folderId && note.folderName) {
           let parentFolderId: string | null = null;
           
-          if (note.parentFolderName) {
+          if (isUtuh && note.parentFolderId) {
+            parentFolderId = note.parentFolderId;
+          } else if (note.parentFolderName) {
             const existingParent = localFolders.find(
               (f) => !f.parentId && f.name.toLowerCase() === note.parentFolderName!.toLowerCase()
             );
@@ -903,14 +966,15 @@ export default function Home() {
             }
           }
 
+          const targetFolderName = isUtuh ? 'Utuh' : note.folderName;
           const existingFolder = localFolders.find(
-            (f) => f.name.toLowerCase() === note.folderName!.toLowerCase() && f.parentId === parentFolderId
+            (f) => f.name.toLowerCase() === targetFolderName.toLowerCase() && f.parentId === parentFolderId
           );
           if (existingFolder) {
             folderId = existingFolder.id;
             finalFolderName = existingFolder.name;
           } else {
-            const newFolder = await handleCreateFolder(note.folderName, parentFolderId);
+            const newFolder = await handleCreateFolder(targetFolderName, parentFolderId);
             if (newFolder) {
               folderId = newFolder.id;
               finalFolderName = newFolder.name;
@@ -1093,6 +1157,77 @@ export default function Home() {
         }
       }
     );
+  };
+
+  // Handle duplicating/copying a note
+  const handleCopyNote = async (noteId: string) => {
+    const originalNote = notes.find((n) => n.id === noteId);
+    if (!originalNote) return;
+
+    try {
+      // Clean up todo_list from original format (which is JSON)
+      const parsedTodos = originalNote.todo_list 
+        ? (originalNote.todo_list as any[]).map((item) => {
+            if (typeof item === 'string') {
+              return { text: item, completed: false };
+            }
+            return { text: item.text || '', completed: !!item.completed };
+          })
+        : [];
+
+      const copyPayload = {
+        title: `${originalNote.title} (Salinan)`,
+        content: originalNote.content,
+        summary: originalNote.summary,
+        tags: originalNote.tags || [],
+        todo_list: parsedTodos,
+        folder_id: originalNote.folder_id || null,
+      };
+
+      const res = await fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(copyPayload),
+      });
+
+      if (!res.ok) throw new Error('Failed to copy note');
+      const data = await res.json();
+
+      setNotes((prev) => [data, ...prev]);
+      setSelectedNote(data);
+      setWorkspaceView('editor');
+      if (window.innerWidth <= 768) {
+        setMobileView('editor');
+      }
+    } catch (err) {
+      console.error('Error copying note:', err);
+      alert('Gagal menyalin catatan.');
+    }
+  };
+
+  // Handle moving a note to a different folder
+  const handleMoveNote = async (noteId: string, targetFolderId: string | null) => {
+    try {
+      const res = await fetch('/api/notes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: noteId,
+          folder_id: targetFolderId || null,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to move note');
+      const data = await res.json();
+
+      setNotes((prev) =>
+        prev.map((n) => (n.id === data.id ? data : n))
+      );
+      setSelectedNote(data);
+    } catch (err) {
+      console.error('Error moving note:', err);
+      alert('Gagal memindahkan catatan.');
+    }
   };
 
   // Create a new blank note
@@ -2097,6 +2232,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     onBack={() => setMobileView('list')}
                     folders={folders}
                     onCreateFolder={handleCreateFolder}
+                    onCopy={handleCopyNote}
+                    onMove={handleMoveNote}
                   />
                 )}
               </div>
@@ -2981,6 +3118,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 folders={folders}
                 onToggleRecorder={() => setWorkspaceView('recorder')}
                 onCreateFolder={handleCreateFolder}
+                onCopy={handleCopyNote}
+                onMove={handleMoveNote}
               />
             ) : (
               <div className={styles.welcomeState}>
