@@ -370,23 +370,31 @@ export default function EmployeeChatPage() {
             </div>
           )}
 
-          <form onSubmit={handleSendMessage} className={styles.inputForm}>
-            {/* Attribute Dropdown */}
-            <div className={styles.selectWrapper}>
-              <Tag size={16} className={styles.dropdownTagIcon} />
-              <select
-                value={selectedAttribute}
-                onChange={(e) => setSelectedAttribute(e.target.value)}
-                className={styles.attributeSelect}
-              >
-                {attributes.map((attr) => (
-                  <option key={attr.id} value={attr.name}>
-                    {attr.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* Attribute Chips Selection */}
+          <div className={styles.attributeChipsContainer}>
+            {attributes.map((attr) => {
+              const isActive = selectedAttribute === attr.name;
+              const color = getAttributeColor(attr.name);
+              return (
+                <button
+                  key={attr.id}
+                  type="button"
+                  className={`${styles.attributeChip} ${isActive ? styles.attributeChipActive : ''}`}
+                  onClick={() => setSelectedAttribute(attr.name)}
+                  style={{
+                    borderColor: isActive ? color : 'var(--glass-border)',
+                    color: isActive ? '#fff' : 'var(--text-muted)',
+                    background: isActive ? color : 'rgba(255, 255, 255, 0.03)',
+                  }}
+                >
+                  <Tag size={10} style={{ marginRight: '4px' }} />
+                  {attr.name}
+                </button>
+              );
+            })}
+          </div>
 
+          <form onSubmit={handleSendMessage} className={styles.inputForm}>
             {/* Chat Text Input */}
             <input
               type="text"

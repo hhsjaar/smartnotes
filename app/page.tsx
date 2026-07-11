@@ -121,6 +121,22 @@ export default function Home() {
   const [passcodeInput, setPasscodeInput] = useState('');
   const [passcodeError, setPasscodeError] = useState('');
 
+  const getChatAttributeColor = (attr: string | null) => {
+    if (!attr) return '#64748b';
+    switch (attr.toLowerCase()) {
+      case 'sales':
+        return '#10b981';
+      case 'progres':
+        return '#06b6d4';
+      case 'urgent':
+        return '#ef4444';
+      case 'umum':
+        return '#6366f1';
+      default:
+        return '#d946ef';
+    }
+  };
+
   // Chat Room States
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatAttributes, setChatAttributes] = useState<any[]>([]);
@@ -674,9 +690,12 @@ export default function Home() {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const isAdminParam = urlParams.get('admin') === 'true';
+      const auth = localStorage.getItem('admin_authorized') === 'true';
       
-      if (isAdminParam) {
-        localStorage.setItem('admin_authorized', 'true');
+      if (isAdminParam || auth) {
+        if (isAdminParam) {
+          localStorage.setItem('admin_authorized', 'true');
+        }
         setIsAdminAuthorized(true);
         setAuthChecking(false);
       } else {
@@ -2471,6 +2490,12 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               />
             </div>
           )}
+
+          {activeTab === 'chat' && (
+            <div className={styles.mobileNewsContainer}>
+              {renderAdminChatRoom()}
+            </div>
+          )}
         </div>
 
         {/* Bottom Tab Bar Navigation */}
@@ -2680,7 +2705,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
     );
   }
 
-  const renderAdminChatRoom = () => {
+  function renderAdminChatRoom() {
     return (
       <div className={styles.adminChatContainer}>
         <div className={styles.adminChatLayout}>
@@ -2796,22 +2821,30 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             </div>
 
             <div className={styles.adminChatFooter}>
-              <form onSubmit={handleSendAdminChatMessage} className={styles.adminChatInputForm}>
-                <div className={styles.adminSelectWrapper}>
-                  <Tag size={16} className={styles.adminDropdownTagIcon} />
-                  <select
-                    value={selectedChatAttribute}
-                    onChange={(e) => setSelectedChatAttribute(e.target.value)}
-                    className={styles.adminAttributeSelect}
-                  >
-                    {chatAttributes.map((attr) => (
-                      <option key={attr.id} value={attr.name}>
-                        {attr.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className={styles.attributeChipsContainer}>
+                {chatAttributes.map((attr) => {
+                  const isActive = selectedChatAttribute === attr.name;
+                  const color = getChatAttributeColor(attr.name);
+                  return (
+                    <button
+                      key={attr.id}
+                      type="button"
+                      className={`${styles.attributeChip} ${isActive ? styles.attributeChipActive : ''}`}
+                      onClick={() => setSelectedChatAttribute(attr.name)}
+                      style={{
+                        borderColor: isActive ? color : 'var(--glass-border)',
+                        color: isActive ? '#fff' : 'var(--text-muted)',
+                        background: isActive ? color : 'rgba(255, 255, 255, 0.03)',
+                      }}
+                    >
+                      <Tag size={10} style={{ marginRight: '4px' }} />
+                      {attr.name}
+                    </button>
+                  );
+                })}
+              </div>
 
+              <form onSubmit={handleSendAdminChatMessage} className={styles.adminChatInputForm}>
                 <input
                   type="text"
                   placeholder="Tulis balasan atau pengumuman dari Admin..."

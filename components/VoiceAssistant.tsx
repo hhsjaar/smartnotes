@@ -341,8 +341,12 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
             if (cleanedText) {
               processCommandRef.current(cleanedText);
             } else {
-              speak("Baik, sampai jumpa!");
-              autoClosePanel();
+              try {
+                rec.stop();
+              } catch (e) {}
+              stopListening();
+              setStatus('idle');
+              speak("Mendengarkan selesai.");
             }
           }
         };
