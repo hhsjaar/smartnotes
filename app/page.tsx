@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock, GitMerge } from 'lucide-react';
+import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock, GitMerge, Lock, Tag, Users, LogOut, ArrowRight, Send, AlertCircle } from 'lucide-react';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { NoteCard } from '@/components/NoteCard';
 import { NoteEditor } from '@/components/NoteEditor';
@@ -12,6 +12,7 @@ import { WhatsappChat } from '@/components/WhatsappChat';
 import { VoiceAssistant } from '@/components/VoiceAssistant';
 import { InteractiveMerge } from '@/components/InteractiveMerge';
 import styles from './page.module.css';
+
 
 interface Note {
   id: string;
@@ -114,7 +115,23 @@ const getSortedFolderTree = (foldersList: Folder[]) => {
 };
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'notes' | 'news' | 'whatsapp' | 'calendar' | 'recorder' | 'reminders'>('notes');
+  const [activeTab, setActiveTab] = useState<'notes' | 'news' | 'whatsapp' | 'calendar' | 'recorder' | 'reminders' | 'chat'>('notes');
+  const [isAdminAuthorized, setIsAdminAuthorized] = useState<boolean>(true);
+  const [authChecking, setAuthChecking] = useState<boolean>(true);
+  const [passcodeInput, setPasscodeInput] = useState('');
+  const [passcodeError, setPasscodeError] = useState('');
+
+  // Chat Room States
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatAttributes, setChatAttributes] = useState<any[]>([]);
+  const [newChatMessage, setNewChatMessage] = useState('');
+  const [selectedChatAttribute, setSelectedChatAttribute] = useState('Umum');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatSubmitting, setChatSubmitting] = useState(false);
+  const [newAttributeInput, setNewAttributeInput] = useState('');
+  const chatMessagesEndRef = useRef<HTMLDivElement | null>(null);
+  const chatPollingRef = useRef<NodeJS.Timeout | null>(null);
+
   const [notes, setNotes] = useState<Note[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [isPushSubscribed, setIsPushSubscribed] = useState(false);
@@ -381,6 +398,143 @@ export default function Home() {
     }
   };
 
+  const handleVerifyPasscode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasscodeError('');
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passcode: passcodeInput }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        localStorage.setItem('admin_authorized', 'true');
+        setIsAdminAuthorized(true);
+      } else {
+        setPasscodeError(data.error || 'Passcode salah!');
+      }
+    } catch (err) {
+      setPasscodeError('Gagal memverifikasi passcode.');
+    }
+  };
+
+  const handleAdminLogout = () => {
+    if (confirm('Apakah Anda yakin ingin keluar dari Panel Admin?')) {
+      localStorage.removeItem('admin_authorized');
+      setIsAdminAuthorized(false);
+      setPasscodeInput('');
+      window.location.href = '/chat';
+    }
+  };
+
+  const loadChatMessages = async (isSilent = false) => {
+    if (!isSilent) setChatLoading(true);
+    try {
+      const res = await fetch('/api/chat');
+      if (res.ok) {
+        const data = await res.json();
+        setChatMessages(data);
+      }
+    } catch (err) {
+      console.error('Failed to load chat messages:', err);
+    } finally {
+      if (!isSilent) setChatLoading(false);
+    }
+  };
+
+  const loadChatAttributes = async () => {
+    try {
+      const res = await fetch('/api/chat/attributes');
+      if (res.ok) {
+        const data = await res.json();
+        setChatAttributes(data);
+        const hasUmum = data.some((a: any) => a.name === 'Umum');
+        setSelectedChatAttribute(hasUmum ? 'Umum' : (data[0]?.name || ''));
+      }
+    } catch (err) {
+      console.error('Failed to load chat attributes:', err);
+    }
+  };
+
+  const handleSendAdminChatMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newChatMessage.trim() || chatSubmitting) return;
+    setChatSubmitting(true);
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senderName: 'Admin',
+          senderRole: 'admin',
+          message: newChatMessage.trim(),
+          attribute: selectedChatAttribute || null,
+        }),
+      });
+      if (res.ok) {
+        const sentMsg = await res.json();
+        setChatMessages(prev => [...prev, sentMsg]);
+        setNewChatMessage('');
+      } else {
+        const errorData = await res.json();
+        alert(errorData.error || 'Gagal mengirim pesan');
+      }
+    } catch (err) {
+      alert('Terjadi kesalahan saat mengirim pesan');
+    } finally {
+      setChatSubmitting(false);
+    }
+  };
+
+  const handleAddChatAttribute = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAttributeInput.trim()) return;
+    try {
+      const res = await fetch('/api/chat/attributes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newAttributeInput.trim() }),
+      });
+      if (res.ok) {
+        const newAttr = await res.json();
+        setChatAttributes(prev => [...prev, newAttr].sort((a, b) => a.name.localeCompare(b.name)));
+        setNewAttributeInput('');
+      } else {
+        const errData = await res.json();
+        alert(errData.error || 'Gagal menambahkan atribut');
+      }
+    } catch (err) {
+      alert('Gagal menambahkan atribut');
+    }
+  };
+
+  const handleDeleteChatAttribute = async (id: string, name: string) => {
+    if (name === 'Umum') {
+      alert('Atribut "Umum" adalah atribut sistem bawaan dan tidak dapat dihapus.');
+      return;
+    }
+    if (confirm(`Apakah Anda yakin ingin menghapus atribut "${name}"?`)) {
+      try {
+        const res = await fetch(`/api/chat/attributes?id=${id}`, {
+          method: 'DELETE',
+        });
+        if (res.ok) {
+          setChatAttributes(prev => prev.filter(a => a.id !== id));
+          if (selectedChatAttribute === name) {
+            setSelectedChatAttribute('Umum');
+          }
+        } else {
+          const errData = await res.json();
+          alert(errData.error || 'Gagal menghapus atribut');
+        }
+      } catch (err) {
+        alert('Gagal menghapus atribut');
+      }
+    }
+  };
+
+
   const urlBase64ToUint8Array = (base64String: string) => {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -517,30 +671,79 @@ export default function Home() {
   };
 
   useEffect(() => {
-    loadNotes();
-    loadFolders();
-    loadReminders();
-
     if (typeof window !== 'undefined') {
-      const savedWaNum = localStorage.getItem('default_wa_reminder_number');
-      if (savedWaNum) {
-        setWaReminderNumber(savedWaNum);
-        setEnableWaReminder(true);
-      }
-    }
-
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      setPushPermissionStatus(Notification.permission);
+      const urlParams = new URLSearchParams(window.location.search);
+      const isAdminParam = urlParams.get('admin') === 'true';
+      const auth = localStorage.getItem('admin_authorized') === 'true';
       
-      if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
-        navigator.serviceWorker.ready.then((registration) => {
-          registration.pushManager.getSubscription().then((subscription) => {
-            setIsPushSubscribed(!!subscription);
-          });
-        });
+      if (isAdminParam) {
+        if (auth) {
+          setIsAdminAuthorized(true);
+        } else {
+          setIsAdminAuthorized(false);
+        }
+        setAuthChecking(false);
+      } else {
+        localStorage.removeItem('admin_authorized');
+        setIsAdminAuthorized(false);
+        window.location.href = '/chat';
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (isAdminAuthorized) {
+      loadNotes();
+      loadFolders();
+      loadReminders();
+
+      if (typeof window !== 'undefined') {
+        const savedWaNum = localStorage.getItem('default_wa_reminder_number');
+        if (savedWaNum) {
+          setWaReminderNumber(savedWaNum);
+          setEnableWaReminder(true);
+        }
+      }
+
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        setPushPermissionStatus(Notification.permission);
+        
+        if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then((registration) => {
+            registration.pushManager.getSubscription().then((subscription) => {
+              setIsPushSubscribed(!!subscription);
+            });
+          });
+        }
+      }
+    }
+  }, [isAdminAuthorized]);
+
+  // Polling for Chat Messages when tab is active and authorized
+  useEffect(() => {
+    if (isAdminAuthorized && activeTab === 'chat') {
+      loadChatMessages();
+      loadChatAttributes();
+
+      chatPollingRef.current = setInterval(() => {
+        loadChatMessages(true);
+      }, 2000);
+
+      return () => {
+        if (chatPollingRef.current) {
+          clearInterval(chatPollingRef.current);
+        }
+      };
+    }
+  }, [isAdminAuthorized, activeTab]);
+
+  // Scroll chat messages to bottom on new messages
+  useEffect(() => {
+    if (activeTab === 'chat') {
+      chatMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, activeTab]);
+
 
   // Background cron executor (polls /api/cron to run pending jobs)
   useEffect(() => {
@@ -2314,6 +2517,14 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             <MessageSquare size={20} />
             <span>Pesan</span>
           </button>
+          <button
+            className={`${styles.bottomNavItem} ${activeTab === 'chat' ? styles.activeBottomNavItem : ''}`}
+            onClick={() => setActiveTab('chat')}
+          >
+            <Users size={20} />
+            <span>Obrolan</span>
+          </button>
+
         </nav>
 
         {/* Folder Selection Modal (Mobile) */}
@@ -2473,8 +2684,277 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
     );
   }
 
+  const renderAdminChatRoom = () => {
+    return (
+      <div className={styles.adminChatContainer}>
+        <div className={styles.adminChatLayout}>
+          {/* Left panel: Chat Room */}
+          <div className={styles.adminChatRoomPanel}>
+            <div className={styles.adminChatHeader}>
+              <div className={styles.adminChatHeaderTitle}>
+                <Users className={styles.adminChatHeaderIcon} />
+                <div>
+                  <h3>Grup Chat Internal & Laporan Karyawan</h3>
+                  <p>Koordinasi real-time antara admin dan seluruh karyawan FnB</p>
+                </div>
+              </div>
+              <button onClick={handleAdminLogout} className={styles.adminLogoutBtn}>
+                <LogOut size={16} style={{ marginRight: '6px' }} />
+                <span>Keluar Admin</span>
+              </button>
+            </div>
+
+            <div className={styles.adminChatArea}>
+              {chatLoading && chatMessages.length === 0 ? (
+                <div className={styles.chatLoader}>
+                  <div className="spinner" />
+                  <p>Memuat percakapan...</p>
+                </div>
+              ) : chatMessages.length === 0 ? (
+                <div className={styles.chatEmpty}>
+                  <MessageSquare size={40} />
+                  <p>Belum ada pesan di chat room ini.</p>
+                </div>
+              ) : (
+                <div className={styles.chatMessagesList}>
+                  {chatMessages.map((msg, index) => {
+                    const isMe = msg.senderRole === 'admin';
+                    const date = new Date(msg.createdAt);
+                    const timeStr = date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                    
+                    let showDivider = false;
+                    let dividerText = '';
+                    
+                    const currentDateKey = date.toDateString();
+                    const prevMsg = index > 0 ? chatMessages[index - 1] : null;
+                    const prevDateKey = prevMsg ? new Date(prevMsg.createdAt).toDateString() : null;
+                    
+                    if (currentDateKey !== prevDateKey) {
+                      showDivider = true;
+                      
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      
+                      const yesterday = new Date(today);
+                      yesterday.setDate(yesterday.getDate() - 1);
+                      
+                      const compareDate = new Date(date);
+                      compareDate.setHours(0, 0, 0, 0);
+                      
+                      if (compareDate.getTime() === today.getTime()) {
+                        dividerText = 'Hari Ini';
+                      } else if (compareDate.getTime() === yesterday.getTime()) {
+                        dividerText = 'Kemarin';
+                      } else {
+                        dividerText = compareDate.toLocaleDateString('id-ID', {
+                          weekday: 'long',
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        });
+                      }
+                    }
+
+                    return (
+                      <React.Fragment key={msg.id}>
+                        {showDivider && (
+                          <div className={styles.chatDateDivider}>
+                            <span className={styles.chatDateDividerText}>{dividerText}</span>
+                          </div>
+                        )}
+                        <div className={`${styles.chatRow} ${isMe ? styles.chatMyRow : styles.chatOtherRow}`}>
+                          <div className={`${styles.chatBubble} ${isMe ? styles.chatMyBubble : styles.chatOtherBubble}`}>
+                            <div className={styles.chatBubbleHeader}>
+                              <span className={styles.chatSenderName}>{msg.senderName}</span>
+                              <span className={`${styles.chatRoleIndicator} ${isMe ? styles.chatRoleAdmin : styles.chatRoleEmployee}`}>
+                                {msg.senderRole === 'admin' ? 'Admin' : 'Karyawan'}
+                              </span>
+                            </div>
+
+                            {msg.attribute && (
+                              <span className={styles.chatBubbleAttribute} style={{
+                                borderColor: msg.attribute.toLowerCase() === 'sales' ? '#10b981' :
+                                             msg.attribute.toLowerCase() === 'progres' ? '#06b6d4' :
+                                             msg.attribute.toLowerCase() === 'urgent' ? '#ef4444' :
+                                             msg.attribute.toLowerCase() === 'umum' ? '#6366f1' : '#d946ef',
+                                color: msg.attribute.toLowerCase() === 'sales' ? '#10b981' :
+                                       msg.attribute.toLowerCase() === 'progres' ? '#06b6d4' :
+                                       msg.attribute.toLowerCase() === 'urgent' ? '#ef4444' :
+                                       msg.attribute.toLowerCase() === 'umum' ? '#6366f1' : '#d946ef'
+                              }}>
+                                <Tag size={10} style={{ marginRight: '4px' }} />
+                                {msg.attribute}
+                              </span>
+                            )}
+
+                            <p className={styles.chatMessageText}>{msg.message}</p>
+                            <span className={styles.chatTimeText}>{timeStr}</span>
+                          </div>
+                        </div>
+                      </React.Fragment>
+                    );
+                  })}
+                  <div ref={chatMessagesEndRef} />
+                </div>
+              )}
+            </div>
+
+            <div className={styles.adminChatFooter}>
+              <form onSubmit={handleSendAdminChatMessage} className={styles.adminChatInputForm}>
+                <div className={styles.adminSelectWrapper}>
+                  <Tag size={16} className={styles.adminDropdownTagIcon} />
+                  <select
+                    value={selectedChatAttribute}
+                    onChange={(e) => setSelectedChatAttribute(e.target.value)}
+                    className={styles.adminAttributeSelect}
+                  >
+                    {chatAttributes.map((attr) => (
+                      <option key={attr.id} value={attr.name}>
+                        {attr.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="Tulis balasan atau pengumuman dari Admin..."
+                  value={newChatMessage}
+                  onChange={(e) => setNewChatMessage(e.target.value)}
+                  className={styles.adminChatTextInput}
+                  disabled={chatSubmitting}
+                  required
+                />
+
+                <button 
+                  type="submit" 
+                  className={styles.adminChatSendBtn}
+                  disabled={!newChatMessage.trim() || chatSubmitting}
+                >
+                  <Send size={18} />
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* Right panel: Attribute classification management */}
+          <div className={styles.adminAttributeManagementPanel}>
+            <div className={styles.attrPanelHeader}>
+              <Tag size={18} style={{ color: 'var(--primary)' }} />
+              <h4>Kelola Atribut Klasifikasi</h4>
+            </div>
+            
+            <p className={styles.attrPanelHelp}>
+              Atribut ini digunakan oleh karyawan untuk mengelompokkan pesan/laporan mereka (misalnya Sales, Progres, dll).
+            </p>
+
+            <form onSubmit={handleAddChatAttribute} className={styles.addAttrForm}>
+              <input
+                type="text"
+                placeholder="Nama atribut baru..."
+                value={newAttributeInput}
+                onChange={(e) => setNewAttributeInput(e.target.value)}
+                className={styles.attrInput}
+                maxLength={20}
+                required
+              />
+              <button type="submit" className={styles.attrAddBtn}>
+                <Plus size={16} />
+                <span>Tambah</span>
+              </button>
+            </form>
+
+            <div className={styles.attrsList}>
+              {chatAttributes.map((attr) => (
+                <div key={attr.id} className={styles.attrItem}>
+                  <span className={styles.attrItemName}>🏷️ {attr.name}</span>
+                  {attr.name !== 'Umum' && (
+                    <button 
+                      type="button" 
+                      onClick={() => handleDeleteChatAttribute(attr.id, attr.name)}
+                      className={styles.attrDeleteBtn}
+                      title="Hapus Atribut"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  if (authChecking) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', width: '100vw', height: '100vh', backgroundColor: 'var(--bg-primary)', color: 'var(--text-muted)' }}>
+        <div className="spinner" />
+        <p style={{ marginTop: '12px' }}>Memuat sistem otorisasi...</p>
+      </div>
+    );
+  }
+
+  if (!isAdminAuthorized) {
+    return (
+      <div className={styles.authContainer}>
+        <div className={`${styles.authCard} glass-panel`}>
+          <div className={styles.authHeader}>
+            <div className={styles.lockIconWrapper}>
+              <Lock className={styles.lockIcon} />
+            </div>
+            <h1 className={styles.authTitle}>Panel Admin Catatan Pintar</h1>
+            <p className={styles.authSubtitle}>
+              Masukkan passcode untuk masuk ke dashboard utama
+            </p>
+          </div>
+
+          <form onSubmit={handleVerifyPasscode} className={styles.authForm}>
+            <div className={styles.inputGroup}>
+              <label htmlFor="admin-passcode" className={styles.inputLabel}>
+                Passcode Admin
+              </label>
+              <div className={styles.inputWithIcon}>
+                <Lock className={styles.fieldIcon} size={16} />
+                <input
+                  id="admin-passcode"
+                  type="password"
+                  placeholder="Masukkan passcode"
+                  value={passcodeInput}
+                  onChange={(e) => setPasscodeInput(e.target.value)}
+                  className={styles.textInput}
+                  required
+                  autoFocus
+                />
+              </div>
+              {passcodeError && (
+                <div style={{ color: 'var(--error)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', marginTop: '6px', gap: '4px' }}>
+                  <AlertCircle size={14} />
+                  <span>{passcodeError}</span>
+                </div>
+              )}
+            </div>
+
+            <button type="submit" className={styles.submitBtn}>
+              <span>Verifikasi & Masuk</span>
+              <ArrowRight className={styles.btnIcon} />
+            </button>
+          </form>
+          
+          <div style={{ textAlign: 'center', marginTop: '10px' }}>
+            <a href="/chat" style={{ fontSize: '0.85rem', color: 'var(--secondary)', textDecoration: 'underline' }}>
+              Buka Halaman Chat Room Karyawan &rarr;
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.layout}>
+
       {showInstallBanner && (
         <div className={styles.installBanner}>
           <div className={styles.installBannerContent}>
@@ -2538,6 +3018,14 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             <MessageSquare size={18} />
             Pesan Darurat
           </button>
+          <button
+            className={`${styles.navItem} ${activeTab === 'chat' ? styles.activeNavItem : ''}`}
+            onClick={() => setActiveTab('chat')}
+          >
+            <Users size={18} />
+            Chat Room
+          </button>
+
         </nav>
 
         {/* Collapsible Folders Section */}
@@ -3231,6 +3719,10 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
       ) : activeTab === 'reminders' ? (
         <div className={styles.fullWidthNewsArea}>
           {renderRemindersTab()}
+        </div>
+      ) : activeTab === 'chat' ? (
+        <div className={styles.fullWidthNewsArea}>
+          {renderAdminChatRoom()}
         </div>
       ) : (
         <div className={styles.fullWidthNewsArea}>

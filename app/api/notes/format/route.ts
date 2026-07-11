@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
   try {
-    const { text, formatType, selectedFolderIds } = await request.json();
+    const { text, formatType, selectedFolderIds, singleNote } = await request.json();
 
     if (!text || text.trim() === '') {
       return NextResponse.json({ error: 'Text tidak boleh kosong' }, { status: 400 });
@@ -80,6 +80,11 @@ Anda WAJIB mengklasifikasikan catatan baru ini ke dalam salah satu dari folder u
       year: 'numeric'
     });
 
+    const singleNoteConstraint = singleNote ? `
+PENTING - MODE CATATAN TUNGGAL (SINGLE NOTE MODE):
+Anda DILARANG KERAS memecah transkripsi ini menjadi beberapa catatan pecahan. Anda juga DILARANG membuat 'Catatan Master' di folder 'Utuh' atau menambahkan bagian 'Rincian Topik per Folder'. Cukup buat tepat 1 catatan tunggal yang memformat seluruh transkripsi tersebut menjadi format yang diminta, lalu kembalikan dalam array 'notes' berisi tepat 1 objek saja.
+` : '';
+
     if (formatType === 'intel') {
       prompt = `Anda adalah asisten AI editor catatan profesional intelijen/keamanan. Tugas Anda adalah mengambil teks mentah hasil transkripsi suara (Voice-to-Text) di bawah ini, menganalisis kontennya, dan merapikannya menjadi "Laporan Intel" awal (Pulbaket) dengan format yang SANGAT SPESIFIK dan kaku.
 PENTING: Buatlah semua ringkasan dan catatan Anda (baik catatan pecahan maupun Catatan Master) secara sangat detail, komprehensif, mendalam, dan sangat jelas. Jangan menyederhanakan, merangkum terlalu pendek, atau menghilangkan detail spesifik seperti nama orang, nama tempat/lokasi, waktu/jam, angka-angka penting, kutipan ucapan, atau konteks pembicaraan.
@@ -93,6 +98,7 @@ Di bagian paling bawah konten ('content') Catatan Master, setelah laporan gabung
 - Isi Catatan: [Isi Lengkap Catatan Pecahan]
 
 Catatan Master ini secara khusus dimasukkan ke folder "Utuh" (isi 'folderName' dengan "Utuh" dan 'folderId' dengan null). Namun jika hanya ada satu topik intelijen, cukup buat 1 catatan saja (tidak perlu membuat Catatan Master di folder "Utuh" dan tidak perlu menambahkan bagian 'Rincian Topik per Folder').
+${singleNoteConstraint}
 
 Teks Mentah Transkripsi:
 "${text}"
@@ -132,7 +138,7 @@ Anda WAJIB menaruh catatan baru ke dalam folder/subfolder yang paling relevan be
 2. Cara menentukan 'folderId', 'folderName', dan 'parentFolderName' dalam output JSON:
    - Jika catatan cocok dengan suatu subfolder (misalnya subfolder 'Belanjaan' di bawah parent 'Perusahaan'), isi 'folderId' dengan ID subfolder tersebut dari Daftar Folder, 'folderName' dengan nama subfolder tersebut, dan 'parentFolderName' dengan nama parent foldernya ("Perusahaan").
    - Jika catatan cocok dengan folder induk namun tidak ada subfolder yang spesifik, isi 'folderId' dengan ID folder induk tersebut, 'folderName' dengan nama folder induk tersebut, dan 'parentFolderName' dengan null.
-   - Jika tidak ada folder/subfolder yang cocok sama sekali di database namun diperlukan kategori baru, buat subfolder/folder baru dengan mengisi 'folderName' sesuai nama kategori baru tersebut, isi 'folderId' dengan null, dan 'parentFolderName' dengan nama folder induknya (misalnya "Perusahaan", "Polsek", atau "Pribadi") jika kategori baru itu merupakan subkategori.
+   - Jika tidak ada folder/subfolder yang cocok sama sekali di database namun diperlukan kategori baru, buat subfolder/folder baru dengan mengisi 'folderName' sesuai nama kategori baru tersebut, isi 'folderId' dengan null, and 'parentFolderName' dengan nama folder induknya (misalnya "Perusahaan", "Polsek", atau "Pribadi") jika kategori baru itu merupakan subkategori.
    - Jika merupakan catatan umum yang tidak memerlukan folder khusus, isi 'folderId': null, 'folderName': null, dan 'parentFolderName': null.
 ${folderConstraintPrompt}
 
@@ -166,6 +172,7 @@ Di bagian paling bawah konten ('content') Catatan Master, setelah laporan gabung
 - Isi Catatan: [Isi Lengkap Catatan Pecahan]
 
 Catatan Master ini secara khusus dimasukkan ke folder "Utuh" (isi 'folderName' dengan "Utuh" dan 'folderId' dengan null). Namun jika hanya ada satu topik kejadian/kegiatan, cukup buat 1 catatan saja (tidak perlu membuat Catatan Master di folder "Utuh" dan tidak perlu menambahkan bagian 'Rincian Topik per Folder').
+${singleNoteConstraint}
 
 Teks Mentah Transkripsi:
 "${text}"
@@ -189,7 +196,7 @@ Penanganan di Lokasi
 > *Catatan Penting:* [Catatan penting atau informasi krusial tambahan sesuai isi transkrip]
 
 Instruksi Tambahan:
-- Jangan gunakan penanda markdown heading (###, ##, #) atau cetak tebal (**) pada judul "Informasi Kejadian" dan "Penanganan di Lokasi". Biarkan berupa baris teks biasa.
+- Jangan gunakan penanda markdown heading (###, ##, #) or cetak tebal (**) pada judul "Informasi Kejadian" dan "Penanganan di Lokasi". Biarkan berupa baris teks biasa.
 - Jangan gunakan bullet points (-) di bawah Informasi Kejadian. Tuliskan dalam satu baris paragraf bersambung persis seperti di atas.
 - Judul Catatan ('title') harus berformat: "Laporan Kegiatan: [Nama Kejadian] di [Nama Lokasi/TKP]" (maksimal 8 kata). Untuk Catatan Master di folder "Utuh", berikan judul seperti "Laporan Kegiatan Utuh: [Ringkasan Topik-Topik]".
 - Kategori/Tags ('tags') harus menyertakan "Laporan" dan "Kegiatan", serta 1-2 tag tambahan yang relevan.
@@ -226,6 +233,67 @@ Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
   ]
 }
 
+PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan lainnya. Kembalikan HANYA string JSON murni yang valid.`;    } else if (formatType === 'poin' || formatType === 'point') {
+      prompt = `Anda adalah asisten AI editor catatan profesional. Tugas Anda adalah mengambil teks mentah hasil transkripsi suara (Voice-to-Text) di bawah ini, menganalisis kontennya, dan memparafrase catatan tersebut menjadi format ringkasan poin-poin penting yang SANGAT SINGKAT, PADAT, JELAS, dan langsung ke inti permasalahan (to the point) tanpa basa-basi atau bertele-tele.
+PENTING:
+- Hindari kalimat pembuka, pengantar, kesimpulan normatif, atau teks dekoratif.
+- Tuliskan informasi penting dalam bentuk poin-poin (bullet points).
+- Setiap poin harus singkat, padat, dan memuat informasi konkret (seperti angka, waktu, nama orang/tempat, atau tindakan spesifik jika ada).
+- Hapus semua repetisi atau bagian pembicaraan yang bertele-tele dari transkrip mentah.
+
+Jika tidak menggunakan mode catatan tunggal dan teks mengandung lebih dari satu topik pembicaraan/bahasan/ide yang berbeda secara signifikan, maka Anda diperbolehkan memecah isi rekaman tersebut menjadi beberapa catatan terpisah secara logis sesuai masing-masing topik. Selain itu, buatlah satu catatan tambahan sebagai 'Catatan Master' (versi utuh) yang menggabungkan seluruh topik tersebut. Catatan Master ini secara khusus dimasukkan ke folder "Utuh" (folderName: "Utuh", folderId: null). Namun jika hanya ada satu topik, cukup buat 1 catatan saja (tidak perlu membuat Catatan Master di folder "Utuh" dan tidak perlu menambahkan bagian 'Rincian Topik per Folder').
+${singleNoteConstraint}
+
+Teks Mentah Transkripsi:
+"${text}"
+
+Konteks Waktu Hari Ini (jika tidak disebutkan secara eksplisit di transkrip): ${currentDateTimeStr}
+
+Daftar Folder saat ini di database beserta rangkuman isi catatan di dalamnya: ${JSON.stringify(foldersContext)}
+
+Format Output bagian 'content' untuk setiap catatan harus mengikuti struktur Markdown berikut secara presisi:
+
+### Poin-Poin Penting Catatan:
+- [Poin pertama yang singkat, padat, jelas]
+- [Poin kedua yang singkat, padat, jelas]
+... (dst.)
+
+Instruksi Tambahan:
+- Judul Catatan ('title') harus berformat: "Poin Penting: [Topik Utama]" (maksimal 6 kata). Untuk Catatan Master di folder "Utuh", berikan judul seperti "Poin Penting Utuh: [Ringkasan Topik-Topik]".
+- Kategori/Tags ('tags') harus menyertakan "Poin", "Ringkasan", serta 1-2 tag tambahan yang relevan.
+- Ekstrak daftar tugas/tindakan konkret lanjutan ke dalam 'todo_list' jika ada. Jika tidak ada, kembalikan [].
+- Nilai dari 'summary' harus berupa teks transkripsi asli (mentah/verbatim) yang diambil langsung dari "Teks Mentah Transkripsi" yang berhubungan dengan catatan ini, tanpa parafrase, perubahan kata, atau ringkasan dari AI. Jika catatan ini adalah Catatan Master atau jika hanya ada satu catatan, isi 'summary' dengan seluruh isi teks transkripsi asli secara utuh.
+
+Aturan Klasifikasi Folder & Subfolder (Berdasarkan Konteks Isi Catatan):
+Anda WAJIB menaruh catatan baru ke dalam folder/subfolder yang paling relevan berdasarkan acuan utama di bawah ini:
+1. Acuan Awal Klasifikasi adalah menentukan Folder Induk (Parent Folder) terlebih dahulu:
+   - **Perusahaan**: Masukkan ke folder ini jika catatan membahas tentang warung, burjolevelup, cafe, restoran, bisnis kuliner, operasional warung, belanjaan/pembelian bahan makanan, briefing operasional, SOP, laporan kantor, dsb. Setelah menentukan folder "Perusahaan", cocokkan dan pilih subfolder yang paling sesuai di bawahnya (misalnya: 'Belanjaan', 'Briefing Operasional', 'Laporan Kantor', 'Pengembangan Produk', 'SOP', 'Temuan Harian', 'Progres Harian').
+   - **Polsek**: Masukkan ke folder ini jika catatan membahas tentang masyarakat, laporan keamanan, ketertiban umum, kepolisian, tugas intel, pengumpulan informasi intelijen, data teks sambutan tokoh masyarakat, pemberdayaan masyarakat, dsb. Setelah menentukan folder "Polsek", cocokkan dan pilih subfolder yang paling sesuai di bawahnya (misalnya: 'Temuan Harian', 'Progres Harian', 'Laporan Keamanan', 'Pemberdayaan Masyarakat').
+   - **Pribadi**: Masukkan ke folder ini jika catatan membahas tentang wawasan, pengetahuan, pengembangan diri (self-development), catatan pribadi (self-notes), edukasi, keuangan pribadi/personal, diskusi ilmiah/edukatif, dsb. Setelah menentukan folder "Pribadi", cocokkan dan pilih subfolder yang paling sesuai di bawahnya (misalnya: 'Keuangan', 'Diskusi & Edukasi').
+   - **Utuh**: Khusus untuk 'Catatan Master' (Catatan Utuh yang menggabungkan beberapa topik pecahan), wajib dimasukkan ke folder "Utuh" (folderName: "Utuh", folderId: null).
+2. Cara menentukan 'folderId', 'folderName', dan 'parentFolderName' dalam output JSON:
+   - Jika catatan cocok dengan suatu subfolder (misalnya subfolder 'Belanjaan' di bawah parent 'Perusahaan'), isi 'folderId' dengan ID subfolder tersebut dari Daftar Folder, 'folderName' dengan nama subfolder tersebut, dan 'parentFolderName' dengan nama parent foldernya ("Perusahaan").
+   - Jika catatan cocok dengan folder induk namun tidak ada subfolder yang spesifik, isi 'folderId' dengan ID folder induk tersebut, 'folderName' dengan nama folder induk tersebut, dan 'parentFolderName' dengan null.
+   - Jika tidak ada folder/subfolder yang cocok sama sekali di database namun diperlukan kategori baru, buat subfolder/folder baru dengan mengisi 'folderName' sesuai nama kategori baru tersebut, isi 'folderId' dengan null, dan 'parentFolderName' dengan nama folder induknya (misalnya "Perusahaan", "Polsek", atau "Pribadi") jika kategori baru itu merupakan subkategori.
+   - Jika merupakan catatan umum yang tidak memerlukan folder khusus, isi 'folderId': null, 'folderName': null, dan 'parentFolderName': null.
+${folderConstraintPrompt}
+
+Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
+{
+  "notes": [
+    {
+      "title": "Judul Catatan",
+      "content": "Isi catatan yang diformat dengan poin-poin penting secara singkat, padat, dan jelas. Jangan sertakan pengantar, kesimpulan, atau todo list di dalam 'content' ini.",
+      "summary": "Teks transkripsi asli (mentah/verbatim) dari hasil rekaman suara yang bersangkutan dengan catatan ini, tanpa parafrase, pemformatan, atau ringkasan AI.",
+      "tags": ["Poin", "Ringkasan", "TagLain"],
+      "todo_list": ["Tugas 1", "Tugas 2"],
+      "folderId": "id-folder-yang-cocok-atau-null",
+      "folderName": "NamaFolderBaruAtauNull",
+      "parentFolderName": "NamaFolderIndukJikaSubfolderAtauNull"
+    }
+  ]
+}
+
 PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan lainnya. Kembalikan HANYA string JSON murni yang valid.`;    } else {
       prompt = `Anda adalah asisten AI editor catatan profesional. Tugas Anda adalah mengambil teks mentah hasil transkripsi suara (Voice-to-Text) di bawah ini, menganalisis kontennya, dan merapikannya menjadi catatan terstruktur yang sangat berkualitas dan rapi.
 PENTING: Buatlah semua ringkasan dan catatan Anda (baik catatan pecahan maupun Catatan Master) secara sangat detail, komprehensif, mendalam, dan sangat jelas. Jangan menyederhanakan, merangkum terlalu pendek, atau menghilangkan detail spesifik seperti nama, tanggal/hari, waktu/jam, angka-angka penting, detail pembahasan, ide-ide kunci, atau penjelasan detail lainnya.
@@ -240,6 +308,7 @@ Di bagian paling bawah konten ('content') Catatan Master, setelah ringkasan gabu
 - Isi Catatan: [Isi Lengkap Catatan Pecahan]
 
 Catatan Master ini secara khusus dimasukkan ke folder "Utuh" (isi 'folderName' dengan "Utuh" dan 'folderId' dengan null). Namun jika hanya ada satu topik, cukup buat 1 catatan saja (tidak perlu membuat Catatan Master di folder "Utuh" dan tidak perlu menambahkan bagian 'Rincian Topik per Folder').
+${singleNoteConstraint}
 
 Teks Mentah Transkripsi:
 "${text}"

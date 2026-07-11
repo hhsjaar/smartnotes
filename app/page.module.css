@@ -2823,5 +2823,585 @@
   }
 }
 
+/* Admin Passcode Gate & Auth Card */
+.authContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100vw;
+  height: 100vh;
+  padding: 20px;
+  background-color: var(--bg-primary);
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.08) 0%, transparent 40%);
+}
+
+.authCard {
+  width: 100%;
+  max-width: 460px;
+  border-radius: var(--border-radius-lg);
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  animation: slide-in 0.4s ease-out;
+  border: 1px solid var(--glass-border);
+}
+
+.authHeader {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.lockIconWrapper {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--border-radius-md);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.3);
+}
+
+.lockIcon {
+  color: #ffffff;
+  width: 32px;
+  height: 32px;
+}
+
+.authTitle {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(120deg, #ffffff 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.authSubtitle {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.authForm {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inputLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.inputWithIcon {
+  position: relative;
+  width: 100%;
+}
+
+.fieldIcon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-dark);
+  pointer-events: none;
+  transition: color 0.2s;
+}
+
+.textInput {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--glass-border);
+  color: #ffffff;
+  font-size: 0.95rem;
+  padding: 14px 16px 14px 48px;
+  border-radius: var(--border-radius-md);
+  outline: none;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.textInput:focus {
+  border-color: var(--primary-glow);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.15);
+}
+
+.textInput:focus + .fieldIcon {
+  color: var(--primary);
+}
+
+.submitBtn {
+  background: linear-gradient(90deg, var(--primary) 0%, var(--primary-hover) 100%);
+  color: #ffffff;
+  border: none;
+  padding: 14px 24px;
+  border-radius: var(--border-radius-md);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
+}
+
+.submitBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
+.btnIcon {
+  width: 18px;
+  height: 18px;
+}
+
+/* Admin Chat Room Styles */
+.adminChatContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  padding: 24px;
+  overflow: hidden;
+}
+
+.adminChatLayout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 24px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.adminChatRoomPanel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+}
+
+.adminChatHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--glass-border);
+  background: rgba(13, 20, 38, 0.2);
+}
+
+.adminChatHeaderTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.adminChatHeaderIcon {
+  color: var(--primary);
+  width: 22px;
+  height: 22px;
+}
+
+.adminChatHeaderTitle h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.adminChatHeaderTitle p {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.adminLogoutBtn {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+  padding: 6px 12px;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.adminLogoutBtn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.adminChatArea {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.chatLoader {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--text-muted);
+}
+
+.chatEmpty {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--text-dark);
+}
+
+.chatMessagesList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.chatRow {
+  display: flex;
+  width: 100%;
+}
+
+.chatMyRow {
+  justify-content: flex-end;
+}
+
+.chatOtherRow {
+  justify-content: flex-start;
+}
+
+.chatBubble {
+  max-width: 75%;
+  padding: 12px 16px;
+  border-radius: var(--border-radius-md);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.chatMyBubble {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(99, 102, 241, 0.15) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-top-right-radius: 2px;
+}
+
+.chatOtherBubble {
+  background: rgba(13, 20, 38, 0.6);
+  border: 1px solid var(--glass-border);
+  border-top-left-radius: 2px;
+}
+
+.chatBubbleHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 4px;
+}
+
+.chatSenderName {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.chatRoleIndicator {
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.chatRoleAdmin {
+  background: rgba(217, 70, 239, 0.15);
+  color: var(--accent);
+}
+
+.chatRoleEmployee {
+  background: rgba(6, 182, 212, 0.15);
+  color: var(--secondary);
+}
+
+.chatBubbleAttribute {
+  align-self: flex-start;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+}
+
+.chatMessageText {
+  font-size: 0.92rem;
+  color: #f1f5f9;
+  line-height: 1.45;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.chatTimeText {
+  font-size: 0.68rem;
+  color: var(--text-dark);
+  align-self: flex-end;
+}
+
+.adminChatFooter {
+  padding: 16px 20px;
+  border-top: 1px solid var(--glass-border);
+  background: rgba(13, 20, 38, 0.2);
+}
+
+.adminChatInputForm {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.adminSelectWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.adminDropdownTagIcon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.adminAttributeSelect {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--glass-border);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 10px 16px 10px 34px;
+  border-radius: var(--border-radius-md);
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 110px;
+}
+
+.adminChatTextInput {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--glass-border);
+  color: #ffffff;
+  font-size: 0.92rem;
+  padding: 10px 16px;
+  border-radius: var(--border-radius-md);
+  outline: none;
+}
+
+.adminChatSendBtn {
+  background: linear-gradient(90deg, var(--primary) 0%, var(--primary-hover) 100%);
+  color: #ffffff;
+  border: none;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--border-radius-md);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(99, 102, 241, 0.2);
+}
+
+.adminChatSendBtn:disabled {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-dark);
+  border: 1px solid var(--glass-border);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Admin Attribute Panel Styling */
+.adminAttributeManagementPanel {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.attrPanelHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 10px;
+}
+
+.attrPanelHeader h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.attrPanelHelp {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.addAttrForm {
+  display: flex;
+  gap: 8px;
+}
+
+.attrInput {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--glass-border);
+  color: #ffffff;
+  font-size: 0.82rem;
+  padding: 8px 12px;
+  border-radius: var(--border-radius-sm);
+  outline: none;
+}
+
+.attrAddBtn {
+  background: var(--primary);
+  color: #ffffff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.attrAddBtn:hover {
+  background: var(--primary-hover);
+}
+
+.attrsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.attrItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-sm);
+}
+
+.attrItemName {
+  font-size: 0.85rem;
+  color: #f1f5f9;
+}
+
+.attrDeleteBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-dark);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.attrDeleteBtn:hover {
+  color: var(--error);
+}
+
+@media (max-width: 1024px) {
+  .adminChatLayout {
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+  
+  .adminAttributeManagementPanel {
+    height: auto;
+  }
+}
+
+/* Chat Date Divider */
+.chatDateDivider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 20px 0;
+  position: relative;
+  width: 100%;
+}
+
+.chatDateDivider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  z-index: 1;
+}
+
+.chatDateDividerText {
+  position: relative;
+  z-index: 2;
+  background: #090d16;
+  padding: 4px 14px;
+  border-radius: var(--border-radius-full);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.5px;
+}
+
+
+
 
 

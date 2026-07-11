@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, Square, Upload, Trash2, Sparkles, FileAudio, AlertCircle, FileText, Folder, FolderCheck } from 'lucide-react';
+import { Mic, Square, Upload, Trash2, Sparkles, FileAudio, AlertCircle, FileText, Folder, FolderCheck, List, Shield } from 'lucide-react';
 import { GlowButton } from './ui/GlowButton';
 import styles from './VoiceRecorder.module.css';
 
@@ -102,7 +102,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   const [transcript, setTranscript] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingType, setLoadingType] = useState<'standard' | 'laporan' | 'intel' | null>(null);
+  const [loadingType, setLoadingType] = useState<'standard' | 'laporan' | 'intel' | 'poin' | null>(null);
   const [statusMsg, setStatusMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [checkedFolderIds, setCheckedFolderIds] = useState<string[]>([]);
@@ -316,7 +316,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     }
   };
 
-  const processTranscription = async (formatType: 'standard' | 'laporan' | 'intel' = 'standard') => {
+  const processTranscription = async (formatType: 'standard' | 'laporan' | 'intel' | 'poin' = 'standard') => {
     if (!file) return;
     
     setIsLoading(true);
@@ -352,7 +352,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     }
   };
 
-  const processFormatting = async (textToFormat: string, formatType: 'standard' | 'laporan' | 'intel' = 'standard') => {
+  const processFormatting = async (textToFormat: string, formatType: 'standard' | 'laporan' | 'intel' | 'poin' = 'standard') => {
     const rawText = textToFormat || transcript;
     if (!rawText.trim()) {
       setErrorMsg('Teks transkripsi kosong. Silakan rekam suara Anda terlebih dahulu atau tulis sesuatu.');
@@ -369,6 +369,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       statusText = 'AI sedang menyusun Laporan Kegiatan dari catatan suara Anda...';
     } else if (formatType === 'intel') {
       statusText = 'AI sedang menyusun Laporan Intel dari catatan suara Anda...';
+    } else if (formatType === 'poin') {
+      statusText = 'AI sedang merangkum catatan Anda dalam bentuk poin-poin singkat...';
     }
     setStatusMsg(statusText);
 
@@ -400,6 +402,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         successText = 'Laporan Kegiatan berhasil dibuat!';
       } else if (formatType === 'intel') {
         successText = 'Laporan Intel berhasil dibuat!';
+      } else if (formatType === 'poin') {
+        successText = 'Ringkasan Poin berhasil dibuat!';
       }
       setStatusMsg(successText);
     } catch (err: any) {
@@ -590,82 +594,148 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         )}
 
         {/* Bottom Actions */}
-        <div className={styles.actions}>
-          {transcript && !isRecording && (
-            <GlowButton
-              variant="outline"
-              onClick={() => {
-                setTranscript('');
-                setStatusMsg('');
-                accumulatedTextRef.current = '';
-                currentFinalRef.current = '';
-              }}
-              disabled={isLoading}
-            >
-              <Trash2 size={16} /> Hapus
-            </GlowButton>
-          )}
+        {transcript && !isRecording && (
+          <div className={styles.formatPanel}>
+            <div className={styles.formatPanelTitle}>PILIH GAYA PARAFRASE AI</div>
+            <div className={styles.formatGrid}>
+              {activeTab === 'record' ? (
+                <>
+                  <button
+                    className={`${styles.formatCard} ${loadingType === 'standard' ? styles.formatCardLoading : ''}`}
+                    onClick={() => processFormatting('', 'standard')}
+                    disabled={isLoading}
+                  >
+                    <div className={styles.formatIcon} style={{ background: 'rgba(236, 72, 153, 0.15)', color: '#ec4899' }}>
+                      <Sparkles size={20} />
+                    </div>
+                    <div className={styles.formatInfo}>
+                      <div className={styles.formatName}>Format AI</div>
+                    </div>
+                    {loadingType === 'standard' && <div className={styles.smallSpinner} />}
+                  </button>
 
-          {activeTab === 'record' ? (
-            transcript && !isRecording && (
-              <>
-                <GlowButton
-                  variant="accent"
-                  onClick={() => processFormatting('', 'standard')}
-                  disabled={isLoading}
-                >
-                  {loadingType === 'standard' ? <div className={styles.spinner} /> : <Sparkles size={16} />}
-                  Format AI
-                </GlowButton>
-                <GlowButton
-                  variant="secondary"
-                  onClick={() => processFormatting('', 'laporan')}
-                  disabled={isLoading}
-                >
-                  {loadingType === 'laporan' ? <div className={styles.spinner} /> : <FileText size={16} />}
-                  Laporan Kegiatan
-                </GlowButton>
-                <GlowButton
-                  variant="primary"
-                  onClick={() => processFormatting('', 'intel')}
-                  disabled={isLoading}
-                >
-                  {loadingType === 'intel' ? <div className={styles.spinner} /> : <FileText size={16} />}
-                  Laporan Intel
-                </GlowButton>
-              </>
-            )
-          ) : (
-            file && (
-              <>
-                <GlowButton
-                  variant="accent"
-                  onClick={() => processTranscription('standard')}
-                  disabled={isLoading}
-                >
-                  {loadingType === 'standard' ? <div className={styles.spinner} /> : <Sparkles size={16} />}
-                  Transkripsi & Format AI
-                </GlowButton>
-                <GlowButton
-                  variant="secondary"
-                  onClick={() => processTranscription('laporan')}
-                  disabled={isLoading}
-                >
-                  {loadingType === 'laporan' ? <div className={styles.spinner} /> : <FileText size={16} />}
-                  Laporan Kegiatan
-                </GlowButton>
-                <GlowButton
-                  variant="primary"
-                  onClick={() => processTranscription('intel')}
-                  disabled={isLoading}
-                >
-                  {loadingType === 'intel' ? <div className={styles.spinner} /> : <FileText size={16} />}
-                  Laporan Intel
-                </GlowButton>
-              </>
-            )
-          )}
-        </div>
+                  <button
+                    className={`${styles.formatCard} ${loadingType === 'poin' ? styles.formatCardLoading : ''}`}
+                    onClick={() => processFormatting('', 'poin')}
+                    disabled={isLoading}
+                  >
+                    <div className={styles.formatIcon} style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' }}>
+                      <List size={20} />
+                    </div>
+                    <div className={styles.formatInfo}>
+                      <div className={styles.formatName}>Point AI</div>
+                    </div>
+                    {loadingType === 'poin' && <div className={styles.smallSpinner} />}
+                  </button>
+
+                  <button
+                    className={`${styles.formatCard} ${loadingType === 'laporan' ? styles.formatCardLoading : ''}`}
+                    onClick={() => processFormatting('', 'laporan')}
+                    disabled={isLoading}
+                  >
+                    <div className={styles.formatIcon} style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>
+                      <FileText size={20} />
+                    </div>
+                    <div className={styles.formatInfo}>
+                      <div className={styles.formatName}>Laporan Kegiatan</div>
+                    </div>
+                    {loadingType === 'laporan' && <div className={styles.smallSpinner} />}
+                  </button>
+
+                  <button
+                    className={`${styles.formatCard} ${loadingType === 'intel' ? styles.formatCardLoading : ''}`}
+                    onClick={() => processFormatting('', 'intel')}
+                    disabled={isLoading}
+                  >
+                    <div className={styles.formatIcon} style={{ background: 'rgba(249, 115, 22, 0.15)', color: '#f97316' }}>
+                      <Shield size={20} />
+                    </div>
+                    <div className={styles.formatInfo}>
+                      <div className={styles.formatName}>Laporan Intel</div>
+                    </div>
+                    {loadingType === 'intel' && <div className={styles.smallSpinner} />}
+                  </button>
+                </>
+              ) : (
+                file && (
+                  <>
+                    <button
+                      className={`${styles.formatCard} ${loadingType === 'standard' ? styles.formatCardLoading : ''}`}
+                      onClick={() => processTranscription('standard')}
+                      disabled={isLoading}
+                    >
+                      <div className={styles.formatIcon} style={{ background: 'rgba(236, 72, 153, 0.15)', color: '#ec4899' }}>
+                        <Sparkles size={20} />
+                      </div>
+                      <div className={styles.formatInfo}>
+                        <div className={styles.formatName}>Transkripsi & Format AI</div>
+                      </div>
+                      {loadingType === 'standard' && <div className={styles.smallSpinner} />}
+                    </button>
+
+                    <button
+                      className={`${styles.formatCard} ${loadingType === 'poin' ? styles.formatCardLoading : ''}`}
+                      onClick={() => processTranscription('poin')}
+                      disabled={isLoading}
+                    >
+                      <div className={styles.formatIcon} style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' }}>
+                        <List size={20} />
+                      </div>
+                      <div className={styles.formatInfo}>
+                        <div className={styles.formatName}>Transkripsi & Point AI</div>
+                      </div>
+                      {loadingType === 'poin' && <div className={styles.smallSpinner} />}
+                    </button>
+
+                    <button
+                      className={`${styles.formatCard} ${loadingType === 'laporan' ? styles.formatCardLoading : ''}`}
+                      onClick={() => processTranscription('laporan')}
+                      disabled={isLoading}
+                    >
+                      <div className={styles.formatIcon} style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>
+                        <FileText size={20} />
+                      </div>
+                      <div className={styles.formatInfo}>
+                        <div className={styles.formatName}>Laporan Kegiatan</div>
+                      </div>
+                      {loadingType === 'laporan' && <div className={styles.smallSpinner} />}
+                    </button>
+
+                    <button
+                      className={`${styles.formatCard} ${loadingType === 'intel' ? styles.formatCardLoading : ''}`}
+                      onClick={() => processTranscription('intel')}
+                      disabled={isLoading}
+                    >
+                      <div className={styles.formatIcon} style={{ background: 'rgba(249, 115, 22, 0.15)', color: '#f97316' }}>
+                        <Shield size={20} />
+                      </div>
+                      <div className={styles.formatInfo}>
+                        <div className={styles.formatName}>Laporan Intel</div>
+                      </div>
+                      {loadingType === 'intel' && <div className={styles.smallSpinner} />}
+                    </button>
+                  </>
+                )
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '16px' }}>
+              <GlowButton
+                variant="outline"
+                onClick={() => {
+                  setTranscript('');
+                  setStatusMsg('');
+                  accumulatedTextRef.current = '';
+                  currentFinalRef.current = '';
+                  setFile(null);
+                }}
+                disabled={isLoading}
+              >
+                <Trash2 size={16} /> Reset & Hapus Rekaman
+              </GlowButton>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

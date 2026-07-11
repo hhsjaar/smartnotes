@@ -47,6 +47,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'GEMINI_API_KEY tidak dikonfigurasi di server.' }, { status: 500 });
     }
 
+    // Fetch latest 50 chat messages from chat room
+    const chatRoomMessages = await prisma.chatMessage.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 50
+    });
+    const chatRoomMessagesChronological = [...chatRoomMessages].reverse();
+    const formattedChatRoomMessagesText = chatRoomMessagesChronological.map(msg => 
+      `[${msg.createdAt.toISOString()}] ${msg.senderName} (${msg.senderRole}) [Atribut: ${msg.attribute || 'Umum'}]: ${msg.message}`
+    ).join('\n');
+
     // Load active folder names and note IDs to populate context for Gemini
     const allFolders = await prisma.folder.findMany({
       select: { id: true, name: true, parentId: true }
@@ -120,6 +130,7 @@ You must return a JSON object with this exact structure:
 {
   "isDraftRequest": true,
   "folderName": "Perusahaan",
+  "source": "folder",
   "timeframe": {
     "start": "2026-07-01T00:00:00.000Z",
     "end": "2026-07-20T23:59:59.999Z",
@@ -130,16 +141,16 @@ You must return a JSON object with this exact structure:
 
 Rules for fields in the JSON object:
 1. "isDraftRequest" must be true if the user's query contains requests for "draf rapat", "draft rapat", "draf pembahasan", "draft pembahasan", "buat draf", "materi rapat", "bahan rapat", "siapkan draf", "tulis draf", "menyusun draf", or similar meeting draft phrases, OR if they are answering follow-up questions about it.
-2. "folderName" must be the matched folder name (e.g. "Perusahaan", "Polsek", etc.) from the available folders. If they want notes without folder (Tanpa Folder), use null.
-3. "timeframe" contains "start" (ISO string of start date), "end" (ISO string of end date), and "raw" (raw text like "2 minggu"). If timeframe is unknown, use null.
-4. "missingInfo" is an array of strings. It can contain "folder" (if the folder name is not specified or matched) and/or "timeframe" (if the timeframe is not specified). If both are known, it must be an empty array [].
+2. "source" must be "chat" if the user explicitly requests to create a draft from "chat room", "grup chat", "chat karyawan", "obrolan", or "percakapan". Otherwise, it must be "folder".
+3. "folderName" must be the matched folder name (e.g. "Perusahaan", "Polsek", etc.) from the available folders. If source is "chat", folderName can be null. Do NOT match "Rapat" or "rapat" as folderName if the word "rapat" in the command is just part of general action phrases like "draf pembahasan rapat", "draf rapat", "buat draf rapat", or "materi rapat". Only set folderName as "Rapat" if the user explicitly specifies "folder Rapat" or "catatan di dalam folder rapat".
+4. "timeframe" contains "start" (ISO string of start date), "end" (ISO string of end date), and "raw" (raw text like "2 minggu"). If timeframe is unknown, use null.
+5. "missingInfo" is an array of strings. If source is "folder" and folder name is not specified/matched, include "folder". If timeframe is unknown, include "timeframe". If source is "chat", do NOT require folder, so "folder" should NOT be in missingInfo.
 
 Examples of draft requests (which must return isDraftRequest: true):
-- "buat draf rapat untuk folder Perusahaan" -> folderName: "Perusahaan", missingInfo: ["timeframe"]
-- "bikin draft pembahasan" -> folderName: null, missingInfo: ["folder", "timeframe"]
-- "tulis draft rapat polsek dari 1 juni sampai sekarang" -> folderName: "Polsek", missingInfo: []
-- "buat draf rapat untuk 2 minggu terakhir" -> folderName: null, missingInfo: ["folder"]
-- "draf rapat perusahaan" -> folderName: "Perusahaan", missingInfo: ["timeframe"]
+- "buat draf rapat untuk folder Perusahaan" -> folderName: "Perusahaan", source: "folder", missingInfo: ["timeframe"]
+- "buat draf rapat berdasarkan chat karyawan" -> folderName: null, source: "chat", missingInfo: ["timeframe"]
+- "tulis draft rapat polsek dari 1 juni sampai sekarang" -> folderName: "Polsek", source: "folder", missingInfo: []
+- "buat draf rapat dari chat room untuk 2 minggu terakhir" -> folderName: null, source: "chat", missingInfo: []
 
 Rules for date parsing:
 - The current year is 2026.
@@ -152,6 +163,7 @@ Rules for date parsing:
     interface ClassifierResult {
       isDraftRequest: boolean;
       folderName: string | null;
+      source: 'folder' | 'chat';
       timeframe: {
         start: string | null;
         end: string | null;
@@ -162,7 +174,8 @@ Rules for date parsing:
 
     let classifierResult: ClassifierResult = { 
       isDraftRequest: false, 
-      folderName: null, 
+      folderName: null,
+      source: 'folder',
       timeframe: null, 
       missingInfo: [] 
     };
@@ -200,7 +213,14 @@ Rules for date parsing:
 
       // Extract folder name if missing
       if (!classifierResult.folderName) {
-        const foundFolder = allFolders.find(f => lowerCommand.includes(f.name.toLowerCase()));
+        const foundFolder = allFolders.find(f => {
+          const nameLower = f.name.toLowerCase();
+          // If the folder is named 'rapat', only match if the command explicitly contains 'folder rapat'
+          if (nameLower === 'rapat') {
+            return lowerCommand.includes('folder rapat');
+          }
+          return lowerCommand.includes(nameLower);
+        });
         if (foundFolder) {
           classifierResult.folderName = foundFolder.name;
           if (classifierResult.missingInfo) {
@@ -251,19 +271,190 @@ Rules for date parsing:
       const timeframe = classifierResult.timeframe;
 
       // If either folder or timeframe is missing, ask for it
-      if (missing.includes('folder') || missing.includes('timeframe') || !folderName || !timeframe || !timeframe.start || !timeframe.end) {
+      const isFolderRequired = classifierResult.source !== 'chat';
+      const isFolderMissing = isFolderRequired && (missing.includes('folder') || !folderName);
+
+      if (isFolderMissing || missing.includes('timeframe') || !timeframe || !timeframe.start || !timeframe.end) {
         let response = '';
-        if ((missing.includes('folder') || !folderName) && (missing.includes('timeframe') || !timeframe)) {
+        if (isFolderMissing && (missing.includes('timeframe') || !timeframe)) {
           response = 'Tentu! Folder mana yang ingin Anda gunakan sebagai referensi pembahasan rapat? Dan untuk jangka waktu catatan berapa lama? (misalnya: folder "Perusahaan" untuk catatan "2 minggu terakhir")';
-        } else if (missing.includes('folder') || !folderName) {
+        } else if (isFolderMissing) {
           response = 'Tentu, saya bisa bantu. Folder mana yang ingin Anda gunakan sebagai referensi pembahasan rapat?';
         } else {
-          response = `Baik, untuk catatan di folder "${folderName}", dari jangka waktu berapa lama yang ingin digunakan? (misalnya: dari tanggal 1-20 Juli, atau 2 minggu terakhir)`;
+          if (classifierResult.source === 'chat') {
+            response = `Baik, untuk laporan dari chat room, jangka waktu berapa lama yang ingin digunakan? (misalnya: 1 minggu terakhir, atau dari tanggal 1-20 Juli)`;
+          } else {
+            response = `Baik, untuk catatan di folder "${folderName}", dari jangka waktu berapa lama yang ingin digunakan? (misalnya: dari tanggal 1-20 Juli, atau 2 minggu terakhir)`;
+          }
         }
         return NextResponse.json({
           action: null,
           payload: {},
           response
+        });
+      }
+
+      // Handle Chat Room Draft Generation
+      if (classifierResult.source === 'chat') {
+        let startDate = new Date(timeframe.start);
+        let endDate = new Date(timeframe.end);
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          endDate = new Date();
+          startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+        }
+
+        const chatMsgs = await prisma.chatMessage.findMany({
+          where: {
+            createdAt: {
+              gte: startDate,
+              lte: endDate
+            }
+          },
+          orderBy: { createdAt: 'asc' }
+        });
+
+        if (chatMsgs.length === 0) {
+          return NextResponse.json({
+            action: null,
+            payload: {},
+            response: `Saya tidak menemukan laporan/pesan chat apa pun di chat room untuk rentang waktu ${timeframe.raw || 'tersebut'}. Silakan coba dengan rentang waktu lain.`
+          });
+        }
+
+        const formattedChatText = chatMsgs.map((c, i) => {
+          const formattedDate = new Date(c.createdAt).toLocaleString('id-ID', {
+            timeZone: 'Asia/Jakarta',
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          return `[Pesan #${i + 1}] Waktu: ${formattedDate} | Pengirim: ${c.senderName} (${c.senderRole}) | Atribut: ${c.attribute || 'Umum'}\nIsi Pesan: ${c.message}\n`;
+        }).join('\n');
+
+        const draftPrompt = `
+Anda adalah asisten AI suara pintar untuk aplikasi "Catatan Pintar". Anda adalah seorang leader/pemimpin rapat yang ingin menyusun draf rapat secara profesional, sangat detail, lengkap, faktual, dan terstruktur berdasarkan percakapan chat karyawan dan admin di chat room.
+
+Tugas Anda adalah membuat "Draft Pembahasan Rapat dari Grup Chat" untuk rentang waktu "${timeframe.raw}". Anda wajib menganalisis dan menguraikan SELURUH pesan chat koordinasi/laporan di bawah ini. Uraikan apa saja kendala, laporan sales, progres, atau masalah mendesak yang dilaporkan karyawan.
+
+Berikut adalah daftar percakapan chat di database:
+${formattedChatText}
+
+Struktur Dokumen (Format Markdown Konten):
+Dokumen draf rapat Anda wajib menggunakan format Markdown dengan tabel yang rapi dan informatif sebagai berikut:
+
+# Draf Pembahasan Rapat: Laporan Grup Chat (${timeframe.raw})
+
+## 1. Uraian Laporan Koordinasi (Dikelompokkan Berdasarkan Atribut)
+Uraikan secara detail pesan chat yang ada, kelompokkan berdasarkan klasifikasi atribut (misalnya: Sales, Progres, Umum, Urgent, dll):
+
+| Atribut | Pengirim | Waktu | Laporan / Informasi (Faktual & Detail) | Rekomendasi Tindak Lanjut / Mitigasi Admin |
+| :--- | :--- | :--- | :--- | :--- |
+| [Atribut] | [Nama Karyawan] | [Tanggal & Jam] | [Uraikan secara detail isi laporan chat] | [Uraikan rekomendasi penyelesaian/mitigasi atau tanggapan admin yang tepat untuk laporan ini] |
+
+## 2. Agenda Rapat Pemimpin (Berdasarkan Laporan Penting Karyawan)
+Buatlah agenda rapat yang harus dipimpin berdasarkan laporan-laporan dari chat room tersebut:
+
+| Agenda Rapat | Poin Bahasan Utama | Urgensi Pembahasan | Rencana Aksi / Mitigasi Pencegahan |
+| :--- | :--- | :--- | :--- |
+| **Agenda [No]**: [Nama Topik] | [Poin bahasan] | [Kenapa ini mendesak dibahas berdasarkan chat] | [Rencana aksi nyata untuk menyelesaikan masalah] |
+
+## 3. Proyeksi Operasional & Rekomendasi Solutif
+Analisis kumpulan data pesan chat koordinasi/laporan karyawan di atas untuk merumuskan proyeksi operasional ke depan secara konkret, solutif, dan berbasis data rujukan (seperti kekompakan tim, kepatuhan SOP, koordinasi antar divisi, kondisi gudang/stok, atau temuan lainnya). Gunakan format tabel Markdown berikut:
+
+| Bidang Proyeksi | Analisis Proyeksi & Solusi Konkret | Data Rujukan (Pengirim, Waktu & Temuan Kunci) |
+| :--- | :--- | :--- |
+| [Misalnya: Kekompakan / SOP / Koordinasi / Gudang / dll.] | [Uraikan analisis proyeksi ke depan yang solutif, konstruktif, dan konkret untuk meningkatkan performa operasional bisnis.] | [Sebutkan nama pengirim, waktu chat, dan data/fakta spesifik dari pesan chat yang mendasari analisis ini sebagai rujukan konkret.] |
+
+---
+
+Format Keluaran (JSON murni):
+{
+  "title": "Draf Pembahasan Rapat - Grup Chat (${timeframe.raw})",
+  "content": "[Tuliskan seluruh isi draf rapat detail dengan format Markdown di atas di sini]",
+  "summary": "[Ringkasan singkat draf pembahasan rapat dalam 1-2 kalimat]",
+  "todo_list": ["[Tugas Mitigasi 1]", "[Tugas Mitigasi 2]"],
+  "tags": ["Rapat", "Draft", "ChatRoom"]
+}
+
+Aturan Penting:
+1. Pastikan isi "content" memuat draf dalam bahasa Indonesia yang formal, berwibawa, dan sangat detail.
+2. Jangan menggunakan tag markdown pembungkus json seperti \`\`\`json pada output. Kembalikan string JSON murni yang valid.
+3. PENTING: Jangan menyisipkan baris kosong (blank line/double newline) di antara baris-baris tabel Markdown agar dapat dirender dengan benar.
+`;
+
+        try {
+          const draftResultText = await callGemini(apiKey, [{ role: 'user', parts: [{ text: 'Mulai pembuatan draf rapat dari chat' }] }], draftPrompt, true);
+          let cleanedDraftText = draftResultText.trim();
+          if (cleanedDraftText.startsWith('```')) {
+            cleanedDraftText = cleanedDraftText.replace(/^```(json)?\n?/, '');
+            cleanedDraftText = cleanedDraftText.replace(/\n?```$/, '');
+          }
+          cleanedDraftText = cleanedDraftText.trim();
+
+          const firstBrace = cleanedDraftText.indexOf('{');
+          const lastBrace = cleanedDraftText.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace !== -1 && firstBrace < lastBrace) {
+            cleanedDraftText = cleanedDraftText.substring(firstBrace, lastBrace + 1);
+          }
+          cleanedDraftText = cleanedDraftText.replace(/,\s*([\]}])/g, '$1');
+
+          const generatedDraft = JSON.parse(cleanedDraftText);
+
+          // Find or create "Perusahaan" folder
+          let parentFolder = await prisma.folder.findFirst({
+            where: { name: { equals: 'Perusahaan', mode: 'insensitive' } }
+          });
+          if (!parentFolder) {
+            parentFolder = await prisma.folder.create({
+              data: { name: 'Perusahaan' }
+            });
+          }
+
+          // Find or create "Utuh" subfolder
+          let targetFolderId = parentFolder.id;
+          const utuhSubfolder = await prisma.folder.findFirst({
+            where: { parentId: parentFolder.id, name: { equals: 'Utuh', mode: 'insensitive' } }
+          });
+          if (utuhSubfolder) {
+            targetFolderId = utuhSubfolder.id;
+          } else {
+            const newUtuhFolder = await prisma.folder.create({
+              data: {
+                name: 'Utuh',
+                parentId: parentFolder.id
+              }
+            });
+            targetFolderId = newUtuhFolder.id;
+          }
+
+          return NextResponse.json({
+            action: 'CREATE_NOTE_DIRECT',
+            payload: {
+              title: generatedDraft.title,
+              content: generatedDraft.content,
+              summary: generatedDraft.summary,
+              todo_list: generatedDraft.todo_list,
+              tags: generatedDraft.tags,
+              folderId: targetFolderId
+            },
+            response: `Saya telah menganalisis ${chatMsgs.length} pesan dari chat room grup dan berhasil membuat draf rapat. Catatan draf rapat baru telah disimpan di sub-folder "Utuh" dalam folder "Perusahaan".`
+          });
+        } catch (draftErr: any) {
+          console.error('Error generating meeting draft from chat:', draftErr);
+          return NextResponse.json({
+            error: 'Gagal membuat draf pembahasan rapat dari chat menggunakan AI.'
+          }, { status: 500 });
+        }
+      }
+
+      if (!folderName) {
+        return NextResponse.json({
+          action: null,
+          payload: {},
+          response: 'Nama folder referensi tidak boleh kosong.'
         });
       }
 
@@ -366,6 +557,13 @@ Gunakan format tabel Markdown berikut untuk menyusun agenda pembahasan rapat yan
 | :--- | :--- | :--- | :--- |
 | **Agenda [No]**: [Nama Topik/Agenda] | [Poin spesifik yang dibahas] | [Uraikan secara detail alasan kenapa topik ini perlu dibahas dalam rapat berdasarkan data catatan] | [Uraikan langkah-langkah mitigasi yang sesuai dan tindakan konkret untuk memperbaiki masalah tersebut serta mencegah terulangnya kendala di masa depan] |
 
+## 3. Proyeksi Operasional & Rekomendasi Solutif
+(Bab ini WAJIB diisi jika folder yang dibahas adalah "Perusahaan" atau berkaitan dengan aktivitas perusahaan). Analisis kumpulan data catatan referensi di atas untuk merumuskan proyeksi operasional ke depan secara konkret, solutif, dan berbasis data rujukan (seperti kekompakan tim, kepatuhan SOP, koordinasi antar divisi, kondisi gudang/stok, atau temuan operasional lainnya). Gunakan format tabel Markdown berikut:
+
+| Bidang Proyeksi | Analisis Proyeksi & Solusi Konkret | Data Rujukan (Judul Catatan & Temuan Kunci) |
+| :--- | :--- | :--- |
+| [Misalnya: Kekompakan / SOP / Koordinasi / Gudang / dll.] | [Uraikan analisis proyeksi ke depan yang solutif, konstruktif, dan konkret untuk meningkatkan performa bisnis.] | [Sebutkan judul catatan rujukan dan data/angka/fakta spesifik dari catatan tersebut yang mendasari analisis ini sebagai rujukan konkret.] |
+
 ---
 
 Format Keluaran (JSON murni):
@@ -453,6 +651,8 @@ Informasi Konteks Database & Aplikasi:
 - Daftar Kontak WhatsApp pengguna (Nama & Nomor): ${JSON.stringify(contacts || [])}
 - Catatan yang sedang dibuka/aktif saat ini: ${selectedNote ? JSON.stringify(selectedNote) : 'Tidak ada'}
 - Waktu server saat ini: ${currentDateTime.toISOString()} (Lokal: ${currentDateTimeStr})
+- Riwayat Laporan/Pesan di Chat Room Karyawan & Admin (dapat Anda gunakan sebagai rujukan untuk menjawab pertanyaan pengguna terkait progres, sales, urgent, atau obrolan karyawan):
+${formattedChatRoomMessagesText || 'Belum ada pesan di chat room.'}
 
 ATURAN PEMBUATAN CATATAN:
 - Jika pengguna meminta membuat catatan baru (misalnya berkata "buat catatan", "saya ingin membuat catatan", "rekam catatan", "rekaman", dsb.):

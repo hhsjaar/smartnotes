@@ -60,6 +60,8 @@
 
 .metadata {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 15px;
   margin-top: 8px;
   font-size: 0.8rem;
@@ -418,8 +420,35 @@
   }
   
   .header {
-    margin-bottom: 12px;
-    padding-bottom: 12px;
+    display: grid;
+    grid-template-areas: 
+      "back actions"
+      "title title";
+    grid-template-columns: auto 1fr;
+    row-gap: 14px;
+    column-gap: 8px;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+  }
+
+  .backBtn {
+    grid-area: back;
+    justify-self: start;
+    margin: 0;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--glass-border);
+    color: #ffffff;
+  }
+
+  .actions {
+    grid-area: actions;
+    justify-self: end;
+  }
+
+  .titleArea {
+    grid-area: title;
+    width: 100%;
   }
 
   .title {
@@ -434,7 +463,9 @@
   .metadata {
     font-size: 0.75rem;
     margin-top: 4px;
-    gap: 10px;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
   }
 
   .actionIconBtn {
@@ -567,10 +598,11 @@
   background: rgba(6, 182, 212, 0.1);
   color: var(--secondary);
   border: 1px solid rgba(6, 182, 212, 0.2);
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: var(--border-radius-full);
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 
@@ -627,5 +659,443 @@
 .moveFolderSelect:focus {
   border-color: var(--primary);
 }
+
+.recorderShortcutBtnActive {
+  background: rgba(6, 182, 212, 0.25) !important;
+  border-color: rgba(6, 182, 212, 0.5) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.3) !important;
+}
+
+/* Inline Recorder Section inside NoteEditor */
+@keyframes slideDownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.inlineRecorderSection {
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-lg);
+  padding: 18px;
+  margin: 16px;
+  margin-top: 0;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 0 15px rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(12px);
+  animation: slideDownFade 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.inlineRecorderHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 8px;
+}
+
+.inlineRecorderTitle {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.closeRecorderBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.closeRecorderBtn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--error);
+}
+
+.inlineRecorderBody {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Center Record Deck */
+.recordDeck {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0;
+  gap: 12px;
+}
+
+.deckRecordBtn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 4px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 15px var(--primary-glow);
+  outline: none;
+}
+
+.deckRecordBtn:hover {
+  transform: scale(1.06);
+  box-shadow: 0 0 20px var(--primary-glow);
+}
+
+.deckRecordBtn:active {
+  transform: scale(0.96);
+}
+
+.deckRecordBtnActive {
+  background: var(--error) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.5) !important;
+  animation: deck-pulse 1.8s infinite ease-in-out;
+}
+
+@keyframes deck-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.6);
+  }
+}
+
+.deckStatus {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-align: center;
+  height: 18px;
+}
+
+.deckStatusActive {
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.deckPulseDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #ef4444;
+  animation: dot-pulse 1s infinite alternate;
+}
+
+@keyframes dot-pulse {
+  from { opacity: 0.3; }
+  to { opacity: 1; }
+}
+
+/* Deck Controls Grid (No Overlap) */
+.deckControls {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--glass-border);
+  padding: 12px;
+  border-radius: var(--border-radius-md);
+  width: 100%;
+}
+
+.deckControlItem {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.deckLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.inlineLangSelect {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--glass-border);
+  color: var(--foreground);
+  padding: 6px 10px;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.8rem;
+  outline: none;
+  cursor: pointer;
+  font-family: inherit;
+  width: 100%;
+}
+
+.inlineLangSelect:focus {
+  border-color: var(--primary);
+}
+
+.inlineUploadBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed var(--glass-border);
+  color: var(--text-muted);
+  padding: 6px 12px;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  width: 100%;
+  text-align: center;
+}
+
+.inlineUploadBtn:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.inlineSelectedFile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
+  padding: 5px 10px;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.8rem;
+  width: 100%;
+}
+
+.inlineFileName {
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+}
+
+.inlineRemoveFile {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: bold;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.inlineRemoveFile:hover {
+  color: var(--error);
+}
+
+/* Waveform Bounce Center */
+.inlineWaveform {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 20px;
+}
+
+.inlineWaveBar {
+  width: 3px;
+  height: 6px;
+  background-color: var(--error);
+  border-radius: var(--border-radius-full);
+  animation: inline-bounce 0.6s ease-in-out infinite alternate;
+}
+
+.inlineWaveBar:nth-child(2) { animation-delay: 0.1s; }
+.inlineWaveBar:nth-child(3) { animation-delay: 0.2s; }
+.inlineWaveBar:nth-child(4) { animation-delay: 0.3s; }
+.inlineWaveBar:nth-child(5) { animation-delay: 0.15s; }
+.inlineWaveBar:nth-child(6) { animation-delay: 0.25s; }
+.inlineWaveBar:nth-child(7) { animation-delay: 0.05s; }
+.inlineWaveBar:nth-child(8) { animation-delay: 0.12s; }
+.inlineWaveBar:nth-child(9) { animation-delay: 0.22s; }
+
+@keyframes inline-bounce {
+  from { height: 4px; }
+  to { height: 20px; }
+}
+
+.inlineErrorMsg {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  border-radius: var(--border-radius-sm);
+  padding: 8px 12px;
+  color: #f87171;
+  font-size: 0.78rem;
+  width: 100%;
+}
+
+.inlineTranscriptArea {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-sm);
+  padding: 12px;
+  max-height: 110px;
+  overflow-y: auto;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #cbd5e1;
+  white-space: pre-wrap;
+  text-align: left;
+}
+
+/* Formatting Cards Section */
+.inlineFormatSection {
+  margin-top: 4px;
+  text-align: left;
+  width: 100%;
+}
+
+.inlineFormatLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.inlineFormatGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  width: 100%;
+}
+
+.inlineFormatCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--glass-border);
+  color: #ffffff;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+  outline: none;
+  font-family: inherit;
+  position: relative;
+}
+
+.inlineFormatCard:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.inlineFormatCardLoading {
+  border-color: var(--primary) !important;
+  animation: cardPulseGlow 1.5s infinite ease-in-out !important;
+  cursor: wait !important;
+}
+
+.inlineFormatCardLoading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: loadingShimmer 1.5s infinite linear;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.inlineFormatName {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.inlineFormatIconAccent { color: #ec4899; flex-shrink: 0; }
+.inlineFormatIconPurple { color: #a855f7; flex-shrink: 0; }
+.inlineFormatIconBlue { color: #3b82f6; flex-shrink: 0; }
+.inlineFormatIconOrange { color: #f97316; flex-shrink: 0; }
+
+.inlineSpinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: rotate-spinner 0.8s linear infinite;
+  position: absolute;
+  right: 12px;
+  top: 14px;
+}
+
+@media (max-width: 768px) {
+  .inlineFormatGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  
+  .deckControls {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .inlineRecorderSection {
+    margin: 8px;
+    padding: 14px;
+  }
+  
+  .inlineFormatCard {
+    padding: 10px;
+  }
+}
+
+
 
 

@@ -1,9 +1,50 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Edit3, Check, Trash2, Calendar, FileText, CheckSquare, Sparkles, Tag, Plus, X, ArrowLeft, Copy, Mic, FolderInput } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Edit3, Check, Trash2, Calendar, FileText, CheckSquare, Sparkles, Tag, Plus, X, ArrowLeft, Copy, Mic, FolderInput, Square, Upload, AlertCircle, List, FileAudio, Shield } from 'lucide-react';
 import { GlowButton } from './ui/GlowButton';
 import styles from './NoteEditor.module.css';
+
+// Declare SpeechRecognition properties safely on window
+const SpeechRecognition = typeof window !== 'undefined' 
+  ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) 
+  : null;
+
+function mergeTranscripts(accumulated: string, current: string): string {
+  const accClean = accumulated.trim();
+  const currClean = current.trim();
+  
+  if (!accClean) return currClean;
+  if (!currClean) return accClean;
+
+  const accWords = accClean.split(/\s+/);
+  const currWords = currClean.split(/\s+/);
+
+  const maxOverlap = Math.min(accWords.length, currWords.length);
+  let overlapLength = 0;
+
+  for (let len = 1; len <= maxOverlap; len++) {
+    let match = true;
+    for (let i = 0; i < len; i++) {
+      const accWord = accWords[accWords.length - len + i].toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"");
+      const currWord = currWords[i].toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"");
+      if (accWord !== currWord) {
+        match = false;
+        break;
+      }
+    }
+    if (match) {
+      overlapLength = len;
+    }
+  }
+
+  if (overlapLength > 0) {
+    const nonOverlapping = currWords.slice(overlapLength).join(' ');
+    return nonOverlapping ? `${accClean} ${nonOverlapping}` : accClean;
+  }
+
+  return `${accClean} ${currClean}`;
+}
 
 interface Note {
   id: string;
@@ -75,6 +116,287 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
   const [isMobile, setIsMobile] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<'content' | 'summary' | 'todos'>('content');
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
+
+  // Inline Recorder States
+  const [showInlineRecorder, setShowInlineRecorder] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [language, setLanguage] = useState('id-ID');
+  const [transcript, setTranscript] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [isRecordingLoading, setIsRecordingLoading] = useState(false);
+  const [loadingType, setLoadingType] = useState<'standard' | 'laporan' | 'intel' | 'poin' | null>(null);
+  const [statusMsg, setStatusMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const recognitionRef = useRef<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const isRecordingRef = useRef(false);
+  const accumulatedTextRef = useRef('');
+  const currentFinalRef = useRef('');
+
+  // Synchronize isRecording state to ref
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
+
+  // Speech Recognition hook
+  useEffect(() => {
+    if (!SpeechRecognition) return;
+
+    const createInstance = (): any => {
+      const rec = new SpeechRecognition();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = language;
+
+      rec.onresult = (event: any) => {
+        if (recognitionRef.current !== rec) return;
+
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = 0; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            const text = event.results[i][0].transcript.trim();
+            finalTranscript = mergeTranscripts(finalTranscript, text);
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        finalTranscript = finalTranscript.trim();
+        currentFinalRef.current = finalTranscript;
+
+        const totalFinal = mergeTranscripts(accumulatedTextRef.current, finalTranscript);
+        const display = (totalFinal + ' ' + interimTranscript).trim();
+        
+        setTranscript(display);
+      };
+
+      rec.onerror = (event: any) => {
+        if (recognitionRef.current !== rec) return;
+        console.error('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed') {
+          setErrorMsg('Izin mikrofon ditolak. Silakan aktifkan izin mikrofon di pengaturan browser Anda.');
+          setIsRecording(false);
+          isRecordingRef.current = false;
+        } else if (event.error === 'no-speech') {
+          // Ignore silence cuts
+        } else {
+          setErrorMsg(`Error perekaman: ${event.error}. Silakan coba lagi.`);
+          setIsRecording(false);
+          isRecordingRef.current = false;
+        }
+      };
+
+      rec.onend = () => {
+        if (recognitionRef.current !== rec) return;
+
+        if (isRecordingRef.current) {
+          const prevAccumulated = accumulatedTextRef.current;
+          const currentFinal = currentFinalRef.current;
+          accumulatedTextRef.current = mergeTranscripts(prevAccumulated, currentFinal);
+          currentFinalRef.current = '';
+          
+          setTimeout(() => {
+            if (isRecordingRef.current) {
+              try {
+                if (recognitionRef.current) {
+                  try { recognitionRef.current.abort(); } catch (e) {}
+                }
+                const newInstance = createInstance();
+                recognitionRef.current = newInstance;
+                newInstance.start();
+              } catch (e: any) {
+                console.error('Failed to restart speech recognition:', e);
+              }
+            }
+          }, 100);
+        }
+      };
+
+      return rec;
+    };
+
+    const initialRec = createInstance();
+    recognitionRef.current = initialRec;
+
+    return () => {
+      isRecordingRef.current = false;
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch (e) {}
+      }
+    };
+  }, [language]);
+
+  const startRecording = async () => {
+    setErrorMsg('');
+    setTranscript('');
+    accumulatedTextRef.current = '';
+    currentFinalRef.current = '';
+    
+    if (!recognitionRef.current) {
+      setErrorMsg('Fitur perekaman suara langsung tidak didukung oleh browser Anda.');
+      return;
+    }
+
+    try {
+      setIsRecording(true);
+      setStatusMsg('Mendengarkan suara Anda...');
+      recognitionRef.current.start();
+    } catch (err) {
+      console.error('Speech recognition start failed:', err);
+      setErrorMsg('Gagal memulai perekaman suara.');
+      setIsRecording(false);
+    }
+  };
+
+  const stopRecording = () => {
+    setIsRecording(false);
+    setStatusMsg('Perekaman selesai. Siap diproses.');
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) {}
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setErrorMsg('');
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0];
+      if (selectedFile.size > 1024 * 1024 * 1024) {
+        setErrorMsg('Ukuran file maksimal adalah 1GB.');
+        return;
+      }
+      setFile(selectedFile);
+    }
+  };
+
+  const removeFile = () => {
+    setFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const processTranscription = async (formatType: 'standard' | 'laporan' | 'intel' | 'poin' = 'standard') => {
+    if (!file) return;
+    
+    setIsRecordingLoading(true);
+    setLoadingType(formatType);
+    setErrorMsg('');
+    setStatusMsg('Mentranskripsi berkas audio menggunakan AI (Gemini)...');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/transcribe', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Gagal melakukan transkripsi');
+      }
+
+      const data = await res.json();
+      setTranscript(data.text);
+      setStatusMsg('Transkripsi selesai! Sekarang sedang memformat catatan...');
+      
+      await processFormatting(data.text, formatType);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.message || 'Gagal mentranskripsi audio.');
+      setIsRecordingLoading(false);
+      setLoadingType(null);
+    }
+  };
+
+  const processFormatting = async (textToFormat: string, formatType: 'standard' | 'laporan' | 'intel' | 'poin' = 'standard') => {
+    if (!note) return;
+    const rawText = textToFormat || transcript;
+    if (!rawText.trim()) {
+      setErrorMsg('Teks transkripsi kosong. Silakan rekam suara Anda terlebih dahulu.');
+      setIsRecordingLoading(false);
+      return;
+    }
+
+    setIsRecordingLoading(true);
+    setLoadingType(formatType);
+    setErrorMsg('');
+    
+    let statusText = 'AI sedang menyusun, memparagraf, dan merapikan catatan Anda...';
+    if (formatType === 'laporan') {
+      statusText = 'AI sedang menyusun Laporan Kegiatan dari catatan suara Anda...';
+    } else if (formatType === 'intel') {
+      statusText = 'AI sedang menyusun Laporan Intel dari catatan suara Anda...';
+    } else if (formatType === 'poin') {
+      statusText = 'AI sedang merangkum catatan Anda dalam bentuk poin-poin singkat...';
+    }
+    setStatusMsg(statusText);
+
+    try {
+      const res = await fetch('/api/notes/format', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          text: rawText, 
+          formatType,
+          selectedFolderIds: folderId ? [folderId] : [],
+          singleNote: true
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Gagal memformat catatan');
+      }
+
+      const responseData = await res.json();
+      if (responseData.notes && responseData.notes.length > 0) {
+        const formattedNoteData = responseData.notes[0];
+        
+        // Update local editor states
+        setTitle(formattedNoteData.title || title);
+        setContent(formattedNoteData.content || '');
+        setSummary(formattedNoteData.summary || '');
+        setTags(formattedNoteData.tags || []);
+        
+        const parsedTodos = formattedNoteData.todo_list ? formattedNoteData.todo_list.map((task: any) => {
+          if (typeof task === 'string') return { text: task, completed: false };
+          return { text: task.text || '', completed: !!task.completed };
+        }) : [];
+        setTodos(parsedTodos);
+
+        // Call onSave to update the active note in database directly
+        await onSave({
+          id: note.id,
+          title: formattedNoteData.title || title,
+          content: formattedNoteData.content || '',
+          summary: formattedNoteData.summary || '',
+          tags: formattedNoteData.tags || [],
+          todo_list: parsedTodos,
+          folder_id: folderId
+        });
+
+        // Close inline recorder
+        setShowInlineRecorder(false);
+        setTranscript('');
+        setFile(null);
+      } else {
+        throw new Error('AI tidak mengembalikan format catatan yang valid.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.message || 'Gagal memproses kecerdasan catatan.');
+    } finally {
+      setIsRecordingLoading(false);
+      setLoadingType(null);
+    }
+  };
 
 
 
@@ -441,12 +763,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
             </button>
           ) : (
             <>
-              {onToggleRecorder && (
-                <button className={`${styles.actionIconBtn} ${styles.recorderShortcutBtn}`} onClick={onToggleRecorder} title="Input Suara Cerdas (AI)">
-                  <Mic size={16} style={{ color: 'var(--secondary)', marginRight: !isMobile ? '6px' : '0' }} />
-                  {!isMobile && <span>Input Suara AI</span>}
-                </button>
-              )}
+              <button className={`${styles.actionIconBtn} ${styles.recorderShortcutBtn} ${showInlineRecorder ? styles.recorderShortcutBtnActive : ''}`} onClick={() => setShowInlineRecorder(!showInlineRecorder)} title="Input Suara AI ke Catatan Ini">
+                <Mic size={16} style={{ color: 'var(--secondary)', marginRight: !isMobile ? '6px' : '0' }} />
+                {!isMobile && <span>Input Suara AI</span>}
+              </button>
               <button className={`${styles.actionIconBtn} ${styles.editBtn}`} onClick={() => setIsEditing(true)} title="Edit Catatan">
                 <Edit3 size={16} />
                 {!isMobile && <span style={{ marginLeft: '6px' }}>Edit</span>}
@@ -496,6 +816,174 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
             <CheckSquare size={16} />
             <span>Tugas</span>
           </button>
+        </div>
+      )}
+
+      {showInlineRecorder && (
+        <div className={styles.inlineRecorderSection}>
+          <div className={styles.inlineRecorderHeader}>
+            <span className={styles.inlineRecorderTitle}>
+              <Mic size={16} style={{ color: 'var(--secondary)' }} />
+              Rekam Suara & Parafrase AI (Catatan Tunggal)
+            </span>
+            <button 
+              className={styles.closeRecorderBtn} 
+              onClick={() => {
+                setShowInlineRecorder(false);
+                setTranscript('');
+                setFile(null);
+                setErrorMsg('');
+                setStatusMsg('');
+              }}
+              disabled={isRecordingLoading}
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className={styles.inlineRecorderBody}>
+            {/* Centered recording control deck */}
+            <div className={styles.recordDeck}>
+              <button
+                type="button"
+                className={`${styles.deckRecordBtn} ${isRecording ? styles.deckRecordBtnActive : ''}`}
+                onClick={isRecording ? stopRecording : startRecording}
+                disabled={isRecordingLoading}
+                title={isRecording ? 'Klik untuk menyelesaikan rekaman' : 'Klik untuk mulai merekam suara'}
+              >
+                {isRecording ? <Square size={20} fill="currentColor" /> : <Mic size={24} />}
+              </button>
+              
+              <div className={styles.deckStatus}>
+                {isRecording ? (
+                  <span className={styles.deckStatusActive}>
+                    <span className={styles.deckPulseDot} />
+                    Merekam... Ketuk untuk Selesai
+                  </span>
+                ) : (
+                  statusMsg || 'Ketuk mikrofon di atas untuk mulai merekam'
+                )}
+              </div>
+            </div>
+
+            {/* Sub-controls: Language Selector & Audio Upload */}
+            {!isRecording && (
+              <div className={styles.deckControls}>
+                <div className={styles.deckControlItem}>
+                  <span className={styles.deckLabel}>Bahasa</span>
+                  <select
+                    className={styles.inlineLangSelect}
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
+                    disabled={isRecordingLoading}
+                  >
+                    <option value="id-ID">🇮🇩 Indonesia</option>
+                    <option value="en-US">🇺🇸 English</option>
+                  </select>
+                </div>
+
+                <div className={styles.deckControlItem}>
+                  <span className={styles.deckLabel}>File Audio</span>
+                  {!file ? (
+                    <button
+                      type="button"
+                      className={styles.inlineUploadBtn}
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isRecordingLoading}
+                    >
+                      <Upload size={13} />
+                      <span>Unggah File</span>
+                    </button>
+                  ) : (
+                    <div className={styles.inlineSelectedFile}>
+                      <span className={styles.inlineFileName}>{file.name}</span>
+                      <button className={styles.inlineRemoveFile} onClick={removeFile} disabled={isRecordingLoading}>×</button>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    style={{ display: 'none' }}
+                    accept="audio/*"
+                    onChange={handleFileChange}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Waveform for recording */}
+            {isRecording && (
+              <div className={styles.inlineWaveform}>
+                {[...Array(9)].map((_, i) => (
+                  <div key={i} className={styles.inlineWaveBar} />
+                ))}
+              </div>
+            )}
+
+            {errorMsg && (
+              <div className={styles.inlineErrorMsg}>
+                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            {/* Real-time transcript preview */}
+            {transcript && (
+              <div className={styles.inlineTranscriptArea}>
+                {transcript}
+              </div>
+            )}
+
+            {/* Formatting cards */}
+            {(transcript || file) && !isRecording && (
+              <div className={styles.inlineFormatSection}>
+                <div className={styles.inlineFormatLabel}>
+                  {file ? 'Pilih Gaya Transkripsi & Parafrase AI:' : 'Pilih Gaya Parafrase AI:'}
+                </div>
+                <div className={styles.inlineFormatGrid}>
+                  <button
+                    className={`${styles.inlineFormatCard} ${loadingType === 'standard' ? styles.inlineFormatCardLoading : ''}`}
+                    onClick={() => file ? processTranscription('standard') : processFormatting('', 'standard')}
+                    disabled={isRecordingLoading}
+                  >
+                    <Sparkles size={16} className={styles.inlineFormatIconAccent} />
+                    <span className={styles.inlineFormatName}>Format AI</span>
+                    {loadingType === 'standard' && <div className={styles.inlineSpinner} />}
+                  </button>
+
+                  <button
+                    className={`${styles.inlineFormatCard} ${loadingType === 'poin' ? styles.inlineFormatCardLoading : ''}`}
+                    onClick={() => file ? processTranscription('poin') : processFormatting('', 'poin')}
+                    disabled={isRecordingLoading}
+                  >
+                    <List size={16} className={styles.inlineFormatIconPurple} />
+                    <span className={styles.inlineFormatName}>Point AI</span>
+                    {loadingType === 'poin' && <div className={styles.inlineSpinner} />}
+                  </button>
+
+                  <button
+                    className={`${styles.inlineFormatCard} ${loadingType === 'laporan' ? styles.inlineFormatCardLoading : ''}`}
+                    onClick={() => file ? processTranscription('laporan') : processFormatting('', 'laporan')}
+                    disabled={isRecordingLoading}
+                  >
+                    <FileText size={16} className={styles.inlineFormatIconBlue} />
+                    <span className={styles.inlineFormatName}>Laporan Kegiatan</span>
+                    {loadingType === 'laporan' && <div className={styles.inlineSpinner} />}
+                  </button>
+
+                  <button
+                    className={`${styles.inlineFormatCard} ${loadingType === 'intel' ? styles.inlineFormatCardLoading : ''}`}
+                    onClick={() => file ? processTranscription('intel') : processFormatting('', 'intel')}
+                    disabled={isRecordingLoading}
+                  >
+                    <Shield size={16} className={styles.inlineFormatIconOrange} />
+                    <span className={styles.inlineFormatName}>Laporan Intel</span>
+                    {loadingType === 'intel' && <div className={styles.inlineSpinner} />}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

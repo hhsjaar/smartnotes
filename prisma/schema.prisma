@@ -74,3 +74,23 @@ model PushSubscription {
   @@map("push_subscriptions")
 }
 
+model ChatMessage {
+  id         String   @id @default(uuid())
+  senderName String
+  senderRole String   // "admin" or "employee"
+  message    String
+  attribute  String?  // classification (e.g., "Sales", "Progres")
+  createdAt  DateTime @default(now())
+
+  @@map("chat_messages")
+}
+
+model ChatAttribute {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  @@map("chat_attributes")
+}
+
+
