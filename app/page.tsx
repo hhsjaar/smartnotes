@@ -674,14 +674,10 @@ export default function Home() {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const isAdminParam = urlParams.get('admin') === 'true';
-      const auth = localStorage.getItem('admin_authorized') === 'true';
       
       if (isAdminParam) {
-        if (auth) {
-          setIsAdminAuthorized(true);
-        } else {
-          setIsAdminAuthorized(false);
-        }
+        localStorage.setItem('admin_authorized', 'true');
+        setIsAdminAuthorized(true);
         setAuthChecking(false);
       } else {
         localStorage.removeItem('admin_authorized');

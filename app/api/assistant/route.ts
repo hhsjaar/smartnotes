@@ -34,6 +34,56 @@ async function callGemini(apiKey: string, contents: any[], systemPrompt: string,
   return text;
 }
 
+function cleanJsonString(str: string): string {
+  let result = '';
+  let inString = false;
+  let escape = false;
+  
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    
+    if (char === '"' && !escape) {
+      inString = !inString;
+    }
+    
+    if (inString) {
+      if (char === '\n') {
+        result += '\\n';
+      } else if (char === '\r') {
+        result += '\\r';
+      } else if (char === '\t') {
+        result += '\\t';
+      } else {
+        result += char;
+      }
+    } else {
+      result += char;
+    }
+    
+    if (char === '\\' && !escape) {
+      escape = true;
+    } else {
+      escape = false;
+    }
+  }
+  return result;
+}
+
+function robustJsonParse(text: string): any {
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    console.warn("Standard JSON.parse failed, trying cleaned string...", err);
+    try {
+      const cleaned = cleanJsonString(text);
+      return JSON.parse(cleaned);
+    } catch (err2) {
+      console.error("Cleaned JSON.parse also failed:", err2);
+      throw err2;
+    }
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const { command, history, pendingAction, contacts, selectedNote } = await request.json();
@@ -198,7 +248,7 @@ Rules for date parsing:
       // Strip trailing commas before closing braces/brackets
       cleanedClassifierText = cleanedClassifierText.replace(/,\s*([\]}])/g, '$1');
 
-      classifierResult = JSON.parse(cleanedClassifierText);
+      classifierResult = robustJsonParse(cleanedClassifierText);
     } catch (err) {
       console.error('Failed to classify voice command:', err);
     }
@@ -401,7 +451,7 @@ Aturan Penting:
           }
           cleanedDraftText = cleanedDraftText.replace(/,\s*([\]}])/g, '$1');
 
-          const generatedDraft = JSON.parse(cleanedDraftText);
+          const generatedDraft = robustJsonParse(cleanedDraftText);
 
           // Find or create "Perusahaan" folder
           let parentFolder = await prisma.folder.findFirst({
@@ -600,7 +650,7 @@ Aturan Penting:
         // Strip trailing commas before closing braces/brackets if any, to avoid JSON parse errors
         cleanedDraftText = cleanedDraftText.replace(/,\s*([\]}])/g, '$1');
 
-        const generatedDraft = JSON.parse(cleanedDraftText);
+        const generatedDraft = robustJsonParse(cleanedDraftText);
 
         // Find or create "Utuh" subfolder inside matchedFolder
         let targetFolderId = matchedFolder.id;
@@ -759,7 +809,7 @@ PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan l
     }
     cleanedText = cleanedText.trim();
 
-    const parsedResult = JSON.parse(cleanedText);
+    const parsedResult = robustJsonParse(cleanedText);
 
     // If the action is CONFIRM_JOB, save the job into the database
     if (parsedResult.action === 'CONFIRM_JOB') {
