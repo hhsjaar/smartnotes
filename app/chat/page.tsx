@@ -78,7 +78,12 @@ export default function EmployeeChatPage() {
       const res = await fetch('/api/chat');
       if (res.ok) {
         const data = await res.json();
-        setMessages(data);
+        setMessages(prev => {
+          if (prev.length === data.length && (prev.length === 0 || prev[prev.length - 1].id === data[data.length - 1].id)) {
+            return prev;
+          }
+          return data;
+        });
       }
     } catch (err) {
       console.error('Failed to load chat messages:', err);
