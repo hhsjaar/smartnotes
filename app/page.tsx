@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock, GitMerge, Lock, Tag, Users, LogOut, ArrowRight, Send, AlertCircle } from 'lucide-react';
+import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock, GitMerge, Lock, Tag, Users, LogOut, ArrowRight, Send, AlertCircle, Filter } from 'lucide-react';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { NoteCard } from '@/components/NoteCard';
 import { NoteEditor } from '@/components/NoteEditor';
@@ -142,6 +142,7 @@ export default function Home() {
   const [chatAttributes, setChatAttributes] = useState<any[]>([]);
   const [newChatMessage, setNewChatMessage] = useState('');
   const [selectedChatAttribute, setSelectedChatAttribute] = useState('Umum');
+  const [chatFilterAttribute, setChatFilterAttribute] = useState('Semua');
   const [chatLoading, setChatLoading] = useState(false);
   const [chatSubmitting, setChatSubmitting] = useState(false);
   const [newAttributeInput, setNewAttributeInput] = useState('');
@@ -2711,6 +2712,10 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
   }
 
   function renderAdminChatRoom() {
+    const filteredChatMessages = chatFilterAttribute === 'Semua'
+      ? chatMessages
+      : chatMessages.filter((msg: any) => msg.attribute === chatFilterAttribute);
+
     return (
       <div className={styles.adminChatContainer}>
         <div className={styles.adminChatLayout}>
@@ -2730,6 +2735,32 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               </button>
             </div>
 
+            {/* Filter Bar */}
+            <div className={styles.filterContainer}>
+              <span className={styles.filterLabel}>
+                <Filter size={12} style={{ marginRight: '4px' }} /> Filter:
+              </span>
+              {['Semua', ...chatAttributes.map(a => a.name)].map((attrName) => {
+                const isActive = chatFilterAttribute === attrName;
+                const color = attrName === 'Semua' ? '#6366f1' : getChatAttributeColor(attrName);
+                return (
+                  <button
+                    key={attrName}
+                    type="button"
+                    className={`${styles.filterChip} ${isActive ? styles.filterChipActive : ''}`}
+                    onClick={() => setChatFilterAttribute(attrName)}
+                    style={{
+                      borderColor: isActive ? color : 'var(--glass-border)',
+                      color: isActive ? '#fff' : 'var(--text-muted)',
+                      background: isActive ? color : 'rgba(255, 255, 255, 0.03)',
+                    }}
+                  >
+                    {attrName}
+                  </button>
+                );
+              })}
+            </div>
+
             <div className={styles.adminChatArea}>
               {chatLoading && chatMessages.length === 0 ? (
                 <div className={styles.chatLoader}>
@@ -2741,9 +2772,14 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   <MessageSquare size={40} />
                   <p>Belum ada pesan di chat room ini.</p>
                 </div>
+              ) : filteredChatMessages.length === 0 ? (
+                <div className={styles.chatEmpty}>
+                  <Tag size={40} style={{ color: getChatAttributeColor(chatFilterAttribute) }} />
+                  <p>Tidak ada chat dengan atribut "{chatFilterAttribute}"</p>
+                </div>
               ) : (
                 <div className={styles.chatMessagesList}>
-                  {chatMessages.map((msg, index) => {
+                  {filteredChatMessages.map((msg, index) => {
                     const isMe = msg.senderRole === 'admin';
                     const date = new Date(msg.createdAt);
                     const timeStr = date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
@@ -2752,7 +2788,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     let dividerText = '';
                     
                     const currentDateKey = date.toDateString();
-                    const prevMsg = index > 0 ? chatMessages[index - 1] : null;
+                    const prevMsg = index > 0 ? filteredChatMessages[index - 1] : null;
                     const prevDateKey = prevMsg ? new Date(prevMsg.createdAt).toDateString() : null;
                     
                     if (currentDateKey !== prevDateKey) {

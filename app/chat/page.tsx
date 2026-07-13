@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight } from 'lucide-react';
+import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter } from 'lucide-react';
 import styles from './page.module.css';
 
 interface ChatMessage {
@@ -27,6 +27,11 @@ export default function EmployeeChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [attributes, setAttributes] = useState<ChatAttribute[]>([]);
   const [selectedAttribute, setSelectedAttribute] = useState<string>('Umum');
+  const [filterAttribute, setFilterAttribute] = useState<string>('Semua');
+
+  const filteredMessages = filterAttribute === 'Semua'
+    ? messages
+    : messages.filter(msg => msg.attribute === filterAttribute);
 
   const [newMessageText, setNewMessageText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -268,6 +273,32 @@ export default function EmployeeChatPage() {
           </div>
         </div>
 
+        {/* Filter Bar */}
+        <div className={styles.filterContainer}>
+          <span className={styles.filterLabel}>
+            <Filter size={12} style={{ marginRight: '4px' }} /> Filter:
+          </span>
+          {['Semua', ...attributes.map(a => a.name)].map((attrName) => {
+            const isActive = filterAttribute === attrName;
+            const color = attrName === 'Semua' ? '#6366f1' : getAttributeColor(attrName);
+            return (
+              <button
+                key={attrName}
+                type="button"
+                className={`${styles.filterChip} ${isActive ? styles.filterChipActive : ''}`}
+                onClick={() => setFilterAttribute(attrName)}
+                style={{
+                  borderColor: isActive ? color : 'var(--glass-border)',
+                  color: isActive ? '#fff' : 'var(--text-muted)',
+                  background: isActive ? color : 'rgba(255, 255, 255, 0.03)',
+                }}
+              >
+                {attrName}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Messages */}
         <div className={styles.chatArea}>
           {isLoading && messages.length === 0 ? (
@@ -281,9 +312,15 @@ export default function EmployeeChatPage() {
               <h3>Belum ada percakapan</h3>
               <p>Kirimkan laporan pertama Anda terkait progres atau kendala F&B.</p>
             </div>
+          ) : filteredMessages.length === 0 ? (
+            <div className={styles.emptyChat}>
+              <Tag size={48} className={styles.emptyIcon} style={{ color: getAttributeColor(filterAttribute) }} />
+              <h3>Tidak ada chat dengan atribut "{filterAttribute}"</h3>
+              <p>Belum ada laporan atau koordinasi yang menggunakan klasifikasi ini.</p>
+            </div>
           ) : (
             <div className={styles.messagesList}>
-              {messages.map((msg, index) => {
+              {filteredMessages.map((msg, index) => {
                 const isMe = msg.senderName === name && msg.senderRole === 'employee';
                 const date = new Date(msg.createdAt);
                 const timeStr = date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
@@ -292,7 +329,7 @@ export default function EmployeeChatPage() {
                 let dividerText = '';
                 
                 const currentDateKey = date.toDateString();
-                const prevMsg = index > 0 ? messages[index - 1] : null;
+                const prevMsg = index > 0 ? filteredMessages[index - 1] : null;
                 const prevDateKey = prevMsg ? new Date(prevMsg.createdAt).toDateString() : null;
                 
                 if (currentDateKey !== prevDateKey) {
