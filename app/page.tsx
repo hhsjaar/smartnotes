@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock, GitMerge, Lock, Tag, Users, LogOut, ArrowRight, Send, AlertCircle, Filter } from 'lucide-react';
+import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock, GitMerge, Lock, Tag, Users, LogOut, ArrowRight, Send, AlertCircle, Filter, Pencil } from 'lucide-react';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { NoteCard } from '@/components/NoteCard';
 import { NoteEditor } from '@/components/NoteEditor';
@@ -143,6 +143,7 @@ export default function Home() {
   const [newChatMessage, setNewChatMessage] = useState('');
   const [selectedChatAttribute, setSelectedChatAttribute] = useState('Umum');
   const [chatFilterAttribute, setChatFilterAttribute] = useState('Semua');
+  const [editingChatMessage, setEditingChatMessage] = useState<any | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatSubmitting, setChatSubmitting] = useState(false);
   const [newAttributeInput, setNewAttributeInput] = useState('');
@@ -479,31 +480,84 @@ export default function Home() {
     }
   };
 
+  const handleEditAdminChatClick = (msg: any) => {
+    setEditingChatMessage(msg);
+    setNewChatMessage(msg.message);
+    setSelectedChatAttribute(msg.attribute || 'Umum');
+  };
+
+  const handleCancelAdminChatEdit = () => {
+    setEditingChatMessage(null);
+    setNewChatMessage('');
+    setSelectedChatAttribute('Umum');
+  };
+
+  const handleDeleteAdminChatMessage = async (msgId: string) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus pesan ini?')) return;
+    
+    try {
+      const res = await fetch(`/api/chat?id=${msgId}&senderName=Admin&senderRole=admin`, {
+        method: 'DELETE',
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Gagal menghapus pesan');
+      }
+      
+      setChatMessages(prev => prev.filter(m => m.id !== msgId));
+      if (editingChatMessage?.id === msgId) {
+        handleCancelAdminChatEdit();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Terjadi kesalahan saat menghapus pesan');
+    }
+  };
+
   const handleSendAdminChatMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newChatMessage.trim() || chatSubmitting) return;
     setChatSubmitting(true);
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
+      const isEditing = !!editingChatMessage;
+      const url = '/api/chat';
+      const method = isEditing ? 'PUT' : 'POST';
+      const bodyPayload = isEditing
+        ? {
+            id: editingChatMessage.id,
+            message: newChatMessage.trim(),
+            attribute: selectedChatAttribute || null,
+            senderName: 'Admin',
+            senderRole: 'admin'
+          }
+        : {
+            senderName: 'Admin',
+            senderRole: 'admin',
+            message: newChatMessage.trim(),
+            attribute: selectedChatAttribute || null,
+          };
+
+      const res = await fetch(url, {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          senderName: 'Admin',
-          senderRole: 'admin',
-          message: newChatMessage.trim(),
-          attribute: selectedChatAttribute || null,
-        }),
+        body: JSON.stringify(bodyPayload),
       });
+
       if (res.ok) {
-        const sentMsg = await res.json();
-        setChatMessages(prev => [...prev, sentMsg]);
+        const resultMsg = await res.json();
+        if (isEditing) {
+          setChatMessages(prev => prev.map(m => m.id === resultMsg.id ? resultMsg : m));
+          setEditingChatMessage(null);
+        } else {
+          setChatMessages(prev => [...prev, resultMsg]);
+        }
         setNewChatMessage('');
       } else {
         const errorData = await res.json();
-        alert(errorData.error || 'Gagal mengirim pesan');
+        alert(errorData.error || `Gagal ${isEditing ? 'mengedit' : 'mengirim'} pesan`);
       }
     } catch (err) {
-      alert('Terjadi kesalahan saat mengirim pesan');
+      alert('Terjadi kesalahan saat memproses pesan');
     } finally {
       setChatSubmitting(false);
     }
@@ -2827,10 +2881,32 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                         <div className={`${styles.chatRow} ${isMe ? styles.chatMyRow : styles.chatOtherRow}`}>
                           <div className={`${styles.chatBubble} ${isMe ? styles.chatMyBubble : styles.chatOtherBubble}`}>
                             <div className={styles.chatBubbleHeader}>
-                              <span className={styles.chatSenderName}>{msg.senderName}</span>
-                              <span className={`${styles.chatRoleIndicator} ${isMe ? styles.chatRoleAdmin : styles.chatRoleEmployee}`}>
-                                {msg.senderRole === 'admin' ? 'Admin' : 'Karyawan'}
-                              </span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span className={styles.chatSenderName}>{msg.senderName}</span>
+                                <span className={`${styles.chatRoleIndicator} ${isMe ? styles.chatRoleAdmin : styles.chatRoleEmployee}`}>
+                                  {msg.senderRole === 'admin' ? 'Admin' : 'Karyawan'}
+                                </span>
+                              </div>
+                              <div className={styles.messageActions}>
+                                {isMe && (
+                                  <button 
+                                    onClick={() => handleEditAdminChatClick(msg)} 
+                                    className={styles.actionBtn}
+                                    title="Edit Pesan"
+                                    type="button"
+                                  >
+                                    <Pencil size={11} />
+                                  </button>
+                                )}
+                                <button 
+                                  onClick={() => handleDeleteAdminChatMessage(msg.id)} 
+                                  className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
+                                  title="Hapus Pesan"
+                                  type="button"
+                                >
+                                  <Trash2 size={11} />
+                                </button>
+                              </div>
                             </div>
 
                             {msg.attribute && (
@@ -2862,6 +2938,21 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             </div>
 
             <div className={styles.adminChatFooter}>
+              {editingChatMessage && (
+                <div className={styles.editBanner}>
+                  <span className={styles.editText}>
+                    <Pencil size={12} style={{ marginRight: '6px' }} /> Sedang mengedit pesan...
+                  </span>
+                  <button 
+                    type="button" 
+                    onClick={handleCancelAdminChatEdit} 
+                    className={styles.editCancelBtn}
+                  >
+                    Batal
+                  </button>
+                </div>
+              )}
+
               <div className={styles.attributeChipsContainer}>
                 {chatAttributes.map((attr) => {
                   const isActive = selectedChatAttribute === attr.name;

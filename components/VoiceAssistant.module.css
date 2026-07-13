@@ -19,12 +19,12 @@
 }
 
 .floatingAssistantBtn:hover {
-  transform: translateY(-3px) scale(1.05);
+  filter: brightness(1.15);
   box-shadow: 0 12px 35px rgba(99, 102, 241, 0.5), inset 0 0 12px rgba(255, 255, 255, 0.3);
 }
 
 .floatingAssistantBtn:active {
-  transform: translateY(-1px) scale(0.98);
+  filter: brightness(0.95);
 }
 
 .btnListening {

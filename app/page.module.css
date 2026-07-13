@@ -3536,6 +3536,74 @@
   transform: translateY(-1px);
 }
 
+/* Chat Message Actions (Edit & Delete) */
+.messageActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+}
+
+.actionBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2px;
+  border-radius: 3px;
+  opacity: 0.6;
+  transition: all 0.2s ease;
+}
+
+.actionBtn:hover {
+  opacity: 1;
+  color: var(--secondary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.actionBtnDelete:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Edit Banner */
+.editBanner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: var(--border-radius-md);
+  margin-bottom: 4px;
+  width: 100%;
+}
+
+.editText {
+  font-size: 0.8rem;
+  color: #a5b4fc;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.editCancelBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-weight: 700;
+  transition: color 0.2s ease;
+}
+
+.editCancelBtn:hover {
+  color: #ef4444;
+}
+
 
 
 

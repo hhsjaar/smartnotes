@@ -60,6 +60,97 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
   const [showPanel, setShowPanel] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   
+  // Dragging states for mobile/desktop flexibility
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const isDraggingRef = useRef(false);
+  const touchStartPosRef = useRef({ x: 0, y: 0 });
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLButtonElement>) => {
+    dragStartRef.current = {
+      x: e.clientX - position.x,
+      y: e.clientY - position.y
+    };
+    touchStartPosRef.current = {
+      x: e.clientX,
+      y: e.clientY
+    };
+    isDraggingRef.current = false;
+    
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.clientX - touchStartPosRef.current.x;
+      const dy = moveEvent.clientY - touchStartPosRef.current.y;
+      
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        isDraggingRef.current = true;
+      }
+      
+      if (isDraggingRef.current) {
+        setPosition({
+          x: moveEvent.clientX - dragStartRef.current.x,
+          y: moveEvent.clientY - dragStartRef.current.y
+        });
+      }
+    };
+    
+    const handleMouseUp = (upEvent: MouseEvent) => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      
+      if (isDraggingRef.current) {
+        const clickHandler = (event: MouseEvent) => {
+          event.stopImmediatePropagation();
+          document.removeEventListener('click', clickHandler, true);
+        };
+        document.addEventListener('click', clickHandler, true);
+      }
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLButtonElement>) => {
+    const touch = e.touches[0];
+    dragStartRef.current = {
+      x: touch.clientX - position.x,
+      y: touch.clientY - position.y
+    };
+    touchStartPosRef.current = {
+      x: touch.clientX,
+      y: touch.clientY
+    };
+    isDraggingRef.current = false;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLButtonElement>) => {
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartPosRef.current.x;
+    const dy = touch.clientY - touchStartPosRef.current.y;
+    
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      isDraggingRef.current = true;
+    }
+    
+    if (isDraggingRef.current) {
+      setPosition({
+        x: touch.clientX - dragStartRef.current.x,
+        y: touch.clientY - dragStartRef.current.y
+      });
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLButtonElement>) => {
+    if (isDraggingRef.current) {
+      e.preventDefault();
+      const clickHandler = (event: MouseEvent) => {
+        event.stopImmediatePropagation();
+        document.removeEventListener('click', clickHandler, true);
+      };
+      document.addEventListener('click', clickHandler, true);
+    }
+  };
+  
   // Multi-turn state variables
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [pendingAction, setPendingAction] = useState<any | null>(null);
@@ -519,6 +610,15 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
         type="button" 
         className={`${styles.floatingAssistantBtn} ${status === 'listening' ? styles.btnListening : ''}`}
         onClick={status === 'listening' ? stopListening : startListening}
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{
+          transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
+          touchAction: 'none',
+          transition: isDraggingRef.current ? 'none' : 'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+        }}
         title="Bicara dengan Asisten AI"
       >
         {status === 'listening' ? (

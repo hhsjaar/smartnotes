@@ -289,55 +289,65 @@
 }
 
 .folderChecklistSection {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   width: 100%;
   background: rgba(255, 255, 255, 0.015);
   border: 1px solid var(--glass-border);
   border-radius: var(--border-radius-md);
-  padding: 16px;
+  padding: 8px 16px;
   margin-bottom: 20px;
-  text-align: left;
   box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.folderChecklistSection::-webkit-scrollbar {
+  display: none;
 }
 
 .folderChecklistTitle {
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--text-dark);
-  margin-bottom: 12px;
   text-transform: uppercase;
   letter-spacing: 1.2px;
+  white-space: nowrap;
 }
 
 .folderChecklistGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 10px;
-  width: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  width: auto;
 }
 
 .folderChecklistItem {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: var(--border-radius-sm);
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--border-radius-full);
   cursor: pointer;
   user-select: none;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--glass-border);
   color: var(--text-muted);
   outline: none;
   font-family: inherit;
-  width: 100%;
-  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .folderChecklistItem:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.15);
   color: var(--foreground);
-  transform: translateY(-1.5px);
+  transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
@@ -345,7 +355,7 @@
   background: rgba(99, 102, 241, 0.14) !important;
   border-color: var(--primary) !important;
   color: #ffffff !important;
-  box-shadow: 0 0 15px rgba(99, 102, 241, 0.2) !important;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.2) !important;
 }
 
 .folderChecklistIcon {
@@ -363,11 +373,9 @@
 }
 
 .folderChecklistName {
-  font-size: 0.82rem;
+  font-size: 0.75rem;
   font-weight: 600;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 @media (max-width: 768px) {

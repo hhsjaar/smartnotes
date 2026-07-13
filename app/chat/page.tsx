@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter } from 'lucide-react';
+import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2 } from 'lucide-react';
 import styles from './page.module.css';
 
 interface ChatMessage {
@@ -34,6 +34,42 @@ export default function EmployeeChatPage() {
     : messages.filter(msg => msg.attribute === filterAttribute);
 
   const [newMessageText, setNewMessageText] = useState('');
+  const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
+
+  const handleEditClick = (msg: ChatMessage) => {
+    setEditingMessage(msg);
+    setNewMessageText(msg.message);
+    setSelectedAttribute(msg.attribute || 'Umum');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessage(null);
+    setNewMessageText('');
+    setSelectedAttribute('Umum');
+  };
+
+  const handleDeleteMessage = async (msgId: string) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus pesan ini?')) return;
+    
+    setErrorMsg('');
+    try {
+      const res = await fetch(`/api/chat?id=${msgId}&senderName=${encodeURIComponent(name)}&senderRole=employee`, {
+        method: 'DELETE',
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Gagal menghapus pesan');
+      }
+      
+      setMessages(prev => prev.filter(m => m.id !== msgId));
+      if (editingMessage?.id === msgId) {
+        handleCancelEdit();
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Terjadi kesalahan saat menghapus pesan.');
+    }
+  };
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -146,29 +182,49 @@ export default function EmployeeChatPage() {
     setErrorMsg('');
 
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
+      const isEditing = !!editingMessage;
+      const url = '/api/chat';
+      const method = isEditing ? 'PUT' : 'POST';
+      const bodyPayload = isEditing 
+        ? {
+            id: editingMessage.id,
+            message: newMessageText.trim(),
+            attribute: selectedAttribute || null,
+            senderName: name,
+            senderRole: 'employee'
+          }
+        : {
+            senderName: name,
+            senderRole: 'employee',
+            message: newMessageText.trim(),
+            attribute: selectedAttribute || null,
+          };
+
+      const res = await fetch(url, {
+        method: method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          senderName: name,
-          senderRole: 'employee',
-          message: newMessageText.trim(),
-          attribute: selectedAttribute || null,
-        }),
+        body: JSON.stringify(bodyPayload),
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Gagal mengirim pesan');
+        throw new Error(errorData.error || `Gagal ${isEditing ? 'mengedit' : 'mengirim'} pesan`);
       }
 
-      const sentMsg = await res.json();
-      setMessages(prev => [...prev, sentMsg]);
+      const resultMsg = await res.json();
+      
+      if (isEditing) {
+        setMessages(prev => prev.map(m => m.id === resultMsg.id ? resultMsg : m));
+        setEditingMessage(null);
+      } else {
+        setMessages(prev => [...prev, resultMsg]);
+      }
+      
       setNewMessageText('');
     } catch (err: any) {
-      setErrorMsg(err.message || 'Terjadi kesalahan saat mengirim pesan.');
+      setErrorMsg(err.message || 'Terjadi kesalahan.');
     } finally {
       setIsSubmitting(false);
     }
@@ -371,10 +427,32 @@ export default function EmployeeChatPage() {
                       <div className={`${styles.bubble} ${isMe ? styles.myBubble : styles.otherBubble}`}>
                         {/* Sender metadata */}
                         <div className={styles.bubbleHeader}>
-                          <span className={styles.senderName}>{msg.senderName}</span>
-                          <span className={`${styles.roleIndicator} ${msg.senderRole === 'admin' ? styles.roleAdmin : styles.roleEmployee}`}>
-                            {msg.senderRole === 'admin' ? 'Admin' : 'Karyawan'}
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span className={styles.senderName}>{msg.senderName}</span>
+                            <span className={`${styles.roleIndicator} ${msg.senderRole === 'admin' ? styles.roleAdmin : styles.roleEmployee}`}>
+                              {msg.senderRole === 'admin' ? 'Admin' : 'Karyawan'}
+                            </span>
+                          </div>
+                          {isMe && (
+                            <div className={styles.messageActions}>
+                              <button 
+                                onClick={() => handleEditClick(msg)} 
+                                className={styles.actionBtn}
+                                title="Edit Pesan"
+                                type="button"
+                              >
+                                <Pencil size={11} />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteMessage(msg.id)} 
+                                className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
+                                title="Hapus Pesan"
+                                type="button"
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         {/* Attribute tag */}
@@ -409,6 +487,21 @@ export default function EmployeeChatPage() {
             <div className={styles.errorBanner}>
               <AlertCircle size={16} />
               <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {editingMessage && (
+            <div className={styles.editBanner}>
+              <span className={styles.editText}>
+                <Pencil size={12} style={{ marginRight: '6px' }} /> Sedang mengedit pesan...
+              </span>
+              <button 
+                type="button" 
+                onClick={handleCancelEdit} 
+                className={styles.editCancelBtn}
+              >
+                Batal
+              </button>
             </div>
           )}
 

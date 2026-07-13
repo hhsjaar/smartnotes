@@ -460,7 +460,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         {folders && folders.length > 0 && (
           <div className={styles.folderChecklistSection}>
             <div className={styles.folderChecklistTitle}>
-              Folder Indikator (Tujuan Penyimpanan):
+              Folder:
             </div>
             <div className={styles.folderChecklistGrid}>
               {folders
@@ -479,9 +479,9 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
                     >
                       <span className={styles.folderChecklistIcon}>
                         {isChecked ? (
-                          <FolderCheck size={16} />
+                          <FolderCheck size={13} />
                         ) : (
-                          <Folder size={16} />
+                          <Folder size={13} />
                         )}
                       </span>
                       <span className={styles.folderChecklistName}>{folder.name}</span>
