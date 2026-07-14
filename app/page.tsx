@@ -5103,20 +5103,6 @@ function CustomerReservation() {
               <p>Untuk kesepakatan terkait tempat sudah di bicarakan terhadap kedua belah pihak.</p>
             </li>
           </ul>
-
-          <div className={styles.employeeNavBox}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', justifyContent: 'center' }}>
-              <div>
-                <p style={{ margin: '0 0 4px 0' }}>Apakah Anda Karyawan?</p>
-                <a href="/chat" className={styles.employeeNavLink}>Buka Chat Room Karyawan &rarr;</a>
-              </div>
-              <div style={{ width: '60px', height: '1px', backgroundColor: 'var(--glass-border)' }} />
-              <div>
-                <p style={{ margin: '0 0 4px 0' }}>Apakah Anda Admin?</p>
-                <a href="/?admin=true" className={styles.employeeNavLink} style={{ color: '#a855f7' }}>Masuk Panel Admin &rarr;</a>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
