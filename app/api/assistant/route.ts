@@ -127,6 +127,23 @@ export async function POST(request: Request) {
       summary: n.summary ? (n.summary.length > 120 ? n.summary.substring(0, 120) + '...' : n.summary) : ''
     }));
 
+    // Fetch and format customer reservations
+    const reservationsList = await prisma.reservation.findMany({
+      orderBy: { dateTime: 'asc' }
+    });
+    const formattedReservationsText = reservationsList.map(r => {
+      const date = new Date(r.dateTime);
+      const formattedDate = date.toLocaleString('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      return `- [Status: ${r.status}] Nama: ${r.name} | Tanggal & Jam: ${formattedDate} | Meja: ${r.tableInfo} | Jumlah Orang: ${r.partySize} orang | DP: Rp ${r.dpAmount.toLocaleString('id-ID')} | Menu Pesanan: ${r.menuList || '-'}`;
+    }).join('\n');
+
     const currentDateTime = new Date();
     const currentDateTimeStr = currentDateTime.toLocaleString('id-ID', {
       timeZone: 'Asia/Jakarta',
@@ -169,6 +186,54 @@ Perintah Terbaru Pengguna: "${command}"
       role: 'user',
       parts: [{ text: userMessageContent }]
     });
+
+    // Check if user is requesting a reservation table note to be built
+    const lowerCommand = command.toLowerCase();
+    const isReservationTableRequest = 
+      lowerCommand.includes('tabel reservasi') || 
+      (lowerCommand.includes('buat') && lowerCommand.includes('reservasi') && lowerCommand.includes('tabel')) ||
+      (lowerCommand.includes('buatkan') && lowerCommand.includes('reservasi') && lowerCommand.includes('tabel'));
+
+    if (isReservationTableRequest) {
+      let tableContent = `# Tabel Reservasi Pelanggan Burjolevelup\n\n`;
+      tableContent += `Dibuat otomatis oleh AI Asisten Suara pada: ${currentDateTimeStr}\n\n`;
+      tableContent += `| Nama Pelanggan | Tanggal & Jam Booking | Meja / Tempat | Jumlah Orang | DP Pembayaran | Menu Pesanan | Status |\n`;
+      tableContent += `| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+
+      reservationsList.forEach((r: any) => {
+        const date = new Date(r.dateTime);
+        const formattedDate = date.toLocaleDateString('id-ID', {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        const dpFormatted = r.dpAmount > 0 ? `Rp ${r.dpAmount.toLocaleString('id-ID')}` : 'Tidak Ada / Rp 0';
+        const menuStr = r.menuList ? r.menuList.replace(/\n/g, ' ') : '-';
+        const statusLabels: Record<string, string> = {
+          pending: 'Menunggu ⏳',
+          confirmed: 'Dikonfirmasi ✅',
+          completed: 'Selesai 🏁',
+          cancelled: 'Dibatalkan ❌'
+        };
+        const statusLabel = statusLabels[r.status] || r.status;
+        tableContent += `| ${r.name} | ${formattedDate} | ${r.tableInfo} | ${r.partySize} orang | ${dpFormatted} | ${menuStr} | ${statusLabel} |\n`;
+      });
+
+      return NextResponse.json({
+        action: 'CREATE_NOTE_DIRECT',
+        payload: {
+          title: `Tabel Reservasi - ${currentDateTime.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}`,
+          content: tableContent,
+          summary: `Membuat catatan tabel dari daftar reservasi aktif.`,
+          todo_list: [],
+          tags: ['Reservasi', 'Tabel', 'Otomatis'],
+          folderId: null
+        },
+        response: `Baik, saya telah membaca seluruh data reservasi di database dan membuatkan catatan tabel reservasi pelanggan terbaru untuk Anda.`
+      });
+    }
 
     // 1. Classifier to check if this is a request for a meeting draft
     const classifierPrompt = `
@@ -254,7 +319,6 @@ Rules for date parsing:
     }
 
     // Heuristic Fallback for Draft Pembahasan Rapat
-    const lowerCommand = command.toLowerCase();
     const hasDraftKeyword = lowerCommand.includes('draft') || lowerCommand.includes('draf');
     const hasMeetingKeyword = lowerCommand.includes('rapat') || lowerCommand.includes('pembahasan') || lowerCommand.includes('mitigasi') || lowerCommand.includes('agenda') || lowerCommand.includes('bahan');
 
@@ -703,6 +767,8 @@ Informasi Konteks Database & Aplikasi:
 - Waktu server saat ini: ${currentDateTime.toISOString()} (Lokal: ${currentDateTimeStr})
 - Riwayat Laporan/Pesan di Chat Room Karyawan & Admin (dapat Anda gunakan sebagai rujukan untuk menjawab pertanyaan pengguna terkait progres, sales, urgent, atau obrolan karyawan):
 ${formattedChatRoomMessagesText || 'Belum ada pesan di chat room.'}
+- Daftar Seluruh Reservasi Pelanggan (Gunakan ini jika pengguna bertanya tentang data reservasi seperti booking, meja, status, nama pelanggan, jumlah orang, DP, dll.):
+${formattedReservationsText || 'Belum ada data reservasi.'}
 
 ATURAN PEMBUATAN CATATAN:
 - Jika pengguna meminta membuat catatan baru (misalnya berkata "buat catatan", "saya ingin membuat catatan", "rekam catatan", "rekaman", dsb.):

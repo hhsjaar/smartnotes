@@ -530,10 +530,13 @@
 @media (max-width: 768px) {
   .pageContainer {
     padding: 0;
+    height: 100vh;
+    height: 100dvh;
   }
   
   .chatWrapper {
     height: 100vh;
+    height: 100dvh;
     border-radius: 0;
     border: none;
   }
@@ -564,6 +567,10 @@
   
   .roomTitle {
     font-size: 0.95rem;
+  }
+
+  .chatInput {
+    font-size: 16px;
   }
 }
 
@@ -756,6 +763,91 @@
   cursor: pointer;
   font-weight: 700;
   transition: color 0.2s ease;
+}
+
+/* PWA Install Banner */
+.installBanner {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10000;
+  background: rgba(15, 15, 35, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-md);
+  padding: 16px;
+  max-width: 400px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  animation: slide-up-pwa 0.3s ease-out;
+}
+
+@keyframes slide-up-pwa {
+  from {
+    transform: translateY(100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.installBannerContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: #fff;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.installBannerActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.installBtn {
+  background: var(--primary);
+  border: none;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.installBtn:hover {
+  background: var(--primary-hover);
+}
+
+.closeInstallBtn {
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+  padding: 6px 12px;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.closeInstallBtn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+@media (max-width: 768px) {
+  .installBanner {
+    left: 20px;
+    right: 20px;
+    bottom: 20px;
+    max-width: none;
+  }
 }
 
 .editCancelBtn:hover {

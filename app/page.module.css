@@ -3451,6 +3451,10 @@
   .adminAttributeManagementPanel {
     display: none;
   }
+
+  .adminChatTextInput {
+    font-size: 16px;
+  }
 }
 
 /* Chat Attribute Chips */

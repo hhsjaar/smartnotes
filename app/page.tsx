@@ -285,6 +285,14 @@ function DashboardContent() {
   };
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+      const launchTarget = localStorage.getItem('pwa_launch_target');
+      if (isStandalone && launchTarget === '/chat') {
+        window.location.href = '/chat';
+        return;
+      }
+    }
     setIsCalendarOpen(window.innerWidth > 768);
     setIsFoldersListOpen(window.innerWidth > 768);
   }, []);

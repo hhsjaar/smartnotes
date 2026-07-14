@@ -79,9 +79,38 @@ export default function EmployeeChatPage() {
   const [reservationsList, setReservationsList] = useState<any[]>([]);
   const [reservationsLoading, setReservationsLoading] = useState(false);
   const [resListFilter, setResListFilter] = useState('upcoming');
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const deferredPrompt = useRef<any>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // PWA Install Event Handler
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      deferredPrompt.current = e;
+      setShowInstallBanner(true);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt.current) return;
+    
+    // Store launch target in localStorage so PWA starts at /chat
+    localStorage.setItem('pwa_launch_target', '/chat');
+
+    deferredPrompt.current.prompt();
+    const { outcome } = await deferredPrompt.current.userChoice;
+    console.log(`PWA install outcome: ${outcome}`);
+    deferredPrompt.current = null;
+    setShowInstallBanner(false);
+  };
 
   // Check if name is already set in localStorage
   useEffect(() => {
@@ -883,6 +912,19 @@ export default function EmployeeChatPage() {
               >
                 Tutup
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showInstallBanner && (
+        <div className={styles.installBanner}>
+          <div className={styles.installBannerContent}>
+            <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>Instal Aplikasi Karyawan</div>
+            <div>Instal aplikasi Chat Burjolevelup di layar utama Anda untuk akses yang lebih cepat dan mudah.</div>
+            <div className={styles.installBannerActions}>
+              <button className={styles.installBtn} onClick={handleInstallClick}>Instal Sekarang</button>
+              <button className={styles.closeInstallBtn} onClick={() => setShowInstallBanner(false)}>Tutup</button>
             </div>
           </div>
         </div>
