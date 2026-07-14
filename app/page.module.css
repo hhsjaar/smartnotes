@@ -3444,6 +3444,10 @@
     padding: 6px;
   }
 
+  .adminChatResBtnText {
+    display: none;
+  }
+
   .adminAttributeManagementPanel {
     display: none;
   }

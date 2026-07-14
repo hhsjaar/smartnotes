@@ -142,6 +142,8 @@ function DashboardContent() {
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [adminSelectedDate, setAdminSelectedDate] = useState<string | null>(null);
   const [isAdminCalOpenMobile, setIsAdminCalOpenMobile] = useState(false);
+  const [showReservationsModalAdmin, setShowReservationsModalAdmin] = useState(false);
+  const [resListFilterAdmin, setResListFilterAdmin] = useState('upcoming');
 
   const getChatAttributeColor = (attr: string | null) => {
     if (!attr) return '#64748b';
@@ -2142,47 +2144,6 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   </div>
                 )}
 
-                {/* Mobile Folder Timeframe Filter Row */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '20px 4px 6px 4px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', flexShrink: 0 }}>
-                  <span>⏱️ Rentang Waktu:</span>
-                </div>
-                <div className={styles.mobileTimeframeFilterRow}>
-                  <button
-                    type="button"
-                    className={`${styles.mobileTimeframeChip} ${timeframeFilter === null ? styles.mobileTimeframeChipActive : ''}`}
-                    onClick={() => setTimeframeFilter(null)}
-                  >
-                    Semua
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.mobileTimeframeChip} ${timeframeFilter === 1 ? styles.mobileTimeframeChipActive : ''}`}
-                    onClick={() => setTimeframeFilter(1)}
-                  >
-                    1 Hari
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.mobileTimeframeChip} ${timeframeFilter === 3 ? styles.mobileTimeframeChipActive : ''}`}
-                    onClick={() => setTimeframeFilter(3)}
-                  >
-                    3 Hari
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.mobileTimeframeChip} ${timeframeFilter === 7 ? styles.mobileTimeframeChipActive : ''}`}
-                    onClick={() => setTimeframeFilter(7)}
-                  >
-                    7 Hari
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.mobileTimeframeChip} ${timeframeFilter === 30 ? styles.mobileTimeframeChipActive : ''}`}
-                    onClick={() => setTimeframeFilter(30)}
-                  >
-                    1 Bulan
-                  </button>
-                </div>
 
                 {/* Mobile Folder AI Summary Card */}
                 {folderAiSummary && (
@@ -2816,6 +2777,247 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             </div>
           </div>
         )}
+        {showReservationsModalAdmin && (
+          <div 
+            onClick={() => setShowReservationsModalAdmin(false)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.65)',
+              backdropFilter: 'blur(5px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+              padding: '16px'
+            }}
+          >
+            <div 
+              onClick={(e) => e.stopPropagation()} 
+              style={{ 
+                maxWidth: '650px', 
+                width: '100%', 
+                maxHeight: '85vh', 
+                display: 'flex', 
+                flexDirection: 'column',
+                backgroundColor: 'rgba(10, 10, 22, 0.95)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '16px',
+                padding: '20px',
+                boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+                backdropFilter: 'blur(10px)',
+                color: '#f8fafc'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '12px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <CalendarIcon size={20} style={{ color: '#6366f1' }} />
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600, color: '#fff' }}>Daftar Reservasi Pelanggan</h3>
+                </div>
+                <button 
+                  onClick={() => setShowReservationsModalAdmin(false)}
+                  style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Filter Pills */}
+              <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '12px', marginBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                {[
+                  { id: 'upcoming', label: 'Mendatang' },
+                  { id: 'all', label: 'Semua' },
+                  { id: 'pending', label: 'Menunggu' },
+                  { id: 'confirmed', label: 'Dikonfirmasi' },
+                  { id: 'completed', label: 'Selesai' },
+                  { id: 'cancelled', label: 'Dibatalkan' }
+                ].map((pill) => {
+                  const isActive = resListFilterAdmin === pill.id;
+                  return (
+                    <button
+                      key={pill.id}
+                      onClick={() => setResListFilterAdmin(pill.id)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '20px',
+                        fontSize: '0.8rem',
+                        fontWeight: 500,
+                        border: '1px solid',
+                        borderColor: isActive ? '#6366f1' : 'rgba(255, 255, 255, 0.1)',
+                        background: isActive ? '#6366f1' : 'rgba(255, 255, 255, 0.03)',
+                        color: isActive ? '#fff' : '#94a3b8',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {pill.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Content list */}
+              <div style={{ flex: 1, overflowY: 'auto', minHeight: '200px', paddingRight: '4px' }}>
+                {adminResLoading ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', gap: '12px' }}>
+                    <div style={{ width: '32px', height: '32px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                    <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Memuat data reservasi...</span>
+                  </div>
+                ) : (() => {
+                  const filtered = adminReservations.filter(r => {
+                    if (resListFilterAdmin === 'upcoming') {
+                      return r.status === 'pending' || r.status === 'confirmed';
+                    }
+                    if (resListFilterAdmin !== 'all' && r.status !== resListFilterAdmin) {
+                      return false;
+                    }
+                    return true;
+                  });
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', gap: '8px', color: '#64748b' }}>
+                        <CalendarIcon size={32} style={{ opacity: 0.4 }} />
+                        <span style={{ fontSize: '0.85rem' }}>Tidak ada data reservasi ditemukan.</span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {filtered.map((res: any) => {
+                        const date = new Date(res.dateTime);
+                        const formattedDate = date.toLocaleDateString('id-ID', {
+                          weekday: 'short',
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        });
+
+                        const statusColors: Record<string, string> = {
+                          pending: 'rgba(245, 158, 11, 0.15)',
+                          confirmed: 'rgba(16, 185, 129, 0.15)',
+                          completed: 'rgba(99, 102, 241, 0.15)',
+                          cancelled: 'rgba(239, 68, 68, 0.15)'
+                        };
+                        const statusBorderColors: Record<string, string> = {
+                          pending: 'rgba(245, 158, 11, 0.3)',
+                          confirmed: 'rgba(16, 185, 129, 0.3)',
+                          completed: 'rgba(99, 102, 241, 0.3)',
+                          cancelled: 'rgba(239, 68, 68, 0.3)'
+                        };
+                        const statusTextColors: Record<string, string> = {
+                          pending: '#f59e0b',
+                          confirmed: '#10b981',
+                          completed: '#6366f1',
+                          cancelled: '#ef4444'
+                        };
+                        const statusLabels: Record<string, string> = {
+                          pending: 'Menunggu',
+                          confirmed: 'Dikonfirmasi',
+                          completed: 'Selesai',
+                          cancelled: 'Dibatalkan'
+                        };
+
+                        return (
+                          <div 
+                            key={res.id} 
+                            style={{
+                              background: 'rgba(255, 255, 255, 0.02)',
+                              border: '1px solid rgba(255, 255, 255, 0.08)',
+                              borderRadius: '10px',
+                              padding: '14px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '8px'
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <div>
+                                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#fff' }}>{res.name}</h4>
+                                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{formattedDate}</span>
+                              </div>
+                              <span 
+                                style={{
+                                  fontSize: '0.7rem',
+                                  padding: '3px 8px',
+                                  borderRadius: '4px',
+                                  background: statusColors[res.status] || 'rgba(255, 255, 255, 0.1)',
+                                  border: `1px solid ${statusBorderColors[res.status] || 'rgba(255, 255, 255, 0.2)'}`,
+                                  color: statusTextColors[res.status] || '#94a3b8',
+                                  fontWeight: 600
+                                }}
+                              >
+                                {statusLabels[res.status] || res.status}
+                              </span>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', fontSize: '0.8rem', padding: '8px 0', borderTop: '1px solid rgba(255, 255, 255, 0.04)', borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                              <div>
+                                <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>Meja/Tempat:</span>
+                                <span style={{ fontWeight: 600, color: '#fff' }}>{res.tableInfo}</span>
+                              </div>
+                              <div>
+                                <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>Jumlah Orang:</span>
+                                <span style={{ fontWeight: 600, color: '#fff' }}>{res.partySize} orang</span>
+                              </div>
+                              <div>
+                                <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>DP Pembayaran:</span>
+                                <span style={{ fontWeight: 600, color: '#10b981' }}>Rp {res.dpAmount.toLocaleString('id-ID')}</span>
+                              </div>
+                            </div>
+
+                            {res.menuList && (
+                              <div style={{ fontSize: '0.8rem' }}>
+                                <span style={{ color: '#64748b', fontSize: '0.7rem', display: 'block' }}>Menu Pesanan:</span>
+                                <p style={{ margin: '2px 0 0 0', color: '#94a3b8', lineHeight: '1.4' }}>{res.menuList}</p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+              <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '12px', marginTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button 
+                  onClick={() => fetchAdminReservations()}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '6px',
+                    fontSize: '0.85rem',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    color: '#94a3b8',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Segarkan 🔄
+                </button>
+                <button 
+                  onClick={() => setShowReservationsModalAdmin(false)}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '6px',
+                    fontSize: '0.85rem',
+                    border: 'none',
+                    background: '#6366f1',
+                    color: '#fff',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -2834,14 +3036,40 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               <div className={styles.adminChatHeaderTitle}>
                 <Users className={styles.adminChatHeaderIcon} />
                 <div>
-                  <h3>Grup Chat Internal & Laporan Karyawan</h3>
+                  <h3>Grup Koordinasi Burjolevelup</h3>
                   <p>Koordinasi real-time antara admin dan seluruh karyawan FnB</p>
                 </div>
               </div>
-              <button onClick={handleAdminLogout} className={styles.adminLogoutBtn}>
-                <LogOut size={16} style={{ marginRight: '6px' }} />
-                <span>Keluar Admin</span>
-              </button>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button 
+                  onClick={() => {
+                    fetchAdminReservations();
+                    setShowReservationsModalAdmin(true);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    background: 'rgba(99, 102, 241, 0.15)',
+                    border: '1px solid rgba(99, 102, 241, 0.3)',
+                    color: '#818cf8',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    transition: 'all 0.2s'
+                  }}
+                  title="Daftar Reservasi"
+                >
+                  <CalendarIcon size={14} />
+                  <span className={styles.adminChatResBtnText}>Reservasi</span>
+                </button>
+                <button onClick={handleAdminLogout} className={styles.adminLogoutBtn}>
+                  <LogOut size={16} style={{ marginRight: '6px' }} />
+                  <span>Keluar Admin</span>
+                </button>
+              </div>
             </div>
 
             {/* Filter Bar */}
@@ -4066,45 +4294,6 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               </div>
             )}
 
-            {/* Timeframe Filter Row */}
-            <div className={styles.timeframeFilterRow}>
-              <span className={styles.timeframeLabel}>Waktu:</span>
-              <button
-                type="button"
-                className={`${styles.timeframeBtn} ${timeframeFilter === null ? styles.timeframeBtnActive : ''}`}
-                onClick={() => setTimeframeFilter(null)}
-              >
-                Semua
-              </button>
-              <button
-                type="button"
-                className={`${styles.timeframeBtn} ${timeframeFilter === 1 ? styles.timeframeBtnActive : ''}`}
-                onClick={() => setTimeframeFilter(1)}
-              >
-                1 Hari
-              </button>
-              <button
-                type="button"
-                className={`${styles.timeframeBtn} ${timeframeFilter === 3 ? styles.timeframeBtnActive : ''}`}
-                onClick={() => setTimeframeFilter(3)}
-              >
-                3 Hari
-              </button>
-              <button
-                type="button"
-                className={`${styles.timeframeBtn} ${timeframeFilter === 7 ? styles.timeframeBtnActive : ''}`}
-                onClick={() => setTimeframeFilter(7)}
-              >
-                7 Hari
-              </button>
-              <button
-                type="button"
-                className={`${styles.timeframeBtn} ${timeframeFilter === 30 ? styles.timeframeBtnActive : ''}`}
-                onClick={() => setTimeframeFilter(30)}
-              >
-                1 Bulan
-              </button>
-            </div>
 
             {/* Folder AI Summary Card */}
             {folderAiSummary && (

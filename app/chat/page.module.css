@@ -520,6 +520,13 @@
   box-shadow: none;
 }
 
+.mobileSubtitle {
+  display: none;
+}
+.desktopSubtitle {
+  display: inline;
+}
+
 @media (max-width: 768px) {
   .pageContainer {
     padding: 0;
@@ -537,6 +544,32 @@
   
   .inputForm {
     flex-wrap: nowrap;
+  }
+
+  .mobileSubtitle {
+    display: inline;
+  }
+  
+  .desktopSubtitle {
+    display: none;
+  }
+  
+  .userInfo {
+    display: none;
+  }
+  
+  .header {
+    padding: 12px 16px;
+  }
+  
+  .roomTitle {
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .btnText {
+    display: none;
   }
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2 } from 'lucide-react';
+import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2, Calendar as CalendarIcon, X } from 'lucide-react';
 import styles from './page.module.css';
 
 interface ChatMessage {
@@ -73,6 +73,12 @@ export default function EmployeeChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isVisible, setIsVisible] = useState(true);
+  const [isActive, setIsActive] = useState(true);
+  const [showReservationsModal, setShowReservationsModal] = useState(false);
+  const [reservationsList, setReservationsList] = useState<any[]>([]);
+  const [reservationsLoading, setReservationsLoading] = useState(false);
+  const [resListFilter, setResListFilter] = useState('upcoming');
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -89,16 +95,52 @@ export default function EmployeeChatPage() {
     }
   }, []);
 
+  // Monitor page visibility to pause polling when tab is inactive
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleVisibility = () => {
+      setIsVisible(document.visibilityState === 'visible');
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+
+  // Monitor user activity to pause polling after 3 minutes of inactivity
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let timeoutId: NodeJS.Timeout;
+    const resetTimer = () => {
+      setIsActive(true);
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setIsActive(false);
+      }, 180000); // 3 minutes
+    };
+    resetTimer();
+    const events = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'];
+    events.forEach(event => {
+      window.addEventListener(event, resetTimer);
+    });
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach(event => {
+        window.removeEventListener(event, resetTimer);
+      });
+    };
+  }, []);
+
   // Fetch messages and attributes
   useEffect(() => {
-    if (isNameSet) {
+    if (isNameSet && isVisible && isActive) {
       fetchMessages();
       fetchAttributes();
 
-      // Set up short-polling for real-time messages
+      // Set up short-polling for real-time messages (every 4 seconds to conserve database resource)
       pollingIntervalRef.current = setInterval(() => {
         fetchMessages(true); // silent fetch
-      }, 2000);
+      }, 4000);
 
       return () => {
         if (pollingIntervalRef.current) {
@@ -106,12 +148,33 @@ export default function EmployeeChatPage() {
         }
       };
     }
-  }, [isNameSet]);
+  }, [isNameSet, isVisible, isActive]);
 
   // Scroll to bottom when messages list changes
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const fetchReservationsForModal = async () => {
+    setReservationsLoading(true);
+    try {
+      const res = await fetch('/api/reservations');
+      if (res.ok) {
+        const data = await res.json();
+        setReservationsList(data);
+      }
+    } catch (err) {
+      console.error('Failed to load reservations:', err);
+    } finally {
+      setReservationsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showReservationsModal) {
+      fetchReservationsForModal();
+    }
+  }, [showReservationsModal]);
 
   const fetchMessages = async (isSilent = false) => {
     if (!isSilent) setIsLoading(true);
@@ -308,12 +371,38 @@ export default function EmployeeChatPage() {
           <div className={styles.headerLeft}>
             <div className={styles.activeIndicator} />
             <div>
-              <h2 className={styles.roomTitle}>F&B Urgent & Report Group</h2>
-              <p className={styles.roomSubtitle}>Saluran koordinasi real-time karyawan dan admin</p>
+              <h2 className={styles.roomTitle}>Grup Koordinasi Burjolevelup</h2>
+              <p className={styles.roomSubtitle}>
+                <span className={styles.desktopSubtitle}>Saluran koordinasi real-time karyawan dan admin</span>
+                <span className={styles.mobileSubtitle}>Halo, <strong>{name}</strong> (Karyawan)</span>
+              </p>
             </div>
           </div>
 
           <div className={styles.headerRight}>
+            <button 
+              onClick={() => setShowReservationsModal(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                background: 'rgba(99, 102, 241, 0.15)',
+                border: '1px solid rgba(99, 102, 241, 0.3)',
+                color: '#818cf8',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                transition: 'all 0.2s',
+                marginRight: '12px'
+              }}
+              title="Daftar Reservasi"
+              type="button"
+            >
+              <CalendarIcon size={14} />
+              <span className={styles.btnText}>Reservasi</span>
+            </button>
             <div className={styles.userInfo}>
               <User className={styles.userIcon} />
               <span className={styles.userName}>{name}</span>
@@ -539,6 +628,15 @@ export default function EmployeeChatPage() {
               className={styles.chatInput}
               disabled={isSubmitting}
               required
+              enterKeyHint="send"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (newMessageText.trim() && !isSubmitting) {
+                    e.currentTarget.form?.requestSubmit();
+                  }
+                }
+              }}
             />
 
             {/* Send Button */}
@@ -552,6 +650,251 @@ export default function EmployeeChatPage() {
           </form>
         </div>
       </div>
+
+      {showReservationsModal && (
+        <div 
+          onClick={() => setShowReservationsModal(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px'
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            style={{ 
+              maxWidth: '650px', 
+              width: '100%', 
+              maxHeight: '85vh', 
+              display: 'flex', 
+              flexDirection: 'column',
+              backgroundColor: 'rgba(10, 10, 22, 0.95)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '16px',
+              padding: '20px',
+              boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+              backdropFilter: 'blur(10px)',
+              color: '#f8fafc'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '12px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CalendarIcon size={20} style={{ color: '#6366f1' }} />
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600, color: '#fff' }}>Daftar Reservasi Pelanggan</h3>
+              </div>
+              <button 
+                onClick={() => setShowReservationsModal(false)}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Filter Pills */}
+            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '12px', marginBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+              {[
+                { id: 'upcoming', label: 'Mendatang' },
+                { id: 'all', label: 'Semua' },
+                { id: 'pending', label: 'Menunggu' },
+                { id: 'confirmed', label: 'Dikonfirmasi' },
+                { id: 'completed', label: 'Selesai' },
+                { id: 'cancelled', label: 'Dibatalkan' }
+              ].map((pill) => {
+                const isActive = resListFilter === pill.id;
+                return (
+                  <button
+                    key={pill.id}
+                    onClick={() => setResListFilter(pill.id)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '20px',
+                      fontSize: '0.8rem',
+                      fontWeight: 500,
+                      border: '1px solid',
+                      borderColor: isActive ? '#6366f1' : 'rgba(255, 255, 255, 0.1)',
+                      background: isActive ? '#6366f1' : 'rgba(255, 255, 255, 0.03)',
+                      color: isActive ? '#fff' : '#94a3b8',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {pill.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Content list */}
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: '200px', paddingRight: '4px' }}>
+              {reservationsLoading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', gap: '12px' }}>
+                  <div style={{ width: '32px', height: '32px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                  <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Memuat data reservasi...</span>
+                  <style dangerouslySetInnerHTML={{__html: `
+                    @keyframes spin { to { transform: rotate(360deg); } }
+                  `}} />
+                </div>
+              ) : (() => {
+                const filtered = reservationsList.filter(r => {
+                  if (resListFilter === 'upcoming') {
+                    return r.status === 'pending' || r.status === 'confirmed';
+                  }
+                  if (resListFilter !== 'all' && r.status !== resListFilter) {
+                    return false;
+                  }
+                  return true;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', gap: '8px', color: '#64748b' }}>
+                      <CalendarIcon size={32} style={{ opacity: 0.4 }} />
+                      <span style={{ fontSize: '0.85rem' }}>Tidak ada data reservasi ditemukan.</span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {filtered.map((res: any) => {
+                      const date = new Date(res.dateTime);
+                      const formattedDate = date.toLocaleDateString('id-ID', {
+                        weekday: 'short',
+                        day: 'numeric',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      });
+
+                      const statusColors: Record<string, string> = {
+                        pending: 'rgba(245, 158, 11, 0.15)',
+                        confirmed: 'rgba(16, 185, 129, 0.15)',
+                        completed: 'rgba(99, 102, 241, 0.15)',
+                        cancelled: 'rgba(239, 68, 68, 0.15)'
+                      };
+                      const statusBorderColors: Record<string, string> = {
+                        pending: 'rgba(245, 158, 11, 0.3)',
+                        confirmed: 'rgba(16, 185, 129, 0.3)',
+                        completed: 'rgba(99, 102, 241, 0.3)',
+                        cancelled: 'rgba(239, 68, 68, 0.3)'
+                      };
+                      const statusTextColors: Record<string, string> = {
+                        pending: '#f59e0b',
+                        confirmed: '#10b981',
+                        completed: '#6366f1',
+                        cancelled: '#ef4444'
+                      };
+                      const statusLabels: Record<string, string> = {
+                        pending: 'Menunggu',
+                        confirmed: 'Dikonfirmasi',
+                        completed: 'Selesai',
+                        cancelled: 'Dibatalkan'
+                      };
+
+                      return (
+                        <div 
+                          key={res.id} 
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            borderRadius: '10px',
+                            padding: '14px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div>
+                              <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#fff' }}>{res.name}</h4>
+                              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{formattedDate}</span>
+                            </div>
+                            <span 
+                              style={{
+                                fontSize: '0.7rem',
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                background: statusColors[res.status] || 'rgba(255, 255, 255, 0.1)',
+                                border: `1px solid ${statusBorderColors[res.status] || 'rgba(255, 255, 255, 0.2)'}`,
+                                color: statusTextColors[res.status] || '#94a3b8',
+                                fontWeight: 600
+                              }}
+                            >
+                              {statusLabels[res.status] || res.status}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', fontSize: '0.8rem', padding: '8px 0', borderTop: '1px solid rgba(255, 255, 255, 0.04)', borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                            <div>
+                              <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>Meja/Tempat:</span>
+                              <span style={{ fontWeight: 600, color: '#fff' }}>{res.tableInfo}</span>
+                            </div>
+                            <div>
+                              <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>Jumlah Orang:</span>
+                              <span style={{ fontWeight: 600, color: '#fff' }}>{res.partySize} orang</span>
+                            </div>
+                            <div>
+                              <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>DP Pembayaran:</span>
+                              <span style={{ fontWeight: 600, color: '#10b981' }}>Rp {res.dpAmount.toLocaleString('id-ID')}</span>
+                            </div>
+                          </div>
+
+                          {res.menuList && (
+                            <div style={{ fontSize: '0.8rem' }}>
+                              <span style={{ color: '#64748b', fontSize: '0.7rem', display: 'block' }}>Menu Pesanan:</span>
+                              <p style={{ margin: '2px 0 0 0', color: '#94a3b8', lineHeight: '1.4' }}>{res.menuList}</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+            <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '12px', marginTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button 
+                onClick={() => fetchReservationsForModal()}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '6px',
+                  fontSize: '0.85rem',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  color: '#94a3b8',
+                  cursor: 'pointer'
+                }}
+              >
+                Segarkan 🔄
+              </button>
+              <button 
+                onClick={() => setShowReservationsModal(false)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '6px',
+                  fontSize: '0.85rem',
+                  border: 'none',
+                  background: '#6366f1',
+                  color: '#fff',
+                  cursor: 'pointer'
+                }}
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
