@@ -122,7 +122,7 @@ export default function Home() {
         <div className="spinner" />
       </div>
     }>
-      <link rel="manifest" href="/manifest.json" />
+      <link rel="manifest" href="/manifest.json?v=2" />
       <HomeContentWrapper />
     </Suspense>
   );

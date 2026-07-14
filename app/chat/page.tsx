@@ -351,7 +351,7 @@ export default function EmployeeChatPage() {
   if (!isNameSet) {
     return (
       <div className={styles.authContainer}>
-        <link rel="manifest" href="/manifest-chat.json" />
+        <link rel="manifest" href="/manifest-chat.json?v=2" />
         <div className={`${styles.authCard} glass-panel`}>
           <div className={styles.authHeader}>
             <div className={styles.chatIconWrapper}>
@@ -395,7 +395,7 @@ export default function EmployeeChatPage() {
 
   return (
     <div className={styles.pageContainer}>
-      <link rel="manifest" href="/manifest-chat.json" />
+      <link rel="manifest" href="/manifest-chat.json?v=2" />
       <div className={`${styles.chatWrapper} glass-panel`}>
         {/* Header */}
         <div className={styles.header}>

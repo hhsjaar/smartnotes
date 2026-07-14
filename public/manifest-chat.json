@@ -3,6 +3,7 @@
   "short_name": "BurjoChat",
   "description": "Grup koordinasi internal & pelaporan urgent karyawan Burjolevelup.",
   "start_url": "/chat",
+  "scope": "/chat",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a0a16",
