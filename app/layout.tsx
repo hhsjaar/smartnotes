@@ -15,7 +15,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Catatan Pintar',
   description: 'Catatan suara cerdas yang diformat otomatis oleh AI (Gemini 3.5 Flash) dan disinkronkan di seluruh perangkat Anda menggunakan Neon PostgreSQL.',
-  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
