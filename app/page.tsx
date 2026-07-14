@@ -774,11 +774,11 @@ function DashboardContent() {
       const isAdminParam = urlParams.get('admin') === 'true';
       const auth = localStorage.getItem('admin_authorized') === 'true';
       
-      if (isAdminParam || auth) {
-        if (isAdminParam) {
-          localStorage.setItem('admin_authorized', 'true');
-        }
+      if (auth) {
         setIsAdminAuthorized(true);
+        setAuthChecking(false);
+      } else if (isAdminParam) {
+        setIsAdminAuthorized(false);
         setAuthChecking(false);
       } else {
         localStorage.removeItem('admin_authorized');
@@ -4610,7 +4610,9 @@ function HomeContentWrapper() {
   useEffect(() => {
     setMounted(true);
     const params = new URLSearchParams(window.location.search);
-    setIsAdminMode(params.get('admin') === 'true');
+    const isAdminParam = params.get('admin') === 'true';
+    const isAuthorized = localStorage.getItem('admin_authorized') === 'true';
+    setIsAdminMode(isAdminParam || isAuthorized);
   }, []);
 
   if (!mounted) {
@@ -4913,8 +4915,17 @@ function CustomerReservation() {
           </ul>
 
           <div className={styles.employeeNavBox}>
-            <p>Apakah Anda Karyawan?</p>
-            <a href="/chat" className={styles.employeeNavLink}>Buka Chat Room Karyawan &rarr;</a>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', justifyContent: 'center' }}>
+              <div>
+                <p style={{ margin: '0 0 4px 0' }}>Apakah Anda Karyawan?</p>
+                <a href="/chat" className={styles.employeeNavLink}>Buka Chat Room Karyawan &rarr;</a>
+              </div>
+              <div style={{ width: '60px', height: '1px', backgroundColor: 'var(--glass-border)' }} />
+              <div>
+                <p style={{ margin: '0 0 4px 0' }}>Apakah Anda Admin?</p>
+                <a href="/?admin=true" className={styles.employeeNavLink} style={{ color: '#a855f7' }}>Masuk Panel Admin &rarr;</a>
+              </div>
+            </div>
           </div>
         </div>
       </div>
