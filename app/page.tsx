@@ -3260,14 +3260,15 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               </div>
 
               <form onSubmit={handleSendAdminChatMessage} className={styles.adminChatInputForm}>
-                <input
-                  type="text"
+                <textarea
                   placeholder="Tulis balasan atau pengumuman dari Admin..."
                   value={newChatMessage}
                   onChange={(e) => setNewChatMessage(e.target.value)}
                   className={styles.adminChatTextInput}
                   disabled={chatSubmitting}
                   required
+                  rows={2}
+                  style={{ resize: 'none', fontFamily: 'inherit' }}
                 />
 
                 <button 

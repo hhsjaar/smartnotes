@@ -620,23 +620,15 @@ export default function EmployeeChatPage() {
 
           <form onSubmit={handleSendMessage} className={styles.inputForm}>
             {/* Chat Text Input */}
-            <input
-              type="text"
+            <textarea
               placeholder="Tulis laporan atau pesan penting..."
               value={newMessageText}
               onChange={(e) => setNewMessageText(e.target.value)}
               className={styles.chatInput}
               disabled={isSubmitting}
               required
-              enterKeyHint="send"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  if (newMessageText.trim() && !isSubmitting) {
-                    e.currentTarget.form?.requestSubmit();
-                  }
-                }
-              }}
+              rows={2}
+              style={{ resize: 'none', fontFamily: 'inherit' }}
             />
 
             {/* Send Button */}
