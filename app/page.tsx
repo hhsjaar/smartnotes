@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock, GitMerge, Lock, Tag, Users, LogOut, ArrowRight, Send, AlertCircle, Filter, Pencil } from 'lucide-react';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { NoteCard } from '@/components/NoteCard';
@@ -115,11 +116,32 @@ const getSortedFolderTree = (foldersList: Folder[]) => {
 };
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'notes' | 'news' | 'whatsapp' | 'calendar' | 'recorder' | 'reminders' | 'chat'>('notes');
+  return (
+    <Suspense fallback={
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100vw', height: '100vh', backgroundColor: 'var(--bg-primary)' }}>
+        <div className="spinner" />
+      </div>
+    }>
+      <HomeContentWrapper />
+    </Suspense>
+  );
+}
+
+function DashboardContent() {
+  const [activeTab, setActiveTab] = useState<'notes' | 'news' | 'whatsapp' | 'calendar' | 'recorder' | 'reminders' | 'chat' | 'reservations'>('notes');
   const [isAdminAuthorized, setIsAdminAuthorized] = useState<boolean>(true);
   const [authChecking, setAuthChecking] = useState<boolean>(true);
   const [passcodeInput, setPasscodeInput] = useState('');
   const [passcodeError, setPasscodeError] = useState('');
+
+  // Admin Reservation States
+  const [adminReservations, setAdminReservations] = useState<any[]>([]);
+  const [adminResLoading, setAdminResLoading] = useState(false);
+  const [adminResFilter, setAdminResFilter] = useState('all');
+  const [calMonth, setCalMonth] = useState(new Date().getMonth());
+  const [calYear, setCalYear] = useState(new Date().getFullYear());
+  const [adminSelectedDate, setAdminSelectedDate] = useState<string | null>(null);
+  const [isAdminCalOpenMobile, setIsAdminCalOpenMobile] = useState(false);
 
   const getChatAttributeColor = (attr: string | null) => {
     if (!attr) return '#64748b';
@@ -1948,6 +1970,27 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
     );
   };
 
+  const fetchAdminReservations = async () => {
+    setAdminResLoading(true);
+    try {
+      const res = await fetch('/api/reservations');
+      if (res.ok) {
+        const data = await res.json();
+        setAdminReservations(data);
+      }
+    } catch (err) {
+      console.error('Failed to load reservations:', err);
+    } finally {
+      setAdminResLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAdminAuthorized && activeTab === 'reservations') {
+      fetchAdminReservations();
+    }
+  }, [isAdminAuthorized, activeTab]);
+
   if (isMobile) {
     return (
       <div className={styles.mobileLayout}>
@@ -2550,10 +2593,15 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               />
             </div>
           )}
-
           {activeTab === 'chat' && (
             <div className={styles.mobileNewsContainer}>
               {renderAdminChatRoom()}
+            </div>
+          )}
+
+          {activeTab === 'reservations' && (
+            <div className={styles.mobileNewsContainer}>
+              {renderAdminReservations()}
             </div>
           )}
         </div>
@@ -2604,6 +2652,13 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           >
             <Users size={20} />
             <span>Obrolan</span>
+          </button>
+          <button
+            className={`${styles.bottomNavItem} ${activeTab === 'reservations' ? styles.activeBottomNavItem : ''}`}
+            onClick={() => setActiveTab('reservations')}
+          >
+            <CalendarIcon size={20} />
+            <span>Reservasi</span>
           </button>
 
         </nav>
@@ -3048,6 +3103,492 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
     );
   };
 
+
+
+  function renderAdminReservations() {
+    const getDaysInMonth = (month: number, year: number) => {
+      return new Date(year, month + 1, 0).getDate();
+    };
+
+    const getFirstDayOfMonth = (month: number, year: number) => {
+      let firstDay = new Date(year, month, 1).getDay();
+      return (firstDay + 6) % 7; // Monday = 0
+    };
+
+    const filtered = adminReservations.filter((r) => {
+      if (adminResFilter !== 'all' && r.status !== adminResFilter) return false;
+      if (adminSelectedDate) {
+        const bDate = new Date(r.dateTime);
+        const y = bDate.getFullYear();
+        const m = String(bDate.getMonth() + 1).padStart(2, '0');
+        const d = String(bDate.getDate()).padStart(2, '0');
+        const dateStr = `${y}-${m}-${d}`;
+        if (dateStr !== adminSelectedDate) return false;
+      }
+      return true;
+    });
+
+    const handleUpdateStatus = async (id: string, status: string) => {
+      try {
+        const res = await fetch('/api/reservations', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, status }),
+        });
+        if (res.ok) {
+          const updated = await res.json();
+          setAdminReservations((prev) => prev.map((r) => (r.id === id ? updated : r)));
+        } else {
+          alert('Gagal mengupdate status');
+        }
+      } catch (err) {
+        alert('Terjadi kesalahan');
+      }
+    };
+
+    const handleDeleteRes = async (id: string) => {
+      if (!confirm('Apakah Anda yakin ingin menghapus reservasi ini?')) return;
+      try {
+        const res = await fetch(`/api/reservations?id=${id}`, {
+          method: 'DELETE',
+        });
+        if (res.ok) {
+          setAdminReservations((prev) => prev.filter((r) => r.id !== id));
+        } else {
+          alert('Gagal menghapus reservasi');
+        }
+      } catch (err) {
+        alert('Terjadi kesalahan');
+      }
+    };
+
+    const renderMiniCalendar = () => {
+      const months = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      ];
+      const daysInMonth = getDaysInMonth(calMonth, calYear);
+      const firstDayIndex = getFirstDayOfMonth(calMonth, calYear);
+      
+      const days = [];
+      for (let i = 0; i < firstDayIndex; i++) {
+        days.push(<div key={`empty-${i}`} className={styles.calDayEmpty} />);
+      }
+      
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dayBookings = adminReservations.filter((r) => {
+          const bDate = new Date(r.dateTime);
+          const y = bDate.getFullYear();
+          const m = String(bDate.getMonth() + 1).padStart(2, '0');
+          const d = String(bDate.getDate()).padStart(2, '0');
+          return `${y}-${m}-${d}` === dateStr;
+        });
+
+        const isSelected = adminSelectedDate === dateStr;
+        const isToday = (() => {
+          const today = new Date();
+          return today.getDate() === day && today.getMonth() === calMonth && today.getFullYear() === calYear;
+        })();
+
+        days.push(
+          <button
+            key={`day-${day}`}
+            type="button"
+            className={`${styles.calDayBtn} ${isSelected ? styles.calDaySelected : ''} ${isToday ? styles.calDayToday : ''}`}
+            onClick={() => {
+              if (isSelected) {
+                setAdminSelectedDate(null);
+              } else {
+                setAdminSelectedDate(dateStr);
+              }
+            }}
+          >
+            <span className={styles.calDayNum}>{day}</span>
+            {dayBookings.length > 0 && (
+              <span 
+                className={`${styles.calDayDot} ${
+                  dayBookings.some(b => b.status === 'pending') ? styles.calDotPending : 
+                  dayBookings.some(b => b.status === 'confirmed') ? styles.calDotConfirmed : styles.calDotDone
+                }`}
+              >
+                {dayBookings.length}
+              </span>
+            )}
+          </button>
+        );
+      }
+
+      const prevMonth = () => {
+        if (calMonth === 0) {
+          setCalMonth(11);
+          setCalYear(prev => prev - 1);
+        } else {
+          setCalMonth(prev => prev - 1);
+        }
+      };
+
+      const nextMonth = () => {
+        if (calMonth === 11) {
+          setCalMonth(0);
+          setCalYear(prev => prev + 1);
+        } else {
+          setCalMonth(prev => prev + 1);
+        }
+      };
+
+      return (
+        <div className={`${styles.miniCalendarCard} glass-panel`}>
+          <div className={styles.calHeader}>
+            <button type="button" onClick={prevMonth} className={styles.calNavBtn}>&larr;</button>
+            <span className={styles.calMonthLabel}>{months[calMonth]} {calYear}</span>
+            <button type="button" onClick={nextMonth} className={styles.calNavBtn}>&rarr;</button>
+          </div>
+          <div className={styles.calWeekdays}>
+            {['Sn', 'Sl', 'Rb', 'Km', 'Jm', 'Sb', 'Mg'].map(w => (
+              <div key={w} className={styles.calWeekday}>{w}</div>
+            ))}
+          </div>
+          <div className={styles.calGrid}>
+            {days}
+          </div>
+          {adminSelectedDate && (
+            <button 
+              type="button" 
+              className={styles.clearCalFilterBtn}
+              onClick={() => setAdminSelectedDate(null)}
+            >
+              Tampilkan Semua Tanggal
+            </button>
+          )}
+        </div>
+      );
+    };
+
+    if (isMobile) {
+      return (
+        <div className={styles.adminResContainerMobile}>
+          <div className={styles.adminResHeaderMobile}>
+            <h3>Reservasi Pelanggan</h3>
+            <button type="button" onClick={fetchAdminReservations} className={styles.refreshBtnMobile}>
+              🔄 Segarkan
+            </button>
+          </div>
+          
+          <div className={styles.adminMobileFilterSection}>
+            <button 
+              type="button" 
+              className={`${styles.adminMobileCalBtn} ${adminSelectedDate ? styles.adminMobileCalBtnActive : ''}`}
+              onClick={() => setIsAdminCalOpenMobile(true)}
+            >
+              📅 {adminSelectedDate ? new Date(adminSelectedDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Semua Tanggal'}
+            </button>
+            
+            <div className={styles.adminMobileStatusRow}>
+              {['all', 'pending', 'confirmed', 'cancelled', 'completed'].map((statusOption) => (
+                <button
+                  key={statusOption}
+                  type="button"
+                  onClick={() => setAdminResFilter(statusOption)}
+                  className={`${styles.adminMobileStatusPill} ${adminResFilter === statusOption ? styles.adminMobileStatusPillActive : ''}`}
+                >
+                  {statusOption === 'all' ? 'Semua' :
+                   statusOption === 'pending' ? 'Menunggu' :
+                   statusOption === 'confirmed' ? 'Dikonfirmasi' :
+                   statusOption === 'cancelled' ? 'Dibatalkan' : 'Selesai'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {adminSelectedDate && (
+            <div className={styles.selectedDateInfoBannerMobile}>
+              <span>Tanggal: <strong>{new Date(adminSelectedDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</strong></span>
+              <button type="button" className={styles.bannerClearFilterBtnMobile} onClick={() => setAdminSelectedDate(null)}>
+                Hapus
+              </button>
+            </div>
+          )}
+
+          <div className={styles.resMobileCardList}>
+            {adminResLoading ? (
+              <div className={styles.resLoaderMobile}>
+                <div className="spinner" />
+                <p>Memuat reservasi...</p>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className={styles.resEmptyMobile}>
+                <p>Tidak ada reservasi ditemukan.</p>
+              </div>
+            ) : (
+              filtered.map((r) => {
+                const date = new Date(r.dateTime);
+                const formattedDate = date.toLocaleDateString('id-ID', {
+                  weekday: 'short',
+                  day: 'numeric',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                });
+                return (
+                  <div key={r.id} className={`${styles.resMobileCard} glass-panel`}>
+                    <div className={styles.resMobileCardHeader}>
+                      <div>
+                        <h4 className={styles.resMobileClientName}>{r.name}</h4>
+                        <span className={styles.resMobileDate}>{formattedDate}</span>
+                      </div>
+                      <span className={`${styles.statusBadge} ${styles['status_' + r.status]}`}>
+                        {r.status === 'pending' ? 'Menunggu' :
+                         r.status === 'confirmed' ? 'Dikonfirmasi' :
+                         r.status === 'cancelled' ? 'Dibatalkan' : 'Selesai'}
+                      </span>
+                    </div>
+                    
+                    <div className={styles.resMobileCardBody}>
+                      <div className={styles.resMobileMetaGrid}>
+                        <div>
+                          <span className={styles.resMobileLabel}>Meja:</span>
+                          <span className={styles.tableBadge}>{r.tableInfo}</span>
+                        </div>
+                        <div>
+                          <span className={styles.resMobileLabel}>Orang:</span>
+                          <span>{r.partySize} orang</span>
+                        </div>
+                        <div>
+                          <span className={styles.resMobileLabel}>DP:</span>
+                          <strong style={{ color: '#10b981' }}>Rp {r.dpAmount.toLocaleString('id-ID')}</strong>
+                        </div>
+                      </div>
+                      
+                      {r.menuList && (
+                        <div className={styles.resMobileMenuSection}>
+                          <span className={styles.resMobileLabel}>Menu:</span>
+                          <p className={styles.resMobileMenuText}>{r.menuList}</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className={styles.resMobileCardActions}>
+                      {r.status === 'pending' && (
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateStatus(r.id, 'confirmed')}
+                          className={`${styles.resMobileActionBtn} ${styles.resMobileConfirmBtn}`}
+                        >
+                          ✓ Konfirmasi
+                        </button>
+                      )}
+                      {r.status === 'confirmed' && (
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateStatus(r.id, 'completed')}
+                          className={`${styles.resMobileActionBtn} ${styles.resMobileConfirmBtn}`}
+                          style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+                        >
+                          ★ Selesai
+                        </button>
+                      )}
+                      {r.status !== 'cancelled' && r.status !== 'completed' && (
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateStatus(r.id, 'cancelled')}
+                          className={`${styles.resMobileActionBtn} ${styles.resMobileCancelBtn}`}
+                        >
+                          ✗ Batalkan
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRes(r.id)}
+                        className={`${styles.resMobileActionBtn} ${styles.resMobileDeleteBtn}`}
+                      >
+                        Hapus
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Bottom Sheet Calendar Modal for Admin Mobile */}
+          {isAdminCalOpenMobile && (
+            <div className={styles.mobileBottomSheetOverlay} onClick={() => setIsAdminCalOpenMobile(false)}>
+              <div className={styles.mobileBottomSheet} onClick={(e) => e.stopPropagation()}>
+                <div className={styles.mobileBottomSheetHeader}>
+                  <h3>Pilih Tanggal Reservasi</h3>
+                  <button className={styles.mobileBottomSheetClose} onClick={() => setIsAdminCalOpenMobile(false)}>
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className={styles.mobileBottomSheetBody}>
+                  {renderMiniCalendar()}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className={styles.adminResContainer}>
+        <div className={styles.adminResHeader}>
+          <h3>Manajemen Reservasi Meja Pelanggan</h3>
+          <p>Konfirmasi boking, pantau pembayaran DP, dan kelola meja reservasi customer menggunakan kalender filter</p>
+        </div>
+
+        <div className={styles.adminResLayoutGrid}>
+          {/* Calendar Panel */}
+          <div className={styles.adminResCalendarPanel}>
+            {renderMiniCalendar()}
+          </div>
+
+          {/* List Panel */}
+          <div className={styles.adminResListPanel}>
+            {/* Filter bar */}
+            <div className={styles.adminResFilterBar}>
+              {['all', 'pending', 'confirmed', 'cancelled', 'completed'].map((statusOption) => (
+                <button
+                  key={statusOption}
+                  type="button"
+                  onClick={() => setAdminResFilter(statusOption)}
+                  className={`${styles.filterTab} ${adminResFilter === statusOption ? styles.filterTabActive : ''}`}
+                >
+                  {statusOption === 'all' ? 'Semua' :
+                   statusOption === 'pending' ? 'Menunggu' :
+                   statusOption === 'confirmed' ? 'Dikonfirmasi' :
+                   statusOption === 'cancelled' ? 'Dibatalkan' : 'Selesai'}
+                </button>
+              ))}
+              <button type="button" onClick={fetchAdminReservations} className={styles.refreshBtn}>
+                🔄 Segarkan
+              </button>
+            </div>
+
+            {adminSelectedDate && (
+              <div className={styles.selectedDateInfoBanner}>
+                <span>Menampilkan reservasi tanggal: <strong>{
+                  new Date(adminSelectedDate).toLocaleDateString('id-ID', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  })
+                }</strong></span>
+                <button type="button" className={styles.bannerClearFilterBtn} onClick={() => setAdminSelectedDate(null)}>
+                  Tampilkan Semua
+                </button>
+              </div>
+            )}
+
+            {/* Table */}
+            <div className={styles.tableWrapper}>
+              {adminResLoading ? (
+                <div className={styles.resLoader}>
+                  <div className="spinner" />
+                  <p>Memuat daftar reservasi...</p>
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className={styles.resEmpty}>
+                  <CalendarIcon size={48} style={{ opacity: 0.5, color: 'var(--text-dark)' }} />
+                  <p>Tidak ada reservasi ditemukan.</p>
+                </div>
+              ) : (
+                <table className={styles.resTable}>
+                  <thead>
+                    <tr>
+                      <th>Nama Pelanggan</th>
+                      <th>Tanggal & Jam</th>
+                      <th>Meja / Tempat</th>
+                      <th>Orang</th>
+                      <th>DP (Down Payment)</th>
+                      <th>Daftar Menu</th>
+                      <th>Status</th>
+                      <th>Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((r) => {
+                      const date = new Date(r.dateTime);
+                      const formattedDate = date.toLocaleDateString('id-ID', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      });
+                      return (
+                        <tr key={r.id}>
+                          <td className={styles.resClientName}>{r.name}</td>
+                          <td>{formattedDate}</td>
+                          <td><span className={styles.tableBadge}>{r.tableInfo}</span></td>
+                          <td>{r.partySize} orang</td>
+                          <td>Rp {r.dpAmount.toLocaleString('id-ID')}</td>
+                          <td className={styles.resMenuListCell} title={r.menuList}>{r.menuList}</td>
+                          <td>
+                            <span className={`${styles.statusBadge} ${styles['status_' + r.status]}`}>
+                              {r.status === 'pending' ? 'Menunggu' :
+                               r.status === 'confirmed' ? 'Dikonfirmasi' :
+                               r.status === 'cancelled' ? 'Dibatalkan' : 'Selesai'}
+                            </span>
+                          </td>
+                          <td>
+                            <div className={styles.actionRow}>
+                              {r.status === 'pending' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateStatus(r.id, 'confirmed')}
+                                  className={`${styles.actionBtn} ${styles.actionBtnConfirm}`}
+                                  title="Konfirmasi"
+                                >
+                                  ✓
+                                </button>
+                              )}
+                              {r.status !== 'cancelled' && r.status !== 'completed' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateStatus(r.id, 'cancelled')}
+                                  className={`${styles.actionBtn} ${styles.actionBtnCancel}`}
+                                  title="Batalkan"
+                                >
+                                  ✗
+                                </button>
+                              )}
+                              {r.status === 'confirmed' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateStatus(r.id, 'completed')}
+                                  className={`${styles.actionBtn} ${styles.actionBtnDone}`}
+                                  title="Tandai Selesai"
+                                >
+                                  ★
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteRes(r.id)}
+                                className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
+                                title="Hapus"
+                              >
+                                Hapus
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (authChecking) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', width: '100vw', height: '100vh', backgroundColor: 'var(--bg-primary)', color: 'var(--text-muted)' }}>
@@ -3185,6 +3726,13 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           >
             <Users size={18} />
             Chat Room
+          </button>
+          <button
+            className={`${styles.navItem} ${activeTab === 'reservations' ? styles.activeNavItem : ''}`}
+            onClick={() => setActiveTab('reservations')}
+          >
+            <CalendarIcon size={18} />
+            Reservasi Meja
           </button>
 
         </nav>
@@ -3885,6 +4433,10 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
         <div className={styles.fullWidthNewsArea}>
           {renderAdminChatRoom()}
         </div>
+      ) : activeTab === 'reservations' ? (
+        <div className={styles.fullWidthNewsArea}>
+          {renderAdminReservations()}
+        </div>
       ) : (
         <div className={styles.fullWidthNewsArea}>
           <WhatsappChat
@@ -4043,6 +4595,382 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   <span className={styles.notificationFolderBadge}>📁 {n.folderName}</span>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HomeContentWrapper() {
+  const [mounted, setMounted] = useState(false);
+  const [isAdminMode, setIsAdminMode] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const params = new URLSearchParams(window.location.search);
+    setIsAdminMode(params.get('admin') === 'true');
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100vw', height: '100vh', backgroundColor: 'var(--bg-primary)' }}>
+        <div className="spinner" />
+      </div>
+    );
+  }
+
+  if (!isAdminMode) {
+    return <CustomerReservation />;
+  }
+
+  return <DashboardContent />;
+}
+
+function CustomerReservation() {
+  const [resName, setResName] = useState('');
+  const [resDateTime, setResDateTime] = useState('');
+  const [resTable, setResTable] = useState('');
+  const [resSize, setResSize] = useState(4);
+  const [resDp, setResDp] = useState('');
+  const [resMenu, setResMenu] = useState('');
+  const [resStatus, setResStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [resError, setResError] = useState('');
+  const [submittedRes, setSubmittedRes] = useState<any | null>(null);
+
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [agreeTerms, setAgreeTerms] = useState(false);
+
+  const handleSubmitReservation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResStatus('submitting');
+    setResError('');
+
+    try {
+      const res = await fetch('/api/reservations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: resName,
+          dateTime: resDateTime,
+          tableInfo: resTable,
+          partySize: resSize,
+          dpAmount: parseFloat(resDp.replace(/\./g, '')) || 0,
+          menuList: resMenu,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setResStatus('success');
+        setSubmittedRes(data);
+        setResName('');
+        setResDateTime('');
+        setResTable('');
+        setResSize(4);
+        setResDp('');
+        setResMenu('');
+      } else {
+        setResStatus('error');
+        setResError(data.error || 'Gagal mengirim reservasi.');
+      }
+    } catch (err) {
+      setResStatus('error');
+      setResError('Terjadi kesalahan jaringan.');
+    }
+  };
+
+  return (
+    <div className={styles.custContainer}>
+      <div className={styles.custAlertBanner} onClick={() => setShowTermsModal(true)}>
+        <AlertCircle size={15} className={styles.alertBannerIcon} />
+        <span><strong>PENTING:</strong> Wajib H-2 & DP min. 50% untuk pesanan menu. Klik untuk Syarat & Ketentuan lengkap.</span>
+        <ArrowRight size={14} className={styles.alertBannerArrow} />
+      </div>
+
+      <div className={styles.custHeader}>
+        <div className={styles.custBrand}>
+          <Sparkles size={24} className={styles.brandIcon} />
+          <h1>Reservasi Meja Restoran</h1>
+        </div>
+        <p>Nikmati santapan premium bersama keluarga dan rekan Anda. Isi form di bawah untuk melakukan boking meja.</p>
+      </div>
+
+      <div className={styles.custContentGrid}>
+        {/* Left Panel: Form */}
+        <div className={`${styles.custFormCard} glass-panel`}>
+          {resStatus === 'success' && submittedRes ? (
+            <div className={styles.successSummaryCard}>
+              <div className={styles.successIconWrapper}>✓</div>
+              <h3>Reservasi Berhasil Diajukan!</h3>
+              <p className={styles.successSubtitle}>Manajemen kami sedang meninjau reservasi Anda. Berikut ringkasan detail boking Anda:</p>
+              
+              <div className={styles.summaryDetails}>
+                <div className={styles.summaryItem}>
+                  <span className={styles.summaryLabel}>Atas Nama:</span>
+                  <span className={styles.summaryValue}>{submittedRes.name}</span>
+                </div>
+                <div className={styles.summaryItem}>
+                  <span className={styles.summaryLabel}>Jadwal Booking:</span>
+                  <span className={styles.summaryValue}>
+                    {new Date(submittedRes.dateTime).toLocaleDateString('id-ID', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+                <div className={styles.summaryItem}>
+                  <span className={styles.summaryLabel}>Tempat / Meja:</span>
+                  <span className={styles.summaryValue}>{submittedRes.tableInfo}</span>
+                </div>
+                <div className={styles.summaryItem}>
+                  <span className={styles.summaryLabel}>Jumlah Tamu:</span>
+                  <span className={styles.summaryValue}>{submittedRes.partySize} orang</span>
+                </div>
+                <div className={styles.summaryItem}>
+                  <span className={styles.summaryLabel}>Down Payment (DP):</span>
+                  <span className={styles.summaryValue}>Rp {submittedRes.dpAmount.toLocaleString('id-ID')}</span>
+                </div>
+                <div className={styles.summaryItem} style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <span className={styles.summaryLabel}>Menu Dipesan:</span>
+                  <span className={styles.summaryValue} style={{ whiteSpace: 'pre-wrap', marginTop: '4px', background: 'rgba(0,0,0,0.2)', padding: '8px', borderRadius: '4px', width: '100%' }}>{submittedRes.menuList}</span>
+                </div>
+              </div>
+
+              <div className={styles.successActions}>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setResStatus('idle');
+                    setSubmittedRes(null);
+                  }}
+                  className={styles.newResBtn}
+                >
+                  Buat Reservasi Baru
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmitReservation} className={styles.custForm}>
+              <h3>Formulir Boking Meja</h3>
+              
+              {resStatus === 'error' && (
+                <div className={styles.formErrorBanner}>
+                  <AlertCircle size={16} />
+                  <span>{resError}</span>
+                </div>
+              )}
+
+              <div className={styles.custInputGroup}>
+                <label htmlFor="res-name">Atas Nama Reservasi</label>
+                <input
+                  id="res-name"
+                  type="text"
+                  required
+                  placeholder="Nama lengkap Anda (cth: Andi)"
+                  value={resName}
+                  onChange={(e) => setResName(e.target.value)}
+                  disabled={resStatus === 'submitting'}
+                />
+              </div>
+
+              <div className={styles.custInputRow}>
+                <div className={styles.custInputGroup} style={{ flex: 1 }}>
+                  <label htmlFor="res-datetime">Tanggal & Waktu Booking</label>
+                  <input
+                    id="res-datetime"
+                    type="datetime-local"
+                    required
+                    value={resDateTime}
+                    onChange={(e) => setResDateTime(e.target.value)}
+                    disabled={resStatus === 'submitting'}
+                  />
+                </div>
+
+                <div className={styles.custInputGroup} style={{ width: '120px' }}>
+                  <label htmlFor="res-size">Jumlah Orang</label>
+                  <input
+                    id="res-size"
+                    type="number"
+                    min="4"
+                    required
+                    value={resSize}
+                    onChange={(e) => setResSize(parseInt(e.target.value) || 0)}
+                    disabled={resStatus === 'submitting'}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.custInputRow}>
+                <div className={styles.custInputGroup} style={{ flex: 1 }}>
+                  <label htmlFor="res-table">Tempat / Area Meja</label>
+                  <input
+                    id="res-table"
+                    type="text"
+                    required
+                    placeholder="Cth: Ruang VIP / Rooftop"
+                    value={resTable}
+                    onChange={(e) => setResTable(e.target.value)}
+                    disabled={resStatus === 'submitting'}
+                  />
+                </div>
+
+                <div className={styles.custInputGroup} style={{ flex: 1 }}>
+                  <label htmlFor="res-dp">Nominal DP (Rp)</label>
+                  <input
+                    id="res-dp"
+                    type="text"
+                    placeholder="Cth: 150.000"
+                    value={resDp}
+                    onChange={(e) => {
+                      const cleanValue = e.target.value.replace(/\D/g, '');
+                      if (!cleanValue) {
+                        setResDp('');
+                      } else {
+                        setResDp(parseInt(cleanValue).toLocaleString('id-ID'));
+                      }
+                    }}
+                    disabled={resStatus === 'submitting'}
+                  />
+                  <small style={{ color: 'var(--text-dark)', fontSize: '0.7rem' }}>Min. 50% jika menyertakan list menu</small>
+                </div>
+              </div>
+
+              <div className={styles.custInputGroup}>
+                <label htmlFor="res-menu">Daftar Menu Makanan & Minuman</label>
+                <textarea
+                  id="res-menu"
+                  required
+                  rows={4}
+                  placeholder="Sebutkan menu yang ingin dipesan (cth: 3x Nasi Goreng, 2x Es Teh, 2x Ayam Bakar)"
+                  value={resMenu}
+                  onChange={(e) => setResMenu(e.target.value)}
+                  disabled={resStatus === 'submitting'}
+                />
+              </div>
+
+              <div className={styles.custCheckboxGroup}>
+                <input
+                  id="res-agree"
+                  type="checkbox"
+                  checked={agreeTerms}
+                  onChange={(e) => setAgreeTerms(e.target.checked)}
+                  required
+                />
+                <label htmlFor="res-agree">
+                  Saya menyetujui <span className={styles.termsLink} onClick={(e) => { e.preventDefault(); setShowTermsModal(true); }}>Syarat & Ketentuan</span> Reservasi
+                </label>
+              </div>
+
+              <button 
+                type="submit" 
+                className={styles.custSubmitBtn}
+                disabled={resStatus === 'submitting' || !agreeTerms}
+              >
+                {resStatus === 'submitting' ? 'Sedang Mengirim...' : 'Kirim Reservasi'}
+              </button>
+            </form>
+          )}
+        </div>
+
+        {/* Right Panel: Terms and Conditions */}
+        <div className={`${styles.custTermsCard} glass-panel`}>
+          <h3>Syarat & Ketentuan Reservasi</h3>
+          <ul className={styles.termsList}>
+            <li>
+              <span className={styles.termNumber}>1</span>
+              <p>Sarat Reservasi minimal H - 2 hal ini agar ada upaya dari kami untuk mempersiapkanya.</p>
+            </li>
+            <li>
+              <span className={styles.termNumber}>2</span>
+              <p>Reserv minimal 4 orang apabila sudah disertakan menyerahkan List menu maka wajib DP minimal 50℅ dari total pembelian apabila H- 2 blum DP maka diputuskan sepihak dari manajemen bahwa reservasi dianggap batal.</p>
+            </li>
+            <li>
+              <span className={styles.termNumber}>3</span>
+              <p>H - 2 wajib confirm ulang untuk mengingatkan kami, mengingat kami bnyk mengakomodir customer dikawatirkan ada yg miscom, apabila hal ini tdk dilakukan maka apabila ada human error kami tdk bisa bertanggung jawab penuh atas dampak kesalahan yg terjadi.</p>
+            </li>
+            <li>
+              <span className={styles.termNumber}>4</span>
+              <p>DP akan hilang apabila reserv dibatalkan oleh pihak customer.</p>
+            </li>
+            <li>
+              <span className={styles.termNumber}>5</span>
+              <p>Untuk keterlambatan maximal 15 menit.</p>
+            </li>
+            <li>
+              <span className={styles.termNumber}>6</span>
+              <p>Untuk ruang VIP ada charge ruangan per 2 jam nya Rp. 25rb dan tdk diperkenankan merokok di dalam ruangan jg tdk diperkenankan menggunakan alas kaki.</p>
+            </li>
+            <li>
+              <span className={styles.termNumber}>7</span>
+              <p>Untuk kesepakatan terkait tempat sudah di bicarakan terhadap kedua belah pihak.</p>
+            </li>
+          </ul>
+
+          <div className={styles.employeeNavBox}>
+            <p>Apakah Anda Karyawan?</p>
+            <a href="/chat" className={styles.employeeNavLink}>Buka Chat Room Karyawan &rarr;</a>
+          </div>
+        </div>
+      </div>
+
+      {showTermsModal && (
+        <div className={styles.termsModalOverlay} onClick={() => setShowTermsModal(false)}>
+          <div className={`${styles.termsModalContent} glass-panel`} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.termsModalHeader}>
+              <h3>Syarat & Ketentuan Reservasi</h3>
+              <button type="button" className={styles.termsModalClose} onClick={() => setShowTermsModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className={styles.termsModalBody}>
+              <ul className={styles.termsList}>
+                <li>
+                  <span className={styles.termNumber}>1</span>
+                  <p>Sarat Reservasi minimal H - 2 hal ini agar ada upaya dari kami untuk mempersiapkanya.</p>
+                </li>
+                <li>
+                  <span className={styles.termNumber}>2</span>
+                  <p>Reserv minimal 4 orang apabila sudah disertakan menyerahkan List menu maka wajib DP minimal 50℅ dari total pembelian apabila H- 2 blum DP maka diputuskan sepihak dari manajemen bahwa reservasi dianggap batal.</p>
+                </li>
+                <li>
+                  <span className={styles.termNumber}>3</span>
+                  <p>H - 2 wajib confirm ulang untuk mengingatkan kami, mengingat kami bnyk mengakomodir customer dikawatirkan ada yg miscom, apabila hal ini tdk dilakukan maka apabila ada human error kami tdk bisa bertanggung jawab penuh atas dampak kesalahan yg terjadi.</p>
+                </li>
+                <li>
+                  <span className={styles.termNumber}>4</span>
+                  <p>DP akan hilang apabila reserv dibatalkan oleh pihak customer.</p>
+                </li>
+                <li>
+                  <span className={styles.termNumber}>5</span>
+                  <p>Untuk keterlambatan maximal 15 menit.</p>
+                </li>
+                <li>
+                  <span className={styles.termNumber}>6</span>
+                  <p>Untuk ruang VIP ada charge ruangan per 2 jam nya Rp. 25rb dan tdk diperkenankan merokok di dalam ruangan jg tdk diperkenankan menggunakan alas kaki.</p>
+                </li>
+                <li>
+                  <span className={styles.termNumber}>7</span>
+                  <p>Untuk kesepakatan terkait tempat sudah di bicarakan terhadap kedua belah pihak.</p>
+                </li>
+              </ul>
+            </div>
+            <div className={styles.termsModalFooter}>
+              <button 
+                type="button"
+                className={styles.termsModalAgreeBtn} 
+                onClick={() => {
+                  setAgreeTerms(true);
+                  setShowTermsModal(false);
+                }}
+              >
+                Saya Mengerti & Setuju
+              </button>
             </div>
           </div>
         </div>

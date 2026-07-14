@@ -93,4 +93,18 @@ model ChatAttribute {
   @@map("chat_attributes")
 }
 
+model Reservation {
+  id        String   @id @default(uuid())
+  name      String   // Atas nama Reservasi
+  dateTime  DateTime // Tanggal & Jam Boking
+  tableInfo String   // Tempat / Meja
+  partySize Int      // Jumlah orang
+  dpAmount  Float    @default(0) // DP
+  menuList  String   // Menu
+  status    String   @default("pending") // pending, confirmed, cancelled, completed
+  createdAt DateTime @default(now())
+
+  @@map("reservations")
+}
+
 
