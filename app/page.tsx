@@ -128,6 +128,17 @@ export default function Home() {
   );
 }
 
+function formatBoldText(text: string) {
+  if (!text) return '';
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+}
+
 function DashboardContent() {
   const [activeTab, setActiveTab] = useState<'notes' | 'news' | 'whatsapp' | 'calendar' | 'recorder' | 'reminders' | 'chat' | 'reservations'>('notes');
   const [isAdminAuthorized, setIsAdminAuthorized] = useState<boolean>(true);
@@ -174,6 +185,7 @@ function DashboardContent() {
   const [newAttributeInput, setNewAttributeInput] = useState('');
   const chatMessagesEndRef = useRef<HTMLDivElement | null>(null);
   const chatPollingRef = useRef<NodeJS.Timeout | null>(null);
+  const adminChatInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Manage Attribute options / chatbot state
   const [editingAttributeForOptions, setEditingAttributeForOptions] = useState<any | null>(null);
@@ -183,6 +195,26 @@ function DashboardContent() {
   const [newOptionDuration, setNewOptionDuration] = useState('1 hari');
   const [managedChatbotEnabled, setManagedChatbotEnabled] = useState(false);
   const [showMobileAttributesModal, setShowMobileAttributesModal] = useState(false);
+
+  // Attribute Calendar State
+  const [showAttributeCalendarModal, setShowAttributeCalendarModal] = useState(false);
+  const [attributeHistory, setAttributeHistory] = useState<any[]>([]);
+  const [selectedAttrCalDate, setSelectedAttrCalDate] = useState<string | null>(null);
+  const [attrCalMonth, setAttrCalMonth] = useState(new Date().getMonth());
+  const [attrCalYear, setAttrCalYear] = useState(new Date().getFullYear());
+
+  const fetchAttributeHistory = async () => {
+    try {
+      const res = await fetch('/api/chat/attributes/history');
+      if (res.ok) {
+        const data = await res.json();
+        setAttributeHistory(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch attribute history:', err);
+    }
+  };
+
 
   const [notes, setNotes] = useState<Note[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -516,6 +548,8 @@ function DashboardContent() {
         setChatAttributes(data);
         const hasUmum = data.some((a: any) => a.name === 'Umum');
         setSelectedChatAttribute(hasUmum ? 'Umum' : (data[0]?.name || ''));
+        // Load history logs as well
+        fetchAttributeHistory();
       }
     } catch (err) {
       console.error('Failed to load chat attributes:', err);
@@ -867,8 +901,14 @@ function DashboardContent() {
       loadChatMessages();
       loadChatAttributes();
 
+      let attrTick = 0;
       chatPollingRef.current = setInterval(() => {
         loadChatMessages(true);
+        attrTick += 2000;
+        if (attrTick >= 10000) {
+          loadChatAttributes();
+          attrTick = 0;
+        }
       }, 2000);
 
       return () => {
@@ -3128,6 +3168,30 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   <Tag size={14} />
                   <span className={styles.adminChatAttrBtnText}>Kelola Atribut</span>
                 </button>
+                <button 
+                  onClick={() => {
+                    fetchAttributeHistory();
+                    setShowAttributeCalendarModal(true);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    color: '#34d399',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    transition: 'all 0.2s'
+                  }}
+                  title="Kalender Atribut"
+                >
+                  <CalendarIcon size={14} />
+                  <span className={styles.adminChatAttrCalBtnText}>Kalender Atribut</span>
+                </button>
                 <button onClick={handleAdminLogout} className={styles.adminLogoutBtn}>
                   <LogOut size={16} style={{ marginRight: '6px' }} />
                   <span>Keluar Admin</span>
@@ -3271,7 +3335,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                               </span>
                             )}
 
-                            <p className={styles.chatMessageText}>{msg.message}</p>
+                            <p className={styles.chatMessageText}>{formatBoldText(msg.message)}</p>
                             <span className={styles.chatTimeText}>{timeStr}</span>
                           </div>
                         </div>
@@ -3322,8 +3386,114 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 })}
               </div>
 
+              {/* Quick Options for Admin (Pesan Cepat / Pilihan Ganda) */}
+              {(() => {
+                const currentAttr = chatAttributes.find(a => a.name === selectedChatAttribute);
+                const allOptions = Array.isArray(currentAttr?.options) ? (currentAttr.options as any[]) : [];
+                if (allOptions.length === 0) return null;
+
+                const simpleOptions = allOptions.filter(o => !o.hasTimeframe);
+                const taskOptions = allOptions.filter(o => o.hasTimeframe);
+
+                return (
+                  <div 
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px',
+                      padding: '8px 12px',
+                      background: 'rgba(15, 23, 42, 0.4)',
+                      borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                      borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                      marginBottom: '8px'
+                    }}
+                  >
+                    {/* Simple Quick Replies */}
+                    {simpleOptions.length > 0 && (
+                      <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px', scrollbarWidth: 'none' }}>
+                        {simpleOptions.map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => {
+                              setNewChatMessage(opt.text);
+                              adminChatInputRef.current?.focus();
+                            }}
+                            style={{
+                              padding: '5px 10px',
+                              borderRadius: '16px',
+                              fontSize: '0.75rem',
+                              fontWeight: 500,
+                              border: '1px solid rgba(255,255,255,0.06)',
+                              background: 'rgba(255, 255, 255, 0.03)',
+                              color: '#cbd5e1',
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            {opt.text}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Task / Timeframe Options */}
+                    {taskOptions.length > 0 && (
+                      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
+                        {taskOptions.map((task) => {
+                          const isTaken = task.status === 'taken';
+                          let expiryStr = '';
+                          if (task.expiryDate) {
+                            const expDate = new Date(task.expiryDate);
+                            expiryStr = expDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' ' + expDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+                          }
+
+                          return (
+                            <div
+                              key={task.id}
+                              style={{
+                                background: isTaken ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                                border: isTaken ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(255, 255, 255, 0.06)',
+                                borderRadius: '8px',
+                                padding: '6px 10px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                whiteSpace: 'nowrap',
+                                flexShrink: 0
+                              }}
+                            >
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                <span style={{ fontWeight: 600, fontSize: '0.78rem', color: '#fff' }}>{task.text}</span>
+                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                                  {isTaken ? `Diambil: ${task.assignedTo} (${expiryStr})` : `Durasi: ${task.duration}`}
+                                </span>
+                              </div>
+                              <span 
+                                style={{
+                                  fontSize: '0.65rem',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  fontWeight: 600,
+                                  background: isTaken ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                                  color: isTaken ? '#34d399' : 'var(--text-muted)'
+                                }}
+                              >
+                                {isTaken ? 'Berjalan' : 'Ready'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               <form onSubmit={handleSendAdminChatMessage} className={styles.adminChatInputForm}>
                 <textarea
+                  ref={adminChatInputRef}
                   placeholder="Tulis balasan atau pengumuman dari Admin..."
                   value={newChatMessage}
                   onChange={(e) => setNewChatMessage(e.target.value)}
@@ -3592,6 +3762,27 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                         type="button"
                         onClick={() => {
                           if (newOptionInput.trim()) {
+                            const now = new Date();
+                            let expiry = null;
+                            if (newOptionHasTimeframe) {
+                              const expiryDate = new Date(now);
+                              const dur = (newOptionDuration || '1 hari').toLowerCase();
+                              if (dur.includes('1 hari')) {
+                                expiryDate.setDate(expiryDate.getDate() + 1);
+                              } else if (dur.includes('3 hari')) {
+                                expiryDate.setDate(expiryDate.getDate() + 3);
+                              } else if (dur.includes('7 hari')) {
+                                expiryDate.setDate(expiryDate.getDate() + 7);
+                              } else if (dur.includes('2 minggu')) {
+                                expiryDate.setDate(expiryDate.getDate() + 14);
+                              } else if (dur.includes('1 bulan')) {
+                                expiryDate.setMonth(expiryDate.getMonth() + 1);
+                              } else {
+                                expiryDate.setDate(expiryDate.getDate() + 1);
+                              }
+                              expiry = expiryDate.toISOString();
+                            }
+
                             const newOptObj = {
                               id: 'opt_' + Math.random().toString(36).substr(2, 9),
                               text: newOptionInput.trim(),
@@ -3599,8 +3790,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                               duration: newOptionHasTimeframe ? newOptionDuration : null,
                               status: 'ready',
                               assignedTo: null,
-                              startDate: null,
-                              expiryDate: null
+                              startDate: newOptionHasTimeframe ? now.toISOString() : null,
+                              expiryDate: expiry
                             };
                             setManagedOptions(prev => [...prev, newOptObj]);
                             setNewOptionInput('');
@@ -3808,6 +3999,258 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               </div>
             </div>
           )}
+
+          {/* Attribute Calendar Modal */}
+          {renderAttributeCalendarModal()}
+        </div>
+      </div>
+    );
+  };
+
+  // Helper to render Attribute Calendar Modal
+  function renderAttributeCalendarModal() {
+    if (!showAttributeCalendarModal) return null;
+
+    const months = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+
+    const getDaysInMonth = (month: number, year: number) => {
+      return new Date(year, month + 1, 0).getDate();
+    };
+
+    const getFirstDayOfMonth = (month: number, year: number) => {
+      let firstDay = new Date(year, month, 1).getDay();
+      return (firstDay + 6) % 7; // Monday = 0
+    };
+
+    const daysInMonth = getDaysInMonth(attrCalMonth, attrCalYear);
+    const firstDayIndex = getFirstDayOfMonth(attrCalMonth, attrCalYear);
+
+    const days = [];
+    for (let i = 0; i < firstDayIndex; i++) {
+      days.push(<div key={`attr-empty-${i}`} className={styles.attrCalDayEmpty} />);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${attrCalYear}-${String(attrCalMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      
+      const dayLogs = attributeHistory.filter((log) => {
+        const logDate = new Date(log.recordedAt);
+        const y = logDate.getFullYear();
+        const m = String(logDate.getMonth() + 1).padStart(2, '0');
+        const d = String(logDate.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}` === dateStr;
+      });
+
+      const isSelected = selectedAttrCalDate === dateStr;
+      const isToday = (() => {
+        const today = new Date();
+        return today.getDate() === day && today.getMonth() === attrCalMonth && today.getFullYear() === attrCalYear;
+      })();
+
+      const checkInCount = dayLogs.filter(log => log.status === 'check-in').length;
+      const checkOutCount = dayLogs.filter(log => log.status === 'check-out' || log.status === 'taken').length;
+      const expiredCount = dayLogs.filter(log => log.status === 'expired').length;
+
+      days.push(
+        <button
+          key={`attr-day-${day}`}
+          type="button"
+          className={`${styles.attrCalDayBtn} ${isSelected ? styles.attrCalDaySelected : ''} ${isToday ? styles.attrCalDayToday : ''} ${dayLogs.length > 0 ? styles.attrCalDayHasLogs : ''}`}
+          onClick={() => {
+            if (isSelected) {
+              setSelectedAttrCalDate(null);
+            } else {
+              setSelectedAttrCalDate(dateStr);
+            }
+          }}
+        >
+          <span className={styles.attrCalDayNum}>{day}</span>
+          <div className={styles.attrCalDayBadges}>
+            {checkInCount > 0 && (
+              <span className={styles.attrCalBadgeCheckIn} title={`${checkInCount} Tugas Diambil (Check In)`}>
+                {checkInCount}
+              </span>
+            )}
+            {checkOutCount > 0 && (
+              <span className={styles.attrCalBadgeTaken} title={`${checkOutCount} Tugas Selesai (Check Out)`}>
+                {checkOutCount}
+              </span>
+            )}
+            {expiredCount > 0 && (
+              <span className={styles.attrCalBadgeExpired} title={`${expiredCount} Tugas Hangus`}>
+                {expiredCount}
+              </span>
+            )}
+          </div>
+        </button>
+      );
+    }
+
+    const prevMonth = () => {
+      if (attrCalMonth === 0) {
+        setAttrCalMonth(11);
+        setAttrCalYear(prev => prev - 1);
+      } else {
+        setAttrCalMonth(prev => prev - 1);
+      }
+    };
+
+    const nextMonth = () => {
+      if (attrCalMonth === 11) {
+        setAttrCalMonth(0);
+        setAttrCalYear(prev => prev + 1);
+      } else {
+        setAttrCalMonth(prev => prev + 1);
+      }
+    };
+
+    const selectedLogs = selectedAttrCalDate
+      ? attributeHistory.filter((log) => {
+          const logDate = new Date(log.recordedAt);
+          const y = logDate.getFullYear();
+          const m = String(logDate.getMonth() + 1).padStart(2, '0');
+          const d = String(logDate.getDate()).padStart(2, '0');
+          return `${y}-${m}-${d}` === selectedAttrCalDate;
+        })
+      : [];
+
+    return (
+      <div 
+        onClick={() => setShowAttributeCalendarModal(false)}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '16px'
+        }}
+      >
+        <div 
+          onClick={(e) => e.stopPropagation()} 
+          style={{ 
+            maxWidth: '650px', 
+            width: '100%', 
+            backgroundColor: 'rgba(10, 10, 22, 0.96)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '16px',
+            padding: '24px',
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(10px)',
+            color: '#f8fafc',
+            position: 'relative',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
+          <button 
+            onClick={() => setShowAttributeCalendarModal(false)}
+            style={{
+              position: 'absolute',
+              top: '16px',
+              right: '16px',
+              background: 'transparent',
+              border: 'none',
+              color: '#94a3b8',
+              cursor: 'pointer',
+              zIndex: 10
+            }}
+          >
+            <X size={20} />
+          </button>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '8px' }}>
+            <CalendarIcon size={18} style={{ color: '#34d399' }} />
+            <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: '#fff' }}>Kalender Monitoring Atribut</h3>
+          </div>
+
+          <div style={{ display: 'flex', gap: '20px', flexDirection: 'column', overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
+            
+            {/* Calendar Widget */}
+            <div className={styles.attrCalendarWidget}>
+              <div className={styles.attrCalHeader}>
+                <button type="button" onClick={prevMonth} className={styles.attrCalNavBtn}>&larr;</button>
+                <span className={styles.attrCalMonthLabel}>{months[attrCalMonth]} {attrCalYear}</span>
+                <button type="button" onClick={nextMonth} className={styles.attrCalNavBtn}>&rarr;</button>
+              </div>
+              <div className={styles.attrCalWeekdays}>
+                {['Sn', 'Sl', 'Rb', 'Km', 'Jm', 'Sb', 'Mg'].map(w => (
+                  <div key={w} className={styles.attrCalWeekday}>{w}</div>
+                ))}
+              </div>
+              <div className={styles.attrCalGrid}>
+                {days}
+              </div>
+            </div>
+
+            {/* Selected Date Details */}
+            <div className={styles.attrCalDetailsContainer}>
+              <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', color: '#fff', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '6px' }}>
+                {selectedAttrCalDate ? `Detail Aktivitas: ${new Date(selectedAttrCalDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}` : 'Pilih tanggal di atas untuk melihat detail'}
+              </h4>
+
+              {selectedAttrCalDate ? (
+                selectedLogs.length === 0 ? (
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '10px 0' }}>Tidak ada riwayat aktivitas atribut pada tanggal ini.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto', paddingRight: '4px' }}>
+                    {selectedLogs.map((log: any) => {
+                      const logTime = new Date(log.recordedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                      const sDate = new Date(log.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+                      const eDate = new Date(log.expiryDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+                      
+                      let statusText = 'Hangus/Tidak Diambil';
+                      let statusClass = styles.attrCalLogStatusExpired;
+                      if (log.status === 'check-in') {
+                        statusText = 'Ambil (Check In)';
+                        statusClass = styles.attrCalLogStatusCheckIn;
+                      } else if (log.status === 'check-out' || log.status === 'taken') {
+                        statusText = 'Selesai (Check Out)';
+                        statusClass = styles.attrCalLogStatusTaken;
+                      }
+
+                      return (
+                        <div key={log.id} className={styles.attrCalLogItem}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                            <span className={styles.attrCalLogTime}>{logTime} WIB</span>
+                            <span className={statusClass}>
+                              {statusText}
+                            </span>
+                          </div>
+                          <div className={styles.attrCalLogText}>
+                            <strong>[{log.attributeName}]</strong> {log.optionText}
+                          </div>
+                          {(log.status === 'check-in' || log.status === 'check-out' || log.status === 'taken') && (
+                            <div className={styles.attrCalLogUser}>
+                              Oleh: <strong>{log.assignedTo || '-'}</strong>
+                            </div>
+                          )}
+                          <div className={styles.attrCalLogPeriod}>
+                            Periode: {sDate} s/d {eDate}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                  <span>Silakan klik salah satu tanggal untuk melihat log monitoring.</span>
+                </div>
+              )}
+            </div>
+
+          </div>
         </div>
       </div>
     );

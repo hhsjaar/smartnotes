@@ -109,6 +109,17 @@ model Reservation {
   @@map("reservations")
 }
 
+model ChatAttributeHistory {
+  id             String   @id @default(uuid())
+  attributeId    String
+  attributeName  String
+  optionId       String
+  optionText     String
+  status         String   // "taken" or "expired"
+  assignedTo     String?  // Who took it
+  startDate      DateTime
+  expiryDate     DateTime
+  recordedAt     DateTime @default(now())
 
-
-
+  @@map("chat_attribute_histories")
+}

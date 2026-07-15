@@ -20,6 +20,17 @@ interface ChatAttribute {
   chatbotEnabled?: boolean;
 }
 
+function formatBoldText(text: string) {
+  if (!text) return '';
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+}
+
 export default function EmployeeChatPage() {
   const [name, setName] = useState('');
   const [isNameSet, setIsNameSet] = useState(false);
@@ -86,6 +97,7 @@ export default function EmployeeChatPage() {
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   // PWA Install Event Handler
   useEffect(() => {
@@ -266,7 +278,7 @@ export default function EmployeeChatPage() {
         body: JSON.stringify({
           senderName: name,
           senderRole: 'employee',
-          message: `Saya mengambil tugas progres: "${optionText}"`,
+          message: `Saya melakukan check-in / mengambil tugas progres: "${optionText}"`,
           attribute: selectedAttribute,
         }),
       });
@@ -298,7 +310,7 @@ export default function EmployeeChatPage() {
         body: JSON.stringify({
           senderName: name,
           senderRole: 'employee',
-          message: `Saya menyelesaikan tugas progres: "${optionText}" (Tugas di-reset kembali)`,
+          message: `Saya melakukan check-out / menyelesaikan tugas progres: "${optionText}" (Tugas di-reset kembali)`,
           attribute: selectedAttribute,
         }),
       });
@@ -651,7 +663,7 @@ export default function EmployeeChatPage() {
                         )}
 
                         {/* Content */}
-                        <p className={styles.messageText}>{msg.message}</p>
+                        <p className={styles.messageText}>{formatBoldText(msg.message)}</p>
                         
                         {/* Time */}
                         <span className={styles.timeText}>{timeStr}</span>
@@ -741,7 +753,10 @@ export default function EmployeeChatPage() {
                       <button
                         key={opt.id}
                         type="button"
-                        onClick={() => setNewMessageText(opt.text)}
+                        onClick={() => {
+                          setNewMessageText(opt.text);
+                          chatInputRef.current?.focus();
+                        }}
                         style={{
                           padding: '5px 10px',
                           borderRadius: '16px',
@@ -829,7 +844,7 @@ export default function EmployeeChatPage() {
                                   cursor: 'pointer'
                                 }}
                               >
-                                Akhiri
+                                Selesai
                               </button>
                             )
                           )}
@@ -845,6 +860,7 @@ export default function EmployeeChatPage() {
           <form onSubmit={handleSendMessage} className={styles.inputForm}>
             {/* Chat Text Input */}
             <textarea
+              ref={chatInputRef}
               placeholder="Tulis laporan atau pesan penting..."
               value={newMessageText}
               onChange={(e) => setNewMessageText(e.target.value)}

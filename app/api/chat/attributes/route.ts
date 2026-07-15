@@ -1,6 +1,27 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// Helper function to calculate expiry date based on start date and duration text
+function calculateExpiryDate(startDate: Date, duration: string): Date {
+  const expiryDate = new Date(startDate);
+  const dur = (duration || '1 hari').toLowerCase();
+
+  if (dur.includes('1 hari')) {
+    expiryDate.setDate(expiryDate.getDate() + 1);
+  } else if (dur.includes('3 hari')) {
+    expiryDate.setDate(expiryDate.getDate() + 3);
+  } else if (dur.includes('7 hari')) {
+    expiryDate.setDate(expiryDate.getDate() + 7);
+  } else if (dur.includes('2 minggu')) {
+    expiryDate.setDate(expiryDate.getDate() + 14);
+  } else if (dur.includes('1 bulan')) {
+    expiryDate.setMonth(expiryDate.getMonth() + 1);
+  } else {
+    expiryDate.setDate(expiryDate.getDate() + 1);
+  }
+  return expiryDate;
+}
+
 export async function GET() {
   try {
     let attributes = await prisma.chatAttribute.findMany({
@@ -17,6 +38,86 @@ export async function GET() {
         skipDuplicates: true,
       });
       
+      attributes = await prisma.chatAttribute.findMany({
+        orderBy: {
+          name: 'asc',
+        },
+      });
+    }
+
+    // Process expired task countdowns
+    const now = new Date();
+    let hasExpiredUpdates = false;
+
+    for (const attr of attributes) {
+      const opts = Array.isArray(attr.options) ? (attr.options as any[]) : [];
+      let isChanged = false;
+      const newOpts = [];
+
+      for (const opt of opts) {
+        if (opt.hasTimeframe) {
+          if (!opt.expiryDate) {
+            // Populate legacy or uninitialized timeframe options with active countdown dates immediately
+            const newStart = new Date();
+            const newExpiry = calculateExpiryDate(newStart, opt.duration || '1 hari');
+            newOpts.push({
+              ...opt,
+              status: 'ready',
+              assignedTo: null,
+              startDate: newStart.toISOString(),
+              expiryDate: newExpiry.toISOString()
+            });
+            isChanged = true;
+          } else {
+            const expDate = new Date(opt.expiryDate);
+            if (expDate <= now) {
+              // Record to history
+              await prisma.chatAttributeHistory.create({
+                data: {
+                  attributeId: attr.id,
+                  attributeName: attr.name,
+                  optionId: opt.id,
+                  optionText: opt.text,
+                  status: opt.status === 'taken' ? 'taken' : 'expired',
+                  assignedTo: opt.status === 'taken' ? opt.assignedTo : null,
+                  startDate: new Date(opt.startDate || now),
+                  expiryDate: expDate,
+                }
+              });
+
+              // Calculate new start and expiry date
+              const newStart = new Date();
+              const newExpiry = calculateExpiryDate(newStart, opt.duration || '1 hari');
+
+              // Reset/Restart the option countdown
+              newOpts.push({
+                ...opt,
+                status: 'ready',
+                assignedTo: null,
+                startDate: newStart.toISOString(),
+                expiryDate: newExpiry.toISOString()
+              });
+              isChanged = true;
+            } else {
+              newOpts.push(opt);
+            }
+          }
+        } else {
+          newOpts.push(opt);
+        }
+      }
+
+      if (isChanged) {
+        await prisma.chatAttribute.update({
+          where: { id: attr.id },
+          data: { options: newOpts }
+        });
+        hasExpiredUpdates = true;
+      }
+    }
+
+    // If there were updates, refetch the attributes
+    if (hasExpiredUpdates) {
       attributes = await prisma.chatAttribute.findMany({
         orderBy: {
           name: 'asc',
@@ -129,33 +230,53 @@ export async function PUT(request: Request) {
           return NextResponse.json({ error: 'Tugas ini sudah diambil oleh orang lain' }, { status: 400 });
         }
 
-        const startDate = new Date();
-        const expiryDate = new Date(startDate);
-        const dur = (targetOption.duration || '1 hari').toLowerCase();
-
-        if (dur.includes('1 hari')) {
-          expiryDate.setDate(expiryDate.getDate() + 1);
-        } else if (dur.includes('3 hari')) {
-          expiryDate.setDate(expiryDate.getDate() + 3);
-        } else if (dur.includes('7 hari')) {
-          expiryDate.setDate(expiryDate.getDate() + 7);
-        } else if (dur.includes('2 minggu')) {
-          expiryDate.setDate(expiryDate.getDate() + 14);
-        } else if (dur.includes('1 bulan')) {
-          expiryDate.setMonth(expiryDate.getMonth() + 1);
-        } else {
-          expiryDate.setDate(expiryDate.getDate() + 1);
-        }
-
         targetOption.status = 'taken';
         targetOption.assignedTo = assignedTo.trim();
-        targetOption.startDate = startDate.toISOString();
-        targetOption.expiryDate = expiryDate.toISOString();
+
+        // If it somehow doesn't have start/expiry dates (legacy), set them
+        if (!targetOption.startDate || !targetOption.expiryDate) {
+          const startDate = new Date();
+          const expiryDate = calculateExpiryDate(startDate, targetOption.duration || '1 hari');
+          targetOption.startDate = startDate.toISOString();
+          targetOption.expiryDate = expiryDate.toISOString();
+        }
+
+        // Record Check In / Ambil to history
+        await prisma.chatAttributeHistory.create({
+          data: {
+            attributeId: attribute.id,
+            attributeName: attribute.name,
+            optionId: targetOption.id,
+            optionText: targetOption.text,
+            status: 'check-in',
+            assignedTo: targetOption.assignedTo,
+            startDate: new Date(targetOption.startDate),
+            expiryDate: new Date(targetOption.expiryDate),
+          }
+        });
       } else if (action === 'end') {
+        // Record Check Out / Selesai in history
+        await prisma.chatAttributeHistory.create({
+          data: {
+            attributeId: attribute.id,
+            attributeName: attribute.name,
+            optionId: targetOption.id,
+            optionText: targetOption.text,
+            status: 'check-out',
+            assignedTo: targetOption.assignedTo || 'Karyawan',
+            startDate: new Date(targetOption.startDate || new Date()),
+            expiryDate: new Date(targetOption.expiryDate || new Date()),
+          }
+        });
+
+        // Restart countdown immediately
+        const newStart = new Date();
+        const newExpiry = calculateExpiryDate(newStart, targetOption.duration || '1 hari');
+
         targetOption.status = 'ready';
         targetOption.assignedTo = null;
-        targetOption.startDate = null;
-        targetOption.expiryDate = null;
+        targetOption.startDate = newStart.toISOString();
+        targetOption.expiryDate = newExpiry.toISOString();
       }
 
       opts[optionIndex] = targetOption;

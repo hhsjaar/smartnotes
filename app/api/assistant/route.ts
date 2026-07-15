@@ -127,6 +127,34 @@ export async function POST(request: Request) {
       summary: n.summary ? (n.summary.length > 120 ? n.summary.substring(0, 120) + '...' : n.summary) : ''
     }));
 
+    // Fetch and format Chat Attributes (Tugas/Jobdesk)
+    const chatAttributes = await prisma.chatAttribute.findMany({
+      orderBy: { name: 'asc' }
+    });
+    const formattedAttributesListText = chatAttributes.map(attr => {
+      const opts = Array.isArray(attr.options) ? (attr.options as any[]) : [];
+      const timeframeOpts = opts.filter(o => o.hasTimeframe);
+      if (timeframeOpts.length === 0) return `- Atribut "${attr.name}": Tidak ada tugas jangka waktu.`;
+      
+      const optDetails = timeframeOpts.map(o => {
+        const isTaken = o.status === 'taken';
+        const expiryStr = o.expiryDate ? new Date(o.expiryDate).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : '-';
+        return `  * Tugas/Jobdesk: "${o.text}" | Status: ${isTaken ? `Diambil oleh ${o.assignedTo}` : 'Ready (Belum Diambil)'} | Durasi: ${o.duration || '1 hari'} | Berakhir/Deadline: ${expiryStr}`;
+      }).join('\n');
+      return `- Atribut "${attr.name}":\n${optDetails}`;
+    }).join('\n');
+
+    // Fetch and format Chat Attribute Histories
+    const chatAttributeHistories = await prisma.chatAttributeHistory.findMany({
+      orderBy: { recordedAt: 'desc' },
+      take: 50
+    });
+    const formattedAttributeHistoriesText = chatAttributeHistories.map(h => {
+      const timeStr = new Date(h.recordedAt).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
+      const statusLabel = h.status === 'taken' ? `Diambil/Selesai oleh ${h.assignedTo || '-'}` : 'Hangus (Tidak Diambil)';
+      return `[${timeStr}] Atribut: "${h.attributeName}" | Tugas: "${h.optionText}" | Hasil/Status: ${statusLabel} | Periode: ${new Date(h.startDate).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} s/d ${new Date(h.expiryDate).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`;
+    }).join('\n') || 'Belum ada riwayat aktivitas tugas atribut.';
+
     // Fetch and format customer reservations
     const reservationsList = await prisma.reservation.findMany({
       orderBy: { dateTime: 'asc' }
@@ -769,6 +797,10 @@ Informasi Konteks Database & Aplikasi:
 ${formattedChatRoomMessagesText || 'Belum ada pesan di chat room.'}
 - Daftar Seluruh Reservasi Pelanggan (Gunakan ini jika pengguna bertanya tentang data reservasi seperti booking, meja, status, nama pelanggan, jumlah orang, DP, dll.):
 ${formattedReservationsText || 'Belum ada data reservasi.'}
+- Daftar Atribut & Status Tugas/Jobdesk Aktif Saat Ini (Gunakan ini jika pengguna bertanya tentang tugas/jobdesk yang sedang berjalan, statusnya, siapa yang mengerjakan, atau tenggat waktunya):
+${formattedAttributesListText}
+- Riwayat Aktivitas & Tugas Atribut Yang Selesai / Hangus (Gunakan ini jika pengguna bertanya tentang tugas/jobdesk yang tidak dikerjakan dalam jangka waktu/hangus, atau siapa yang pernah mengambil tugas tersebut sebelumnya):
+${formattedAttributeHistoriesText}
 
 ATURAN PEMBUATAN CATATAN:
 - Jika pengguna meminta membuat catatan baru (misalnya berkata "buat catatan", "saya ingin membuat catatan", "rekam catatan", "rekaman", dsb.):

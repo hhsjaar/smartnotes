@@ -3452,6 +3452,10 @@
     display: none;
   }
 
+  .adminChatAttrCalBtnText {
+    display: none;
+  }
+
   .adminAttributeManagementPanel {
     display: none;
   }
@@ -5115,8 +5119,225 @@
   }
 }
 
+/* Attribute Calendar Styles */
+.attrCalendarWidget {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 16px;
+}
 
+.attrCalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
 
+.attrCalNavBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
 
+.attrCalNavBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+}
 
+.attrCalMonthLabel {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.attrCalWeekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.attrCalWeekday {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.attrCalGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.attrCalDayEmpty {
+  height: 48px;
+}
+
+.attrCalDayBtn {
+  height: 48px;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 2px 4px 2px;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.attrCalDayBtn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.attrCalDayToday {
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.1);
+  color: #818cf8;
+}
+
+.attrCalDaySelected {
+  background: rgba(99, 102, 241, 0.3) !important;
+  border-color: #6366f1 !important;
+  color: #fff !important;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
+}
+
+.attrCalDayHasLogs {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.attrCalDayNum {
+  line-height: 1;
+}
+
+.attrCalDayBadges {
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+  width: 100%;
+}
+
+.attrCalBadgeTaken {
+  width: 12px;
+  height: 12px;
+  background: #10b981;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 0.55rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.attrCalBadgeExpired {
+  width: 12px;
+  height: 12px;
+  background: #ef4444;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 0.55rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.attrCalDetailsContainer {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.attrCalLogItem {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.attrCalLogTime {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.attrCalLogStatusTaken {
+  font-size: 0.65rem;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.attrCalLogStatusExpired {
+  font-size: 0.65rem;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.attrCalLogText {
+  font-size: 0.8rem;
+  color: #e2e8f0;
+}
+
+.attrCalLogUser {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.attrCalLogPeriod {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.attrCalBadgeCheckIn {
+  width: 12px;
+  height: 12px;
+  background: #f59e0b;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 0.55rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.attrCalLogStatusCheckIn {
+  font-size: 0.65rem;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
 
