@@ -86,9 +86,11 @@ model ChatMessage {
 }
 
 model ChatAttribute {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  createdAt DateTime @default(now())
+  id             String   @id @default(uuid())
+  name           String   @unique
+  options        Json     @default("[]")
+  chatbotEnabled Boolean  @default(false)
+  createdAt      DateTime @default(now())
 
   @@map("chat_attributes")
 }
@@ -106,5 +108,7 @@ model Reservation {
 
   @@map("reservations")
 }
+
+
 
 

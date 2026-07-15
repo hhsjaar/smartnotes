@@ -3448,6 +3448,10 @@
     display: none;
   }
 
+  .adminChatAttrBtnText {
+    display: none;
+  }
+
   .adminAttributeManagementPanel {
     display: none;
   }

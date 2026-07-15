@@ -175,6 +175,15 @@ function DashboardContent() {
   const chatMessagesEndRef = useRef<HTMLDivElement | null>(null);
   const chatPollingRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Manage Attribute options / chatbot state
+  const [editingAttributeForOptions, setEditingAttributeForOptions] = useState<any | null>(null);
+  const [managedOptions, setManagedOptions] = useState<any[]>([]);
+  const [newOptionInput, setNewOptionInput] = useState('');
+  const [newOptionHasTimeframe, setNewOptionHasTimeframe] = useState(false);
+  const [newOptionDuration, setNewOptionDuration] = useState('1 hari');
+  const [managedChatbotEnabled, setManagedChatbotEnabled] = useState(false);
+  const [showMobileAttributesModal, setShowMobileAttributesModal] = useState(false);
+
   const [notes, setNotes] = useState<Note[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [isPushSubscribed, setIsPushSubscribed] = useState(false);
@@ -510,6 +519,31 @@ function DashboardContent() {
       }
     } catch (err) {
       console.error('Failed to load chat attributes:', err);
+    }
+  };
+
+  const handleSaveAttributeConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAttributeForOptions) return;
+    try {
+      const res = await fetch('/api/chat/attributes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingAttributeForOptions.id,
+          options: managedOptions,
+          chatbotEnabled: managedChatbotEnabled,
+        }),
+      });
+      if (res.ok) {
+        setEditingAttributeForOptions(null);
+        loadChatAttributes();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Gagal memperbarui konfigurasi atribut');
+      }
+    } catch (err) {
+      console.error('Failed to save attribute config:', err);
     }
   };
 
@@ -3046,7 +3080,6 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 <Users className={styles.adminChatHeaderIcon} />
                 <div>
                   <h3>Grup Koordinasi Burjolevelup</h3>
-                  <p>Koordinasi real-time antara admin dan seluruh karyawan FnB</p>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -3073,6 +3106,27 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 >
                   <CalendarIcon size={14} />
                   <span className={styles.adminChatResBtnText}>Reservasi</span>
+                </button>
+                <button 
+                  onClick={() => setShowMobileAttributesModal(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    background: 'rgba(236, 72, 153, 0.15)',
+                    border: '1px solid rgba(236, 72, 153, 0.3)',
+                    color: '#f472b6',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    transition: 'all 0.2s'
+                  }}
+                  title="Kelola Atribut"
+                >
+                  <Tag size={14} />
+                  <span className={styles.adminChatAttrBtnText}>Kelola Atribut</span>
                 </button>
                 <button onClick={handleAdminLogout} className={styles.adminLogoutBtn}>
                   <LogOut size={16} style={{ marginRight: '6px' }} />
@@ -3299,7 +3353,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             </div>
             
             <p className={styles.attrPanelHelp}>
-              Atribut ini digunakan oleh karyawan untuk mengelompokkan pesan/laporan mereka (misalnya Sales, Progres, dll).
+              Atribut klasifikasi laporan koordinasi karyawan (e.g. Sales, Progres, dll).
             </p>
 
             <form onSubmit={handleAddChatAttribute} className={styles.addAttrForm}>
@@ -3320,22 +3374,440 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
             <div className={styles.attrsList}>
               {chatAttributes.map((attr) => (
-                <div key={attr.id} className={styles.attrItem}>
-                  <span className={styles.attrItemName}>🏷️ {attr.name}</span>
-                  {attr.name !== 'Umum' && (
-                    <button 
-                      type="button" 
-                      onClick={() => handleDeleteChatAttribute(attr.id, attr.name)}
-                      className={styles.attrDeleteBtn}
-                      title="Hapus Atribut"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  )}
+                <div 
+                  key={attr.id} 
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: '8px',
+                    padding: '10px',
+                    marginBottom: '8px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className={styles.attrItemName} style={{ fontWeight: 600, color: '#fff', fontSize: '0.9rem' }}>🏷️ {attr.name}</span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingAttributeForOptions(attr);
+                          setManagedOptions(Array.isArray(attr.options) ? attr.options : []);
+                          setManagedChatbotEnabled(attr.chatbotEnabled || false);
+                          setNewOptionInput('');
+                          setNewOptionHasTimeframe(false);
+                        }}
+                        style={{
+                          background: 'rgba(99, 102, 241, 0.15)',
+                          border: '1px solid rgba(99, 102, 241, 0.3)',
+                          color: '#818cf8',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.72rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Kelola
+                      </button>
+                      {attr.name !== 'Umum' && (
+                        <button 
+                          type="button" 
+                          onClick={() => handleDeleteChatAttribute(attr.id, attr.name)}
+                          className={styles.attrDeleteBtn}
+                          title="Hapus Atribut"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Configuration overview summary */}
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    <span>Pilihan Ganda: <strong>{Array.isArray(attr.options) ? attr.options.length : 0} opsi</strong></span>
+                    <span>AI Chatbot: <strong style={{ color: attr.chatbotEnabled ? '#10b981' : '#ef4444' }}>{attr.chatbotEnabled ? 'Aktif' : 'Nonaktif'}</strong></span>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
+
+          {/* Modal Kelola Atribut (Pilihan Ganda & Chatbot) */}
+          {editingAttributeForOptions && (
+            <div 
+              onClick={() => setEditingAttributeForOptions(null)}
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                backdropFilter: 'blur(5px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 9999,
+                padding: '16px'
+              }}
+            >
+              <div 
+                onClick={(e) => e.stopPropagation()} 
+                style={{ 
+                  maxWidth: '500px', 
+                  width: '100%', 
+                  backgroundColor: 'rgba(10, 10, 22, 0.95)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '16px',
+                  padding: '24px',
+                  boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+                  backdropFilter: 'blur(10px)',
+                  color: '#f8fafc'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '12px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Tag size={20} style={{ color: '#6366f1' }} />
+                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: '#fff' }}>Kelola Atribut: {editingAttributeForOptions.name}</h3>
+                  </div>
+                  <button 
+                    onClick={() => setEditingAttributeForOptions(null)}
+                    style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveAttributeConfig} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* AI Chatbot configuration */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>AI Chatbot</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '12px', borderRadius: '8px' }}>
+                      <input
+                        type="checkbox"
+                        id="enable-chatbot"
+                        checked={managedChatbotEnabled}
+                        onChange={(e) => setManagedChatbotEnabled(e.target.checked)}
+                        style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                      />
+                      <label htmlFor="enable-chatbot" style={{ fontSize: '0.85rem', cursor: 'pointer', color: '#f1f5f9' }}>
+                        Aktifkan AI Chatbot untuk Atribut ini
+                      </label>
+                    </div>
+                    <p style={{ fontSize: '0.72rem', color: 'var(--text-dark)', margin: '2px 0 0 0' }}>
+                      Jika aktif, AI akan otomatis membalas pertanyaan karyawan di kategori ini (misalnya list progres yang tersedia).
+                    </p>
+                  </div>
+
+                  {/* Quick Options configuration */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pesan Cepat / Opsi Pilihan Ganda</label>
+                    
+                    {/* Options List */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '150px', overflowY: 'auto', marginBottom: '8px', scrollbarWidth: 'none' }}>
+                      {managedOptions.length === 0 ? (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-dark)', fontStyle: 'italic', padding: '4px' }}>Belum ada opsi pesan cepat.</div>
+                      ) : (
+                        managedOptions.map((opt, idx) => (
+                          <div key={opt.id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', padding: '6px 10px', borderRadius: '6px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ fontSize: '0.8rem', color: '#e2e8f0', fontWeight: 600 }}>{opt.text || opt}</span>
+                              {opt.hasTimeframe && (
+                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                                  ⏱️ Jangka Waktu: {opt.duration} ({opt.status === 'taken' ? `Diambil: ${opt.assignedTo}` : 'Tersedia'})
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setManagedOptions(prev => prev.filter((_, i) => i !== idx))}
+                              style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Add option form */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.04)', padding: '12px', borderRadius: '8px' }}>
+                      <input
+                        type="text"
+                        placeholder="Tulis opsi pesan baru..."
+                        value={newOptionInput}
+                        onChange={(e) => setNewOptionInput(e.target.value)}
+                        style={{
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          border: '1px solid var(--glass-border)',
+                          color: '#ffffff',
+                          fontSize: '0.85rem',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          outline: 'none'
+                        }}
+                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input
+                          type="checkbox"
+                          id="enable-option-timeframe"
+                          checked={newOptionHasTimeframe}
+                          onChange={(e) => setNewOptionHasTimeframe(e.target.checked)}
+                          style={{ cursor: 'pointer', width: '14px', height: '14px' }}
+                        />
+                        <label htmlFor="enable-option-timeframe" style={{ fontSize: '0.78rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                          Aktifkan Jangka Waktu (Tugas Progres)
+                        </label>
+                      </div>
+                      
+                      {newOptionHasTimeframe && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Pilih Durasi Jangka Waktu:</label>
+                          <select
+                            value={newOptionDuration}
+                            onChange={(e) => setNewOptionDuration(e.target.value)}
+                            style={{
+                              background: 'rgba(0, 0, 0, 0.3)',
+                              border: '1px solid var(--glass-border)',
+                              color: '#ffffff',
+                              fontSize: '0.85rem',
+                              padding: '8px',
+                              borderRadius: '6px',
+                              outline: 'none',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <option value="1 hari" style={{ background: '#0f172a' }}>1 Hari</option>
+                            <option value="3 hari" style={{ background: '#0f172a' }}>3 Hari</option>
+                            <option value="7 hari" style={{ background: '#0f172a' }}>7 Hari</option>
+                            <option value="2 minggu" style={{ background: '#0f172a' }}>2 Minggu</option>
+                            <option value="1 bulan" style={{ background: '#0f172a' }}>1 Bulan</option>
+                          </select>
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (newOptionInput.trim()) {
+                            const newOptObj = {
+                              id: 'opt_' + Math.random().toString(36).substr(2, 9),
+                              text: newOptionInput.trim(),
+                              hasTimeframe: newOptionHasTimeframe,
+                              duration: newOptionHasTimeframe ? newOptionDuration : null,
+                              status: 'ready',
+                              assignedTo: null,
+                              startDate: null,
+                              expiryDate: null
+                            };
+                            setManagedOptions(prev => [...prev, newOptObj]);
+                            setNewOptionInput('');
+                            setNewOptionHasTimeframe(false);
+                          }
+                        }}
+                        style={{
+                          background: 'rgba(99, 102, 241, 0.15)',
+                          border: '1px solid rgba(99, 102, 241, 0.3)',
+                          color: '#818cf8',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          fontSize: '0.78rem',
+                          cursor: 'pointer',
+                          alignSelf: 'flex-end',
+                          fontWeight: 600
+                        }}
+                      >
+                        Tambah Opsi
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Form buttons */}
+                  <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setEditingAttributeForOptions(null)}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        fontSize: '0.85rem',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        color: '#94a3b8',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        fontSize: '0.85rem',
+                        border: 'none',
+                        background: '#6366f1',
+                        color: '#fff',
+                        cursor: 'pointer',
+                        fontWeight: 600
+                      }}
+                    >
+                      Simpan Konfigurasi
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Mobile attributes modal */}
+          {showMobileAttributesModal && (
+            <div 
+              onClick={() => setShowMobileAttributesModal(false)}
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                backdropFilter: 'blur(5px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 9998,
+                padding: '16px'
+              }}
+            >
+              <div 
+                onClick={(e) => e.stopPropagation()} 
+                style={{ 
+                  maxWidth: '500px', 
+                  width: '100%', 
+                  backgroundColor: 'rgba(10, 10, 22, 0.95)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+                  backdropFilter: 'blur(10px)',
+                  color: '#f8fafc',
+                  position: 'relative',
+                  maxHeight: '90vh',
+                  overflowY: 'auto'
+                }}
+              >
+                <button 
+                  onClick={() => setShowMobileAttributesModal(false)}
+                  style={{
+                    position: 'absolute',
+                    top: '16px',
+                    right: '16px',
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#94a3b8',
+                    cursor: 'pointer',
+                    zIndex: 10
+                  }}
+                >
+                  <X size={20} />
+                </button>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '8px' }}>
+                  <Tag size={18} style={{ color: 'var(--primary)' }} />
+                  <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#fff' }}>Kelola Atribut Klasifikasi</h4>
+                </div>
+                
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+                  Atribut klasifikasi laporan koordinasi karyawan (e.g. Sales, Progres, dll).
+                </p>
+
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleAddChatAttribute(e);
+                  }} 
+                  className={styles.addAttrForm} 
+                  style={{ marginBottom: '20px' }}
+                >
+                  <input
+                    type="text"
+                    placeholder="Nama atribut baru..."
+                    value={newAttributeInput}
+                    onChange={(e) => setNewAttributeInput(e.target.value)}
+                    className={styles.attrInput}
+                    maxLength={20}
+                    required
+                  />
+                  <button type="submit" className={styles.attrAddBtn}>
+                    <Plus size={16} />
+                    <span>Tambah</span>
+                  </button>
+                </form>
+
+                <div className={styles.attrsList}>
+                  {chatAttributes.map((attr) => (
+                    <div 
+                      key={attr.id} 
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.06)',
+                        borderRadius: '8px',
+                        padding: '10px',
+                        marginBottom: '8px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span className={styles.attrItemName} style={{ fontWeight: 600, color: '#fff', fontSize: '0.9rem' }}>🏷️ {attr.name}</span>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingAttributeForOptions(attr);
+                              setManagedOptions(Array.isArray(attr.options) ? attr.options : []);
+                              setManagedChatbotEnabled(attr.chatbotEnabled || false);
+                              setNewOptionInput('');
+                              setNewOptionHasTimeframe(false);
+                            }}
+                            style={{
+                              background: 'rgba(99, 102, 241, 0.15)',
+                              border: '1px solid rgba(99, 102, 241, 0.3)',
+                              color: '#818cf8',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.72rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Kelola
+                          </button>
+                          {attr.name !== 'Umum' && (
+                            <button 
+                              type="button" 
+                              onClick={() => handleDeleteChatAttribute(attr.id, attr.name)}
+                              className={styles.attrDeleteBtn}
+                              title="Hapus Atribut"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        <span>Pilihan Ganda: <strong>{Array.isArray(attr.options) ? attr.options.length : 0} opsi</strong></span>
+                        <span>AI Chatbot: <strong style={{ color: attr.chatbotEnabled ? '#10b981' : '#ef4444' }}>{attr.chatbotEnabled ? 'Aktif' : 'Nonaktif'}</strong></span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );

@@ -16,6 +16,8 @@ interface ChatMessage {
 interface ChatAttribute {
   id: string;
   name: string;
+  options?: string[];
+  chatbotEnabled?: boolean;
 }
 
 export default function EmployeeChatPage() {
@@ -166,9 +168,10 @@ export default function EmployeeChatPage() {
       fetchMessages();
       fetchAttributes();
 
-      // Set up short-polling for real-time messages (every 4 seconds to conserve database resource)
+      // Set up short-polling for real-time messages & attribute options (every 4 seconds)
       pollingIntervalRef.current = setInterval(() => {
-        fetchMessages(true); // silent fetch
+        fetchMessages(true); // silent fetch messages
+        fetchAttributes(true); // silent fetch attributes
       }, 4000);
 
       return () => {
@@ -225,18 +228,83 @@ export default function EmployeeChatPage() {
     }
   };
 
-  const fetchAttributes = async () => {
+  const fetchAttributes = async (isSilent = false) => {
     try {
       const res = await fetch('/api/chat/attributes');
       if (res.ok) {
         const data = await res.json();
         setAttributes(data);
-        // Default to "Umum" if present, otherwise first attribute
-        const hasUmum = data.some((a: ChatAttribute) => a.name === 'Umum');
-        setSelectedAttribute(hasUmum ? 'Umum' : (data[0]?.name || ''));
+        if (!isSilent) {
+          // Default to "Umum" if present, otherwise first attribute
+          const hasUmum = data.some((a: ChatAttribute) => a.name === 'Umum');
+          setSelectedAttribute(hasUmum ? 'Umum' : (data[0]?.name || ''));
+        }
       }
     } catch (err) {
       console.error('Failed to load chat attributes:', err);
+    }
+  };
+
+  const handleTakeOptionTask = async (attrId: string, optionId: string, optionText: string) => {
+    try {
+      const res = await fetch('/api/chat/attributes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: attrId, action: 'take', optionId, assignedTo: name }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || 'Gagal mengambil tugas');
+        return;
+      }
+      await fetchAttributes(true);
+
+      // Auto-send chat message
+      await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senderName: name,
+          senderRole: 'employee',
+          message: `Saya mengambil tugas progres: "${optionText}"`,
+          attribute: selectedAttribute,
+        }),
+      });
+      fetchMessages();
+    } catch (err) {
+      console.error('Error taking option task:', err);
+    }
+  };
+
+  const handleEndOptionTask = async (attrId: string, optionId: string, optionText: string) => {
+    if (!confirm('Apakah Anda yakin ingin menyelesaikan/mengakhiri tugas progres ini?')) return;
+    try {
+      const res = await fetch('/api/chat/attributes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: attrId, action: 'end', optionId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || 'Gagal mengakhiri tugas');
+        return;
+      }
+      await fetchAttributes(true);
+
+      // Auto-send chat message
+      await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senderName: name,
+          senderRole: 'employee',
+          message: `Saya menyelesaikan tugas progres: "${optionText}" (Tugas di-reset kembali)`,
+          attribute: selectedAttribute,
+        }),
+      });
+      fetchMessages();
+    } catch (err) {
+      console.error('Error ending progress:', err);
     }
   };
 
@@ -403,10 +471,6 @@ export default function EmployeeChatPage() {
             <div className={styles.activeIndicator} />
             <div>
               <h2 className={styles.roomTitle}>Grup Koordinasi Burjolevelup</h2>
-              <p className={styles.roomSubtitle}>
-                <span className={styles.desktopSubtitle}>Saluran koordinasi real-time karyawan dan admin</span>
-                <span className={styles.mobileSubtitle}>Halo, <strong>{name}</strong> (Karyawan)</span>
-              </p>
             </div>
           </div>
 
@@ -648,6 +712,135 @@ export default function EmployeeChatPage() {
               );
             })}
           </div>
+
+          {/* Quick Options (Pesan Cepat / Pilihan Ganda) */}
+          {(() => {
+            const currentAttr = attributes.find(a => a.name === selectedAttribute);
+            const allOptions = Array.isArray(currentAttr?.options) ? (currentAttr.options as any[]) : [];
+            if (allOptions.length === 0) return null;
+
+            const simpleOptions = allOptions.filter(o => !o.hasTimeframe);
+            const taskOptions = allOptions.filter(o => o.hasTimeframe);
+
+            return (
+              <div 
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  padding: '8px 12px',
+                  background: 'rgba(15, 23, 42, 0.4)',
+                  borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                }}
+              >
+                {/* Simple Quick Replies */}
+                {simpleOptions.length > 0 && (
+                  <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px', scrollbarWidth: 'none' }}>
+                    {simpleOptions.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setNewMessageText(opt.text)}
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: '16px',
+                          fontSize: '0.75rem',
+                          fontWeight: 500,
+                          border: '1px solid rgba(255,255,255,0.06)',
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          color: '#cbd5e1',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {opt.text}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Task / Timeframe Options */}
+                {taskOptions.length > 0 && (
+                  <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
+                    {taskOptions.map((task) => {
+                      const isTaken = task.status === 'taken';
+                      const isMine = isTaken && task.assignedTo === name;
+                      
+                      let expiryStr = '';
+                      if (task.expiryDate) {
+                        const expDate = new Date(task.expiryDate);
+                        expiryStr = expDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' ' + expDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+                      }
+
+                      return (
+                        <div
+                          key={task.id}
+                          style={{
+                            background: isMine ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                            border: isMine ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(255, 255, 255, 0.06)',
+                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0
+                          }}
+                        >
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <span style={{ fontWeight: 600, fontSize: '0.78rem', color: '#fff' }}>{task.text}</span>
+                            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                              {isTaken ? `Diambil: ${task.assignedTo} (${expiryStr})` : `Durasi: ${task.duration}`}
+                            </span>
+                          </div>
+
+                          {!isTaken ? (
+                            <button
+                              type="button"
+                              onClick={() => currentAttr && handleTakeOptionTask(currentAttr.id, task.id, task.text)}
+                              style={{
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                border: 'none',
+                                background: '#10b981',
+                                color: '#fff',
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Ambil
+                            </button>
+                          ) : (
+                            isMine && (
+                              <button
+                                type="button"
+                                onClick={() => currentAttr && handleEndOptionTask(currentAttr.id, task.id, task.text)}
+                                style={{
+                                  padding: '3px 8px',
+                                  borderRadius: '4px',
+                                  border: 'none',
+                                  background: '#ef4444',
+                                  color: '#fff',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Akhiri
+                              </button>
+                            )
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           <form onSubmit={handleSendMessage} className={styles.inputForm}>
             {/* Chat Text Input */}
