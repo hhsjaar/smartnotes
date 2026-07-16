@@ -5579,45 +5579,7 @@
   }
 }
 
-/* Attachment Camera/Gallery Dropdown */
-.attachDropdown {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  margin-bottom: 8px;
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--border-radius-md);
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  z-index: 100;
-  min-width: 140px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-  animation: scale-up 0.15s ease-out;
-}
 
-.attachDropdownItem {
-  background: transparent;
-  border: none;
-  color: #ffffff;
-  padding: 8px 12px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  text-align: left;
-  border-radius: var(--border-radius-sm);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.2s;
-  width: 100%;
-}
-
-.attachDropdownItem:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
 
 /* Mobile Long Press Context Menu */
 .contextMenuOverlay {

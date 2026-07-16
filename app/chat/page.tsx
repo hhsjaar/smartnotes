@@ -45,12 +45,10 @@ export default function EmployeeChatPage() {
 
   // Image Upload and Lightbox States & Refs
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null);
-  const [showAttachMenu, setShowAttachMenu] = useState(false);
 
   // Message Copying States & Refs
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -1050,56 +1048,21 @@ export default function EmployeeChatPage() {
 
           <form onSubmit={handleSendMessage} className={styles.inputForm}>
             {/* Attachment Button */}
-            <div style={{ position: 'relative' }}>
-              <button
-                type="button"
-                className={styles.attachBtn}
-                onClick={() => setShowAttachMenu(!showAttachMenu)}
-                disabled={isSubmitting}
-                title="Lampirkan foto"
-              >
-                <Image size={20} />
-              </button>
-
-              {showAttachMenu && (
-                <div className={`${styles.attachDropdown} glass-panel`}>
-                  <button
-                    type="button"
-                    className={styles.attachDropdownItem}
-                    onClick={() => {
-                      cameraInputRef.current?.click();
-                      setShowAttachMenu(false);
-                    }}
-                  >
-                    📷 Kamera
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.attachDropdownItem}
-                    onClick={() => {
-                      fileInputRef.current?.click();
-                      setShowAttachMenu(false);
-                    }}
-                  >
-                    🖼️ Galeri
-                  </button>
-                </div>
-              )}
-            </div>
+            <button
+              type="button"
+              className={styles.attachBtn}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isSubmitting}
+              title="Lampirkan foto"
+            >
+              <Image size={20} />
+            </button>
             <input
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
               style={{ display: 'none' }}
               accept="image/*"
-            />
-            <input
-              type="file"
-              ref={cameraInputRef}
-              onChange={handleFileChange}
-              style={{ display: 'none' }}
-              accept="image/*"
-              capture="environment"
             />
 
             {/* Chat Text Input */}

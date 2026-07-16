@@ -198,12 +198,10 @@ function DashboardContent() {
 
   // Admin Chat Upload State & Refs
   const adminFileInputRef = useRef<HTMLInputElement | null>(null);
-  const adminCameraInputRef = useRef<HTMLInputElement | null>(null);
   const [adminSelectedFile, setAdminSelectedFile] = useState<File | null>(null);
   const [adminImagePreview, setAdminImagePreview] = useState<string | null>(null);
   const [adminIsUploading, setAdminIsUploading] = useState(false);
   const [adminActiveLightboxImage, setAdminActiveLightboxImage] = useState<string | null>(null);
-  const [showAdminAttachMenu, setShowAdminAttachMenu] = useState(false);
 
   // Admin Message Copying States & Refs
   const [adminCopiedMessageId, setAdminCopiedMessageId] = useState<string | null>(null);
@@ -3736,56 +3734,21 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
               <form onSubmit={handleSendAdminChatMessage} className={styles.adminChatInputForm}>
                 {/* Attachment Button */}
-                <div style={{ position: 'relative' }}>
-                  <button
-                    type="button"
-                    className={styles.adminAttachBtn}
-                    onClick={() => setShowAdminAttachMenu(!showAdminAttachMenu)}
-                    disabled={chatSubmitting}
-                    title="Lampirkan foto"
-                  >
-                    <Image size={20} />
-                  </button>
-
-                  {showAdminAttachMenu && (
-                    <div className={`${styles.attachDropdown} glass-panel`} style={{ bottom: '100%', marginBottom: '8px', left: '0' }}>
-                      <button
-                        type="button"
-                        className={styles.attachDropdownItem}
-                        onClick={() => {
-                          adminCameraInputRef.current?.click();
-                          setShowAdminAttachMenu(false);
-                        }}
-                      >
-                        📷 Kamera
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.attachDropdownItem}
-                        onClick={() => {
-                          adminFileInputRef.current?.click();
-                          setShowAdminAttachMenu(false);
-                        }}
-                      >
-                        🖼️ Galeri
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  className={styles.adminAttachBtn}
+                  onClick={() => adminFileInputRef.current?.click()}
+                  disabled={chatSubmitting}
+                  title="Lampirkan foto"
+                >
+                  <Image size={20} />
+                </button>
                 <input
                   type="file"
                   ref={adminFileInputRef}
                   onChange={handleAdminFileChange}
                   style={{ display: 'none' }}
                   accept="image/*"
-                />
-                <input
-                  type="file"
-                  ref={adminCameraInputRef}
-                  onChange={handleAdminFileChange}
-                  style={{ display: 'none' }}
-                  accept="image/*"
-                  capture="environment"
                 />
 
                 <textarea
