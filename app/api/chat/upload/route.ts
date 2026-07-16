@@ -17,10 +17,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Ukuran file maksimal 5MB' }, { status: 400 });
     }
 
-    // Validate file type
+    // Validate file type (robust with fallback for file extensions)
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: 'Format file tidak didukung. Harap unggah gambar (JPEG, PNG, GIF, WEBP).' }, { status: 400 });
+    const ext = file.name ? path.extname(file.name).toLowerCase() : '';
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+
+    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(ext)) {
+      return NextResponse.json({ error: `Format file tidak didukung (${file.type || 'unknown'}). Harap unggah gambar (JPEG, PNG, GIF, WEBP).` }, { status: 400 });
     }
 
     // Convert file to buffer
@@ -32,8 +35,8 @@ export async function POST(request: Request) {
     await fs.mkdir(uploadDir, { recursive: true });
 
     // Generate unique name
-    const ext = path.extname(file.name) || '.' + file.type.split('/')[1];
-    const fileName = `${crypto.randomUUID()}${ext}`;
+    const finalExt = path.extname(file.name) || '.' + file.type.split('/')[1];
+    const fileName = `${crypto.randomUUID()}${finalExt}`;
     const filePath = path.join(uploadDir, fileName);
 
     // Save file

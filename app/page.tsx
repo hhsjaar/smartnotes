@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock, GitMerge, Lock, Tag, Users, LogOut, ArrowRight, Send, AlertCircle, Filter, Pencil, Image } from 'lucide-react';
+import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock, GitMerge, Lock, Tag, Users, LogOut, ArrowRight, Send, AlertCircle, Filter, Pencil, Image, Copy, Check } from 'lucide-react';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { NoteCard } from '@/components/NoteCard';
 import { NoteEditor } from '@/components/NoteEditor';
@@ -198,10 +198,17 @@ function DashboardContent() {
 
   // Admin Chat Upload State & Refs
   const adminFileInputRef = useRef<HTMLInputElement | null>(null);
+  const adminCameraInputRef = useRef<HTMLInputElement | null>(null);
   const [adminSelectedFile, setAdminSelectedFile] = useState<File | null>(null);
   const [adminImagePreview, setAdminImagePreview] = useState<string | null>(null);
   const [adminIsUploading, setAdminIsUploading] = useState(false);
   const [adminActiveLightboxImage, setAdminActiveLightboxImage] = useState<string | null>(null);
+  const [showAdminAttachMenu, setShowAdminAttachMenu] = useState(false);
+
+  // Admin Message Copying States & Refs
+  const [adminCopiedMessageId, setAdminCopiedMessageId] = useState<string | null>(null);
+  const [adminActiveContextMenu, setAdminActiveContextMenu] = useState<{ x: number, y: number, messageId: string, text: string } | null>(null);
+  const adminLongPressTimeout = useRef<NodeJS.Timeout | null>(null);
   const [newAttributeInput, setNewAttributeInput] = useState('');
 
   // Manage Attribute options / chatbot state
@@ -636,8 +643,12 @@ function DashboardContent() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate type with file extension fallback
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
+    const ext = file.name ? (file.name.split('.').pop() || '').toLowerCase() : '';
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
+    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(ext)) {
       alert('Format file tidak didukung. Harap pilih gambar (JPEG, PNG, GIF, WEBP).');
       return;
     }
@@ -653,6 +664,57 @@ function DashboardContent() {
       setAdminImagePreview(reader.result as string);
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleAdminCopyMessage = (msgId: string, text: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setAdminCopiedMessageId(msgId);
+      setTimeout(() => setAdminCopiedMessageId(null), 1500);
+    }).catch(err => {
+      console.error('Failed to copy: ', err);
+    });
+  };
+
+  const handleAdminTouchStart = (e: React.TouchEvent, msg: any) => {
+    if (!msg.message) return; // Only allow long-press on text messages
+    if (adminLongPressTimeout.current) clearTimeout(adminLongPressTimeout.current);
+
+    const touch = e.touches[0];
+    const x = touch.clientX;
+    const y = touch.clientY;
+
+    adminLongPressTimeout.current = setTimeout(() => {
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+      setAdminActiveContextMenu({
+        x,
+        y,
+        messageId: msg.id,
+        text: msg.message
+      });
+    }, 600); // 600ms threshold
+  };
+
+  const handleAdminTouchEnd = () => {
+    if (adminLongPressTimeout.current) {
+      clearTimeout(adminLongPressTimeout.current);
+      adminLongPressTimeout.current = null;
+    }
+  };
+
+  const toggleAdminSimpleOption = (optText: string) => {
+    const currentText = newChatMessage.trim();
+    const items = currentText ? currentText.split(',').map(item => item.trim()).filter(Boolean) : [];
+    const index = items.findIndex(item => item.toLowerCase() === optText.toLowerCase());
+    if (index !== -1) {
+      items.splice(index, 1);
+    } else {
+      items.push(optText);
+    }
+    setNewChatMessage(items.join(', '));
+    adminChatInputRef.current?.focus();
   };
 
   const handleAdminRemovePreview = () => {
@@ -3416,7 +3478,13 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                           </div>
                         )}
                         <div className={`${styles.chatRow} ${isMe ? styles.chatMyRow : styles.chatOtherRow}`}>
-                          <div className={`${styles.chatBubble} ${isMe ? styles.chatMyBubble : styles.chatOtherBubble}`}>
+                          <div 
+                            className={`${styles.chatBubble} ${isMe ? styles.chatMyBubble : styles.chatOtherBubble} ${adminCopiedMessageId === msg.id ? styles.bubbleCopied : ''}`}
+                            onTouchStart={(e) => handleAdminTouchStart(e, msg)}
+                            onTouchEnd={handleAdminTouchEnd}
+                            onTouchMove={handleAdminTouchEnd}
+                            onTouchCancel={handleAdminTouchEnd}
+                          >
                             <div className={styles.chatBubbleHeader}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <span className={styles.chatSenderName}>{msg.senderName}</span>
@@ -3443,6 +3511,16 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                 >
                                   <Trash2 size={11} />
                                 </button>
+                                {msg.message && (
+                                  <button 
+                                    onClick={() => handleAdminCopyMessage(msg.id, msg.message)} 
+                                    className={styles.actionBtn}
+                                    title="Salin Pesan"
+                                    type="button"
+                                  >
+                                    {adminCopiedMessageId === msg.id ? <Check size={11} style={{ color: '#10b981' }} /> : <Copy size={11} />}
+                                  </button>
+                                )}
                               </div>
                             </div>
 
@@ -3549,30 +3627,37 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     {/* Simple Quick Replies */}
                     {simpleOptions.length > 0 && (
                       <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px', scrollbarWidth: 'none' }}>
-                        {simpleOptions.map((opt) => (
-                          <button
-                            key={opt.id}
-                            type="button"
-                            onClick={() => {
-                              setNewChatMessage(opt.text);
-                              adminChatInputRef.current?.focus();
-                            }}
-                            style={{
-                              padding: '5px 10px',
-                              borderRadius: '16px',
-                              fontSize: '0.75rem',
-                              fontWeight: 500,
-                              border: '1px solid rgba(255,255,255,0.06)',
-                              background: 'rgba(255, 255, 255, 0.03)',
-                              color: '#cbd5e1',
-                              cursor: 'pointer',
-                              whiteSpace: 'nowrap',
-                              transition: 'all 0.2s'
-                            }}
-                          >
-                            {opt.text}
-                          </button>
-                        ))}
+                        {simpleOptions.map((opt) => {
+                          const isSelected = newChatMessage
+                            ? newChatMessage.split(',').map(item => item.trim().toLowerCase()).includes(opt.text.toLowerCase())
+                            : false;
+                          
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => toggleAdminSimpleOption(opt.text)}
+                              style={{
+                                padding: '5px 10px',
+                                borderRadius: '16px',
+                                fontSize: '0.75rem',
+                                fontWeight: 500,
+                                border: isSelected 
+                                  ? '1px solid rgba(99, 102, 241, 0.5)' 
+                                  : '1px solid rgba(255,255,255,0.06)',
+                                background: isSelected 
+                                  ? 'rgba(99, 102, 241, 0.2)' 
+                                  : 'rgba(255, 255, 255, 0.03)',
+                                color: isSelected ? '#fff' : '#cbd5e1',
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              {opt.text}
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
 
@@ -3651,21 +3736,56 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
               <form onSubmit={handleSendAdminChatMessage} className={styles.adminChatInputForm}>
                 {/* Attachment Button */}
-                <button
-                  type="button"
-                  className={styles.adminAttachBtn}
-                  onClick={() => adminFileInputRef.current?.click()}
-                  disabled={chatSubmitting}
-                  title="Lampirkan foto"
-                >
-                  <Image size={20} />
-                </button>
+                <div style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    className={styles.adminAttachBtn}
+                    onClick={() => setShowAdminAttachMenu(!showAdminAttachMenu)}
+                    disabled={chatSubmitting}
+                    title="Lampirkan foto"
+                  >
+                    <Image size={20} />
+                  </button>
+
+                  {showAdminAttachMenu && (
+                    <div className={`${styles.attachDropdown} glass-panel`} style={{ bottom: '100%', marginBottom: '8px', left: '0' }}>
+                      <button
+                        type="button"
+                        className={styles.attachDropdownItem}
+                        onClick={() => {
+                          adminCameraInputRef.current?.click();
+                          setShowAdminAttachMenu(false);
+                        }}
+                      >
+                        📷 Kamera
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.attachDropdownItem}
+                        onClick={() => {
+                          adminFileInputRef.current?.click();
+                          setShowAdminAttachMenu(false);
+                        }}
+                      >
+                        🖼️ Galeri
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <input
                   type="file"
                   ref={adminFileInputRef}
                   onChange={handleAdminFileChange}
                   style={{ display: 'none' }}
                   accept="image/*"
+                />
+                <input
+                  type="file"
+                  ref={adminCameraInputRef}
+                  onChange={handleAdminFileChange}
+                  style={{ display: 'none' }}
+                  accept="image/*"
+                  capture="environment"
                 />
 
                 <textarea
@@ -5890,6 +6010,35 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 Hapus
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {adminActiveContextMenu && (
+        <div 
+          className={styles.contextMenuOverlay} 
+          onClick={() => setAdminActiveContextMenu(null)}
+          onTouchStart={() => setAdminActiveContextMenu(null)}
+        >
+          <div 
+            className={`${styles.contextMenu} glass-panel`}
+            style={{ 
+              top: `${Math.min(adminActiveContextMenu.y, typeof window !== 'undefined' ? window.innerHeight - 80 : 300)}px`, 
+              left: `${Math.min(adminActiveContextMenu.x, typeof window !== 'undefined' ? window.innerWidth - 150 : 150)}px` 
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              type="button" 
+              className={styles.contextMenuItem}
+              onClick={() => {
+                handleAdminCopyMessage(adminActiveContextMenu.messageId, adminActiveContextMenu.text);
+                setAdminActiveContextMenu(null);
+              }}
+            >
+              <Copy size={14} style={{ marginRight: '8px' }} />
+              <span>Salin Teks</span>
+            </button>
           </div>
         </div>
       )}

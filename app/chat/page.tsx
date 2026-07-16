@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2, Calendar as CalendarIcon, X, Image } from 'lucide-react';
+import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2, Calendar as CalendarIcon, X, Image, Copy, Check } from 'lucide-react';
 import styles from './page.module.css';
 
 interface ChatMessage {
@@ -45,10 +45,17 @@ export default function EmployeeChatPage() {
 
   // Image Upload and Lightbox States & Refs
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+
+  // Message Copying States & Refs
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [activeContextMenu, setActiveContextMenu] = useState<{ x: number, y: number, messageId: string, text: string } | null>(null);
+  const longPressTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const filteredMessages = filterAttribute === 'Semua'
     ? messages
@@ -358,9 +365,12 @@ export default function EmployeeChatPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate type
+    // Validate type with file extension fallback
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
+    const ext = file.name ? (file.name.split('.').pop() || '').toLowerCase() : '';
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
+    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(ext)) {
       alert('Format file tidak didukung. Harap pilih gambar (JPEG, PNG, GIF, WEBP).');
       return;
     }
@@ -377,6 +387,44 @@ export default function EmployeeChatPage() {
       setImagePreview(reader.result as string);
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleCopyMessage = (msgId: string, text: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedMessageId(msgId);
+      setTimeout(() => setCopiedMessageId(null), 1500);
+    }).catch(err => {
+      console.error('Failed to copy: ', err);
+    });
+  };
+
+  const handleTouchStart = (e: React.TouchEvent, msg: ChatMessage) => {
+    if (!msg.message) return; // Only allow long-press on text messages
+    if (longPressTimeout.current) clearTimeout(longPressTimeout.current);
+
+    const touch = e.touches[0];
+    const x = touch.clientX;
+    const y = touch.clientY;
+
+    longPressTimeout.current = setTimeout(() => {
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+      setActiveContextMenu({
+        x,
+        y,
+        messageId: msg.id,
+        text: msg.message
+      });
+    }, 600); // 600ms threshold
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimeout.current) {
+      clearTimeout(longPressTimeout.current);
+      longPressTimeout.current = null;
+    }
   };
 
   const handleRemovePreview = () => {
@@ -691,7 +739,13 @@ export default function EmployeeChatPage() {
                     <div 
                       className={`${styles.messageRow} ${isMe ? styles.myRow : styles.otherRow}`}
                     >
-                      <div className={`${styles.bubble} ${isMe ? styles.myBubble : styles.otherBubble}`}>
+                      <div 
+                        className={`${styles.bubble} ${isMe ? styles.myBubble : styles.otherBubble} ${copiedMessageId === msg.id ? styles.bubbleCopied : ''}`}
+                        onTouchStart={(e) => handleTouchStart(e, msg)}
+                        onTouchEnd={handleTouchEnd}
+                        onTouchMove={handleTouchEnd}
+                        onTouchCancel={handleTouchEnd}
+                      >
                         {/* Sender metadata */}
                         <div className={styles.bubbleHeader}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -700,24 +754,38 @@ export default function EmployeeChatPage() {
                               {msg.senderRole === 'admin' ? 'Admin' : 'Karyawan'}
                             </span>
                           </div>
-                          {isMe && (
+                          {(isMe || msg.message) && (
                             <div className={styles.messageActions}>
-                              <button 
-                                onClick={() => handleEditClick(msg)} 
-                                className={styles.actionBtn}
-                                title="Edit Pesan"
-                                type="button"
-                              >
-                                <Pencil size={11} />
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteMessage(msg.id)} 
-                                className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
-                                title="Hapus Pesan"
-                                type="button"
-                              >
-                                <Trash2 size={11} />
-                              </button>
+                              {isMe && (
+                                <>
+                                  <button 
+                                    onClick={() => handleEditClick(msg)} 
+                                    className={styles.actionBtn}
+                                    title="Edit Pesan"
+                                    type="button"
+                                  >
+                                    <Pencil size={11} />
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteMessage(msg.id)} 
+                                    className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
+                                    title="Hapus Pesan"
+                                    type="button"
+                                  >
+                                    <Trash2 size={11} />
+                                  </button>
+                                </>
+                              )}
+                              {msg.message && (
+                                <button 
+                                  onClick={() => handleCopyMessage(msg.id, msg.message)} 
+                                  className={styles.actionBtn}
+                                  title="Salin Pesan"
+                                  type="button"
+                                >
+                                  {copiedMessageId === msg.id ? <Check size={11} style={{ color: '#10b981' }} /> : <Copy size={11} />}
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -982,21 +1050,56 @@ export default function EmployeeChatPage() {
 
           <form onSubmit={handleSendMessage} className={styles.inputForm}>
             {/* Attachment Button */}
-            <button
-              type="button"
-              className={styles.attachBtn}
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isSubmitting}
-              title="Lampirkan foto"
-            >
-              <Image size={20} />
-            </button>
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                className={styles.attachBtn}
+                onClick={() => setShowAttachMenu(!showAttachMenu)}
+                disabled={isSubmitting}
+                title="Lampirkan foto"
+              >
+                <Image size={20} />
+              </button>
+
+              {showAttachMenu && (
+                <div className={`${styles.attachDropdown} glass-panel`}>
+                  <button
+                    type="button"
+                    className={styles.attachDropdownItem}
+                    onClick={() => {
+                      cameraInputRef.current?.click();
+                      setShowAttachMenu(false);
+                    }}
+                  >
+                    📷 Kamera
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.attachDropdownItem}
+                    onClick={() => {
+                      fileInputRef.current?.click();
+                      setShowAttachMenu(false);
+                    }}
+                  >
+                    🖼️ Galeri
+                  </button>
+                </div>
+              )}
+            </div>
             <input
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
               style={{ display: 'none' }}
               accept="image/*"
+            />
+            <input
+              type="file"
+              ref={cameraInputRef}
+              onChange={handleFileChange}
+              style={{ display: 'none' }}
+              accept="image/*"
+              capture="environment"
             />
 
             {/* Chat Text Input */}
@@ -1296,6 +1399,35 @@ export default function EmployeeChatPage() {
           </button>
           <div className={styles.lightboxContent} onClick={(e) => e.stopPropagation()}>
             <img src={activeLightboxImage} alt="Fullscreen Attachment" className={styles.lightboxImage} />
+          </div>
+        </div>
+      )}
+
+      {activeContextMenu && (
+        <div 
+          className={styles.contextMenuOverlay} 
+          onClick={() => setActiveContextMenu(null)}
+          onTouchStart={() => setActiveContextMenu(null)}
+        >
+          <div 
+            className={`${styles.contextMenu} glass-panel`}
+            style={{ 
+              top: `${Math.min(activeContextMenu.y, typeof window !== 'undefined' ? window.innerHeight - 80 : 300)}px`, 
+              left: `${Math.min(activeContextMenu.x, typeof window !== 'undefined' ? window.innerWidth - 150 : 150)}px` 
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              type="button" 
+              className={styles.contextMenuItem}
+              onClick={() => {
+                handleCopyMessage(activeContextMenu.messageId, activeContextMenu.text);
+                setActiveContextMenu(null);
+              }}
+            >
+              <Copy size={14} style={{ marginRight: '8px' }} />
+              <span>Salin Teks</span>
+            </button>
           </div>
         </div>
       )}
