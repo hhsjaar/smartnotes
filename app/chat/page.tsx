@@ -444,23 +444,13 @@ export default function EmployeeChatPage() {
     try {
       let uploadedImageUrl = null;
 
-      // Upload file first if selected
+      // Convert file directly to compressed Base64 string if selected
       if (selectedFile) {
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-
-        const uploadRes = await fetch('/api/chat/upload', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!uploadRes.ok) {
-          const uploadError = await uploadRes.json();
-          throw new Error(uploadError.error || 'Gagal mengunggah gambar');
+        try {
+          uploadedImageUrl = await compressImageToBase64(selectedFile);
+        } catch (err) {
+          throw new Error('Gagal memproses gambar');
         }
-
-        const uploadResult = await uploadRes.json();
-        uploadedImageUrl = uploadResult.imageUrl;
       }
 
       const isEditing = !!editingMessage;
@@ -910,7 +900,7 @@ export default function EmployeeChatPage() {
               >
                 {/* Simple Quick Replies */}
                 {simpleOptions.length > 0 && (
-                  <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px', scrollbarWidth: 'none' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start', paddingBottom: '2px' }}>
                     {simpleOptions.map((opt) => {
                       const isSelected = newMessageText
                         ? newMessageText.split(',').map(item => item.trim().toLowerCase()).includes(opt.text.toLowerCase())
@@ -1397,3 +1387,53 @@ export default function EmployeeChatPage() {
     </div>
   );
 }
+
+const compressImageToBase64 = (file: File, maxWidth = 1200, maxHeight = 1200, quality = 0.7): Promise<string> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new window.Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(event.target?.result as string || '');
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        try {
+          const base64 = canvas.toDataURL('image/jpeg', quality);
+          resolve(base64);
+        } catch (e) {
+          resolve(event.target?.result as string || '');
+        }
+      };
+      img.onerror = () => {
+        resolve(event.target?.result as string || '');
+      };
+    };
+    reader.onerror = () => {
+      resolve('');
+    };
+  });
+};

@@ -732,21 +732,11 @@ function DashboardContent() {
       let uploadedImageUrl = null;
 
       if (adminSelectedFile) {
-        const formData = new FormData();
-        formData.append('file', adminSelectedFile);
-
-        const uploadRes = await fetch('/api/chat/upload', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!uploadRes.ok) {
-          const uploadError = await uploadRes.json();
-          throw new Error(uploadError.error || 'Gagal mengunggah gambar');
+        try {
+          uploadedImageUrl = await compressImageToBase64(adminSelectedFile);
+        } catch (err) {
+          throw new Error('Gagal memproses gambar');
         }
-
-        const uploadResult = await uploadRes.json();
-        uploadedImageUrl = uploadResult.imageUrl;
       }
 
       const isEditing = !!editingChatMessage;
@@ -845,6 +835,36 @@ function DashboardContent() {
       } catch (err) {
         alert('Gagal menghapus atribut');
       }
+    }
+  };
+
+  const handleRenameChatAttribute = async (id: string, oldName: string) => {
+    if (oldName === 'Umum') {
+      alert('Atribut "Umum" adalah atribut sistem bawaan dan tidak dapat diubah namanya.');
+      return;
+    }
+    const newName = prompt(`Masukkan nama baru untuk atribut "${oldName}":`, oldName);
+    if (!newName || !newName.trim() || newName.trim() === oldName) return;
+
+    try {
+      const res = await fetch('/api/chat/attributes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name: newName.trim() }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setChatAttributes(prev => prev.map(a => a.id === id ? { ...a, name: updated.name } : a).sort((a, b) => a.name.localeCompare(b.name)));
+        if (selectedChatAttribute === oldName) {
+          setSelectedChatAttribute(updated.name);
+        }
+        alert('Atribut berhasil diubah namanya.');
+      } else {
+        const errData = await res.json();
+        alert(errData.error || 'Gagal mengubah nama atribut');
+      }
+    } catch (err) {
+      alert('Gagal mengubah nama atribut');
     }
   };
 
@@ -3818,7 +3838,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span className={styles.attrItemName} style={{ fontWeight: 600, color: '#fff', fontSize: '0.9rem' }}>🏷️ {attr.name}</span>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                       <button
                         type="button"
                         onClick={() => {
@@ -3840,6 +3860,24 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       >
                         Kelola
                       </button>
+                      {attr.name !== 'Umum' && (
+                        <button
+                          type="button"
+                          onClick={() => handleRenameChatAttribute(attr.id, attr.name)}
+                          style={{
+                            background: 'rgba(234, 179, 8, 0.15)',
+                            border: '1px solid rgba(234, 179, 8, 0.3)',
+                            color: '#facc15',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.72rem',
+                            cursor: 'pointer',
+                          }}
+                          title="Ubah Nama Atribut"
+                        >
+                          Ubah Nama
+                        </button>
+                      )}
                       {attr.name !== 'Umum' && (
                         <button 
                           type="button" 
@@ -4213,7 +4251,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span className={styles.attrItemName} style={{ fontWeight: 600, color: '#fff', fontSize: '0.9rem' }}>🏷️ {attr.name}</span>
-                        <div style={{ display: 'flex', gap: '8px' }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <button
                             type="button"
                             onClick={() => {
@@ -4235,6 +4273,24 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                           >
                             Kelola
                           </button>
+                          {attr.name !== 'Umum' && (
+                            <button
+                              type="button"
+                              onClick={() => handleRenameChatAttribute(attr.id, attr.name)}
+                              style={{
+                                background: 'rgba(234, 179, 8, 0.15)',
+                                border: '1px solid rgba(234, 179, 8, 0.3)',
+                                color: '#facc15',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                fontSize: '0.72rem',
+                                cursor: 'pointer',
+                              }}
+                              title="Ubah Nama Atribut"
+                            >
+                              Ubah Nama
+                            </button>
+                          )}
                           {attr.name !== 'Umum' && (
                             <button 
                               type="button" 
@@ -6539,3 +6595,53 @@ function CustomerReservation() {
     </div>
   );
 }
+
+const compressImageToBase64 = (file: File, maxWidth = 1200, maxHeight = 1200, quality = 0.7): Promise<string> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new window.Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(event.target?.result as string || '');
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        try {
+          const base64 = canvas.toDataURL('image/jpeg', quality);
+          resolve(base64);
+        } catch (e) {
+          resolve(event.target?.result as string || '');
+        }
+      };
+      img.onerror = () => {
+        resolve(event.target?.result as string || '');
+      };
+    };
+    reader.onerror = () => {
+      resolve('');
+    };
+  });
+};
