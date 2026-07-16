@@ -193,7 +193,7 @@ export async function DELETE(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { id, options, chatbotEnabled, action, optionId, assignedTo } = await request.json();
+    const { id, options, chatbotEnabled, action, optionId, assignedTo, name } = await request.json();
 
     if (!id) {
       return NextResponse.json({ error: 'ID atribut harus ditentukan' }, { status: 400 });
@@ -205,6 +205,55 @@ export async function PUT(request: Request) {
 
     if (!attribute) {
       return NextResponse.json({ error: 'Atribut tidak ditemukan' }, { status: 404 });
+    }
+
+    // Handle attribute name edit/renaming
+    if (name !== undefined) {
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        return NextResponse.json({ error: 'Nama atribut tidak boleh kosong' }, { status: 400 });
+      }
+
+      const oldName = attribute.name;
+      if (trimmedName !== oldName) {
+        if (oldName === 'Umum') {
+          return NextResponse.json({ error: 'Atribut "Umum" tidak dapat diubah namanya' }, { status: 400 });
+        }
+
+        const existing = await prisma.chatAttribute.findFirst({
+          where: {
+            name: {
+              equals: trimmedName,
+              mode: 'insensitive',
+            },
+            id: {
+              not: id,
+            },
+          },
+        });
+        if (existing) {
+          return NextResponse.json({ error: 'Nama atribut tersebut sudah digunakan' }, { status: 400 });
+        }
+
+        // Rename across all referencing tables in a transaction
+        await prisma.$transaction([
+          prisma.chatAttribute.update({
+            where: { id },
+            data: { name: trimmedName },
+          }),
+          prisma.chatMessage.updateMany({
+            where: { attribute: oldName },
+            data: { attribute: trimmedName },
+          }),
+          prisma.chatAttributeHistory.updateMany({
+            where: { attributeName: oldName },
+            data: { attributeName: trimmedName },
+          }),
+        ]);
+        
+        // Update local reference so subsequent updates in this request use the new name
+        attribute.name = trimmedName;
+      }
     }
 
     // If taking or ending a timeframe option

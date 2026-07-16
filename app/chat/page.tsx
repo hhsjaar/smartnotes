@@ -817,6 +817,19 @@ export default function EmployeeChatPage() {
             const simpleOptions = allOptions.filter(o => !o.hasTimeframe);
             const taskOptions = allOptions.filter(o => o.hasTimeframe);
 
+            const toggleSimpleOption = (optText: string) => {
+              const currentText = newMessageText.trim();
+              const items = currentText ? currentText.split(',').map(item => item.trim()).filter(Boolean) : [];
+              const index = items.findIndex(item => item.toLowerCase() === optText.toLowerCase());
+              if (index !== -1) {
+                items.splice(index, 1);
+              } else {
+                items.push(optText);
+              }
+              setNewMessageText(items.join(', '));
+              chatInputRef.current?.focus();
+            };
+
             return (
               <div 
                 style={{
@@ -832,30 +845,37 @@ export default function EmployeeChatPage() {
                 {/* Simple Quick Replies */}
                 {simpleOptions.length > 0 && (
                   <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px', scrollbarWidth: 'none' }}>
-                    {simpleOptions.map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => {
-                          setNewMessageText(opt.text);
-                          chatInputRef.current?.focus();
-                        }}
-                        style={{
-                          padding: '5px 10px',
-                          borderRadius: '16px',
-                          fontSize: '0.75rem',
-                          fontWeight: 500,
-                          border: '1px solid rgba(255,255,255,0.06)',
-                          background: 'rgba(255, 255, 255, 0.03)',
-                          color: '#cbd5e1',
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap',
-                          transition: 'all 0.2s'
-                        }}
-                      >
-                        {opt.text}
-                      </button>
-                    ))}
+                    {simpleOptions.map((opt) => {
+                      const isSelected = newMessageText
+                        ? newMessageText.split(',').map(item => item.trim().toLowerCase()).includes(opt.text.toLowerCase())
+                        : false;
+                      
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => toggleSimpleOption(opt.text)}
+                          style={{
+                            padding: '5px 10px',
+                            borderRadius: '16px',
+                            fontSize: '0.75rem',
+                            fontWeight: 500,
+                            border: isSelected 
+                              ? '1px solid rgba(99, 102, 241, 0.5)' 
+                              : '1px solid rgba(255,255,255,0.06)',
+                            background: isSelected 
+                              ? 'rgba(99, 102, 241, 0.2)' 
+                              : 'rgba(255, 255, 255, 0.03)',
+                            color: isSelected ? '#fff' : '#cbd5e1',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          {opt.text}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
 

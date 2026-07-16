@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// Helper function to parse dateTime string as WIB (UTC+7) if no timezone offset is present
+function parseDateTimeAsWIB(dateTimeStr: string): Date {
+  if (!dateTimeStr) return new Date();
+  if (dateTimeStr.includes('Z') || /[+-]\d{2}:\d{2}$/.test(dateTimeStr)) {
+    return new Date(dateTimeStr);
+  }
+  return new Date(`${dateTimeStr}+07:00`);
+}
+
 // GET: Ambil semua data reservasi untuk admin
 export async function GET() {
   try {
@@ -39,7 +48,7 @@ export async function POST(request: Request) {
     }
 
     // Validasi tanggal tidak di masa lalu (mendukung hari H)
-    const bookingDate = new Date(dateTime);
+    const bookingDate = parseDateTimeAsWIB(dateTime);
     const now = new Date();
     if (bookingDate.getTime() < now.getTime() - 5 * 60 * 1000) { // toleransi 5 menit
       return NextResponse.json({ 
@@ -57,7 +66,7 @@ export async function POST(request: Request) {
     const newReservation = await prisma.reservation.create({
       data: {
         name: name.trim(),
-        dateTime: new Date(dateTime),
+        dateTime: bookingDate,
         tableInfo: tableInfo.trim(),
         partySize: size,
         dpAmount: parseFloat(dpAmount) || 0,
@@ -94,7 +103,7 @@ export async function PUT(request: Request) {
     if (status) updateData.status = status;
     if (dpAmount !== undefined) updateData.dpAmount = parseFloat(dpAmount) || 0;
     if (name) updateData.name = name.trim();
-    if (dateTime) updateData.dateTime = new Date(dateTime);
+    if (dateTime) updateData.dateTime = parseDateTimeAsWIB(dateTime);
     if (tableInfo) updateData.tableInfo = tableInfo.trim();
     if (partySize !== undefined) updateData.partySize = parseInt(partySize) || reservation.partySize;
     if (menuList) updateData.menuList = menuList.trim();

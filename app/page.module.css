@@ -4337,6 +4337,25 @@
   color: #ffffff;
 }
 
+.actionBtnEdit {
+  background: rgba(168, 85, 247, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #c084fc;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.actionBtnEdit:hover {
+  background: #a855f7;
+  color: #ffffff;
+}
+
 .actionBtnDelete {
   background: rgba(239, 68, 68, 0.08);
   border: 1px solid rgba(239, 68, 68, 0.2);
@@ -5095,6 +5114,16 @@
 
   .resMobileDeleteBtn:active {
     background: rgba(255, 255, 255, 0.12);
+  }
+
+  .resMobileEditBtn {
+    background: rgba(168, 85, 247, 0.1);
+    color: #c084fc;
+    border: 1px solid rgba(168, 85, 247, 0.25);
+  }
+
+  .resMobileEditBtn:active {
+    background: rgba(168, 85, 247, 0.2);
   }
 
   .resLoaderMobile {

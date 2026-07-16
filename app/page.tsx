@@ -156,6 +156,15 @@ function DashboardContent() {
   const [isAdminCalOpenMobile, setIsAdminCalOpenMobile] = useState(false);
   const [showReservationsModalAdmin, setShowReservationsModalAdmin] = useState(false);
   const [resListFilterAdmin, setResListFilterAdmin] = useState('upcoming');
+  const [editingReservation, setEditingReservation] = useState<any | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDateTime, setEditDateTime] = useState('');
+  const [editTable, setEditTable] = useState('');
+  const [editSize, setEditSize] = useState(4);
+  const [editDp, setEditDp] = useState('');
+  const [editMenu, setEditMenu] = useState('');
+  const [editStatus, setEditStatus] = useState('pending');
+  const [editIsSaving, setEditIsSaving] = useState(false);
 
   const getChatAttributeColor = (attr: string | null) => {
     if (!attr) return '#64748b';
@@ -2135,6 +2144,56 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
       console.error('Failed to load reservations:', err);
     } finally {
       setAdminResLoading(false);
+    }
+  };
+
+  const handleStartEdit = (r: any) => {
+    setEditingReservation(r);
+    setEditName(r.name);
+    const date = new Date(r.dateTime);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    setEditDateTime(`${year}-${month}-${day}T${hours}:${minutes}`);
+    setEditTable(r.tableInfo);
+    setEditSize(r.partySize);
+    setEditDp(r.dpAmount.toLocaleString('id-ID'));
+    setEditMenu(r.menuList);
+    setEditStatus(r.status);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEditIsSaving(true);
+    try {
+      const res = await fetch('/api/reservations', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingReservation.id,
+          name: editName,
+          dateTime: editDateTime,
+          tableInfo: editTable,
+          partySize: editSize,
+          dpAmount: parseFloat(editDp.replace(/\./g, '')) || 0,
+          menuList: editMenu,
+          status: editStatus,
+        }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setAdminReservations((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+        setEditingReservation(null);
+      } else {
+        const errData = await res.json();
+        alert(errData.error || 'Gagal menyimpan perubahan');
+      }
+    } catch (err) {
+      alert('Terjadi kesalahan jaringan');
+    } finally {
+      setEditIsSaving(false);
     }
   };
 
@@ -4688,6 +4747,13 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       )}
                       <button
                         type="button"
+                        onClick={() => handleStartEdit(r)}
+                        className={`${styles.resMobileActionBtn} ${styles.resMobileEditBtn}`}
+                      >
+                        ✎ Edit
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handleDeleteRes(r.id)}
                         className={`${styles.resMobileActionBtn} ${styles.resMobileDeleteBtn}`}
                       >
@@ -4855,14 +4921,22 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                   ★
                                 </button>
                               )}
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteRes(r.id)}
-                                className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
-                                title="Hapus"
-                              >
-                                Hapus
-                              </button>
+                               <button
+                                 type="button"
+                                 onClick={() => handleStartEdit(r)}
+                                 className={`${styles.actionBtn} ${styles.actionBtnEdit}`}
+                                 title="Edit Reservasi"
+                               >
+                                 <Pencil size={14} />
+                               </button>
+                               <button
+                                 type="button"
+                                 onClick={() => handleDeleteRes(r.id)}
+                                 className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
+                                 title="Hapus"
+                               >
+                                 Hapus
+                               </button>
                             </div>
                           </td>
                         </tr>
@@ -5816,6 +5890,134 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 Hapus
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {editingReservation && (
+        <div className={styles.modalOverlay} onClick={() => setEditingReservation(null)}>
+          <div className={`${styles.modalContent} glass-panel`} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <h3 style={{ margin: 0 }}>Edit Reservasi</h3>
+              <button 
+                type="button" 
+                onClick={() => setEditingReservation(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveEdit} className={styles.modalForm}>
+              <div className={styles.custInputGroup}>
+                <label htmlFor="edit-res-name">Nama Pelanggan</label>
+                <input
+                  id="edit-res-name"
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                />
+              </div>
+
+              <div className={styles.custInputRow}>
+                <div className={styles.custInputGroup} style={{ flex: 1 }}>
+                  <label htmlFor="edit-res-datetime">Tanggal & Waktu</label>
+                  <input
+                    id="edit-res-datetime"
+                    type="datetime-local"
+                    required
+                    value={editDateTime}
+                    onChange={(e) => setEditDateTime(e.target.value)}
+                  />
+                </div>
+
+                <div className={styles.custInputGroup} style={{ width: '120px' }}>
+                  <label htmlFor="edit-res-size">Orang</label>
+                  <input
+                    id="edit-res-size"
+                    type="number"
+                    min="1"
+                    required
+                    value={editSize}
+                    onChange={(e) => setEditSize(parseInt(e.target.value) || 0)}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.custInputRow}>
+                <div className={styles.custInputGroup} style={{ flex: 1 }}>
+                  <label htmlFor="edit-res-table">Tempat / Meja</label>
+                  <input
+                    id="edit-res-table"
+                    type="text"
+                    required
+                    value={editTable}
+                    onChange={(e) => setEditTable(e.target.value)}
+                  />
+                </div>
+
+                <div className={styles.custInputGroup} style={{ flex: 1 }}>
+                  <label htmlFor="edit-res-dp">DP (Rp)</label>
+                  <input
+                    id="edit-res-dp"
+                    type="text"
+                    value={editDp}
+                    onChange={(e) => {
+                      const cleanValue = e.target.value.replace(/\D/g, '');
+                      if (!cleanValue) {
+                        setEditDp('');
+                      } else {
+                        setEditDp(parseInt(cleanValue).toLocaleString('id-ID'));
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.custInputGroup}>
+                <label htmlFor="edit-res-status">Status</label>
+                <select
+                  id="edit-res-status"
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value)}
+                >
+                  <option value="pending">Menunggu</option>
+                  <option value="confirmed">Dikonfirmasi</option>
+                  <option value="cancelled">Dibatalkan</option>
+                  <option value="completed">Selesai</option>
+                </select>
+              </div>
+
+              <div className={styles.custInputGroup}>
+                <label htmlFor="edit-res-menu">Daftar Menu</label>
+                <textarea
+                  id="edit-res-menu"
+                  required
+                  rows={4}
+                  value={editMenu}
+                  onChange={(e) => setEditMenu(e.target.value)}
+                />
+              </div>
+
+              <div className={styles.modalActions}>
+                <GlowButton
+                  variant="outline"
+                  type="button"
+                  onClick={() => setEditingReservation(null)}
+                  disabled={editIsSaving}
+                >
+                  Batal
+                </GlowButton>
+                <GlowButton
+                  variant="primary"
+                  type="submit"
+                  disabled={editIsSaving}
+                >
+                  {editIsSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
+                </GlowButton>
+              </div>
+            </form>
           </div>
         </div>
       )}
