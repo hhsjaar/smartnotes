@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2, Calendar as CalendarIcon, X } from 'lucide-react';
+import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2, Calendar as CalendarIcon, X, Image } from 'lucide-react';
 import styles from './page.module.css';
 
 interface ChatMessage {
@@ -9,6 +9,7 @@ interface ChatMessage {
   senderName: string;
   senderRole: string;
   message: string;
+  imageUrl?: string | null;
   attribute: string | null;
   createdAt: string;
 }
@@ -41,6 +42,13 @@ export default function EmployeeChatPage() {
   const [attributes, setAttributes] = useState<ChatAttribute[]>([]);
   const [selectedAttribute, setSelectedAttribute] = useState<string>('Umum');
   const [filterAttribute, setFilterAttribute] = useState<string>('Semua');
+
+  // Image Upload and Lightbox States & Refs
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null);
 
   const filteredMessages = filterAttribute === 'Semua'
     ? messages
@@ -346,14 +354,69 @@ export default function EmployeeChatPage() {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Format file tidak didukung. Harap pilih gambar (JPEG, PNG, GIF, WEBP).');
+      return;
+    }
+
+    // Validate size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Ukuran file maksimal 5MB.');
+      return;
+    }
+
+    setSelectedFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemovePreview = () => {
+    setSelectedFile(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessageText.trim() || isSubmitting) return;
+    if ((!newMessageText.trim() && !selectedFile) || isSubmitting) return;
 
     setIsSubmitting(true);
+    setIsUploading(!!selectedFile);
     setErrorMsg('');
 
     try {
+      let uploadedImageUrl = null;
+
+      // Upload file first if selected
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+
+        const uploadRes = await fetch('/api/chat/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadRes.ok) {
+          const uploadError = await uploadRes.json();
+          throw new Error(uploadError.error || 'Gagal mengunggah gambar');
+        }
+
+        const uploadResult = await uploadRes.json();
+        uploadedImageUrl = uploadResult.imageUrl;
+      }
+
       const isEditing = !!editingMessage;
       const url = '/api/chat';
       const method = isEditing ? 'PUT' : 'POST';
@@ -363,12 +426,14 @@ export default function EmployeeChatPage() {
             message: newMessageText.trim(),
             attribute: selectedAttribute || null,
             senderName: name,
-            senderRole: 'employee'
+            senderRole: 'employee',
+            imageUrl: editingMessage.imageUrl
           }
         : {
             senderName: name,
             senderRole: 'employee',
             message: newMessageText.trim(),
+            imageUrl: uploadedImageUrl,
             attribute: selectedAttribute || null,
           };
 
@@ -395,10 +460,16 @@ export default function EmployeeChatPage() {
       }
       
       setNewMessageText('');
+      setSelectedFile(null);
+      setImagePreview(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Terjadi kesalahan.');
     } finally {
       setIsSubmitting(false);
+      setIsUploading(false);
     }
   };
 
@@ -662,8 +733,20 @@ export default function EmployeeChatPage() {
                           </div>
                         )}
 
+                        {/* Image inside bubble */}
+                        {msg.imageUrl && (
+                          <div 
+                            className={styles.messageImageWrapper} 
+                            onClick={() => setActiveLightboxImage(msg.imageUrl || null)}
+                          >
+                            <img src={msg.imageUrl} alt="Lampiran foto" className={styles.messageImage} />
+                          </div>
+                        )}
+
                         {/* Content */}
-                        <p className={styles.messageText}>{formatBoldText(msg.message)}</p>
+                        {msg.message && (
+                          <p className={styles.messageText}>{formatBoldText(msg.message)}</p>
+                        )}
                         
                         {/* Time */}
                         <span className={styles.timeText}>{timeStr}</span>
@@ -857,7 +940,45 @@ export default function EmployeeChatPage() {
             );
           })()}
 
+          {/* Image Upload Preview */}
+          {imagePreview && (
+            <div className={styles.imagePreviewContainer}>
+              <img src={imagePreview} alt="Upload preview" className={styles.imagePreview} />
+              <button 
+                type="button" 
+                onClick={handleRemovePreview} 
+                className={styles.removePreviewBtn}
+                title="Hapus gambar"
+              >
+                <X size={14} />
+              </button>
+              {isUploading && (
+                <div className={styles.uploadOverlay}>
+                  <div className="spinner" style={{ width: '20px', height: '20px' }} />
+                </div>
+              )}
+            </div>
+          )}
+
           <form onSubmit={handleSendMessage} className={styles.inputForm}>
+            {/* Attachment Button */}
+            <button
+              type="button"
+              className={styles.attachBtn}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isSubmitting}
+              title="Lampirkan foto"
+            >
+              <Image size={20} />
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              style={{ display: 'none' }}
+              accept="image/*"
+            />
+
             {/* Chat Text Input */}
             <textarea
               ref={chatInputRef}
@@ -866,7 +987,7 @@ export default function EmployeeChatPage() {
               onChange={(e) => setNewMessageText(e.target.value)}
               className={styles.chatInput}
               disabled={isSubmitting}
-              required
+              required={!selectedFile}
               rows={2}
               style={{ resize: 'none', fontFamily: 'inherit' }}
             />
@@ -875,7 +996,7 @@ export default function EmployeeChatPage() {
             <button 
               type="submit" 
               className={styles.sendBtn}
-              disabled={!newMessageText.trim() || isSubmitting}
+              disabled={(!newMessageText.trim() && !selectedFile) || isSubmitting}
             >
               <Send size={18} />
             </button>
@@ -1137,6 +1258,24 @@ export default function EmployeeChatPage() {
               <button className={styles.installBtn} onClick={handleInstallClick}>Instal Sekarang</button>
               <button className={styles.closeInstallBtn} onClick={() => setShowInstallBanner(false)}>Tutup</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {activeLightboxImage && (
+        <div 
+          className={styles.lightbox} 
+          onClick={() => setActiveLightboxImage(null)}
+        >
+          <button 
+            className={styles.lightboxCloseBtn}
+            onClick={() => setActiveLightboxImage(null)}
+            type="button"
+          >
+            <X size={24} />
+          </button>
+          <div className={styles.lightboxContent} onClick={(e) => e.stopPropagation()}>
+            <img src={activeLightboxImage} alt="Fullscreen Attachment" className={styles.lightboxImage} />
           </div>
         </div>
       )}

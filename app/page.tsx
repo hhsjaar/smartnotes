@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock, GitMerge, Lock, Tag, Users, LogOut, ArrowRight, Send, AlertCircle, Filter, Pencil } from 'lucide-react';
+import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock, GitMerge, Lock, Tag, Users, LogOut, ArrowRight, Send, AlertCircle, Filter, Pencil, Image } from 'lucide-react';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { NoteCard } from '@/components/NoteCard';
 import { NoteEditor } from '@/components/NoteEditor';
@@ -182,10 +182,18 @@ function DashboardContent() {
   const [editingChatMessage, setEditingChatMessage] = useState<any | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatSubmitting, setChatSubmitting] = useState(false);
-  const [newAttributeInput, setNewAttributeInput] = useState('');
+
   const chatMessagesEndRef = useRef<HTMLDivElement | null>(null);
   const chatPollingRef = useRef<NodeJS.Timeout | null>(null);
   const adminChatInputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Admin Chat Upload State & Refs
+  const adminFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [adminSelectedFile, setAdminSelectedFile] = useState<File | null>(null);
+  const [adminImagePreview, setAdminImagePreview] = useState<string | null>(null);
+  const [adminIsUploading, setAdminIsUploading] = useState(false);
+  const [adminActiveLightboxImage, setAdminActiveLightboxImage] = useState<string | null>(null);
+  const [newAttributeInput, setNewAttributeInput] = useState('');
 
   // Manage Attribute options / chatbot state
   const [editingAttributeForOptions, setEditingAttributeForOptions] = useState<any | null>(null);
@@ -615,11 +623,63 @@ function DashboardContent() {
     }
   };
 
+  const handleAdminFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Format file tidak didukung. Harap pilih gambar (JPEG, PNG, GIF, WEBP).');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Ukuran file maksimal 5MB.');
+      return;
+    }
+
+    setAdminSelectedFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAdminImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAdminRemovePreview = () => {
+    setAdminSelectedFile(null);
+    setAdminImagePreview(null);
+    if (adminFileInputRef.current) {
+      adminFileInputRef.current.value = '';
+    }
+  };
+
   const handleSendAdminChatMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newChatMessage.trim() || chatSubmitting) return;
+    if ((!newChatMessage.trim() && !adminSelectedFile) || chatSubmitting) return;
     setChatSubmitting(true);
+    setAdminIsUploading(!!adminSelectedFile);
     try {
+      let uploadedImageUrl = null;
+
+      if (adminSelectedFile) {
+        const formData = new FormData();
+        formData.append('file', adminSelectedFile);
+
+        const uploadRes = await fetch('/api/chat/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadRes.ok) {
+          const uploadError = await uploadRes.json();
+          throw new Error(uploadError.error || 'Gagal mengunggah gambar');
+        }
+
+        const uploadResult = await uploadRes.json();
+        uploadedImageUrl = uploadResult.imageUrl;
+      }
+
       const isEditing = !!editingChatMessage;
       const url = '/api/chat';
       const method = isEditing ? 'PUT' : 'POST';
@@ -629,12 +689,14 @@ function DashboardContent() {
             message: newChatMessage.trim(),
             attribute: selectedChatAttribute || null,
             senderName: 'Admin',
-            senderRole: 'admin'
+            senderRole: 'admin',
+            imageUrl: editingChatMessage.imageUrl
           }
         : {
             senderName: 'Admin',
             senderRole: 'admin',
             message: newChatMessage.trim(),
+            imageUrl: uploadedImageUrl,
             attribute: selectedChatAttribute || null,
           };
 
@@ -653,14 +715,20 @@ function DashboardContent() {
           setChatMessages(prev => [...prev, resultMsg]);
         }
         setNewChatMessage('');
+        setAdminSelectedFile(null);
+        setAdminImagePreview(null);
+        if (adminFileInputRef.current) {
+          adminFileInputRef.current.value = '';
+        }
       } else {
         const errorData = await res.json();
         alert(errorData.error || `Gagal ${isEditing ? 'mengedit' : 'mengirim'} pesan`);
       }
-    } catch (err) {
-      alert('Terjadi kesalahan saat memproses pesan');
+    } catch (err: any) {
+      alert(err.message || 'Terjadi kesalahan saat memproses pesan');
     } finally {
       setChatSubmitting(false);
+      setAdminIsUploading(false);
     }
   };
 
@@ -3335,7 +3403,18 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                               </span>
                             )}
 
-                            <p className={styles.chatMessageText}>{formatBoldText(msg.message)}</p>
+                            {msg.imageUrl && (
+                              <div 
+                                className={styles.adminMessageImageWrapper} 
+                                onClick={() => setAdminActiveLightboxImage(msg.imageUrl || null)}
+                              >
+                                <img src={msg.imageUrl} alt="Lampiran foto" className={styles.adminMessageImage} />
+                              </div>
+                            )}
+
+                            {msg.message && (
+                              <p className={styles.chatMessageText}>{formatBoldText(msg.message)}</p>
+                            )}
                             <span className={styles.chatTimeText}>{timeStr}</span>
                           </div>
                         </div>
@@ -3491,7 +3570,45 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 );
               })()}
 
+              {/* Admin Image Upload Preview */}
+              {adminImagePreview && (
+                <div className={styles.adminImagePreviewContainer}>
+                  <img src={adminImagePreview} alt="Upload preview" className={styles.adminImagePreview} />
+                  <button 
+                    type="button" 
+                    onClick={handleAdminRemovePreview} 
+                    className={styles.adminRemovePreviewBtn}
+                    title="Hapus gambar"
+                  >
+                    <X size={14} />
+                  </button>
+                  {adminIsUploading && (
+                    <div className={styles.adminUploadOverlay}>
+                      <div className="spinner" style={{ width: '20px', height: '20px' }} />
+                    </div>
+                  )}
+                </div>
+              )}
+
               <form onSubmit={handleSendAdminChatMessage} className={styles.adminChatInputForm}>
+                {/* Attachment Button */}
+                <button
+                  type="button"
+                  className={styles.adminAttachBtn}
+                  onClick={() => adminFileInputRef.current?.click()}
+                  disabled={chatSubmitting}
+                  title="Lampirkan foto"
+                >
+                  <Image size={20} />
+                </button>
+                <input
+                  type="file"
+                  ref={adminFileInputRef}
+                  onChange={handleAdminFileChange}
+                  style={{ display: 'none' }}
+                  accept="image/*"
+                />
+
                 <textarea
                   ref={adminChatInputRef}
                   placeholder="Tulis balasan atau pengumuman dari Admin..."
@@ -3499,7 +3616,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   onChange={(e) => setNewChatMessage(e.target.value)}
                   className={styles.adminChatTextInput}
                   disabled={chatSubmitting}
-                  required
+                  required={!adminSelectedFile}
                   rows={2}
                   style={{ resize: 'none', fontFamily: 'inherit' }}
                 />
@@ -3507,7 +3624,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 <button 
                   type="submit" 
                   className={styles.adminChatSendBtn}
-                  disabled={!newChatMessage.trim() || chatSubmitting}
+                  disabled={(!newChatMessage.trim() && !adminSelectedFile) || chatSubmitting}
                 >
                   <Send size={18} />
                 </button>
@@ -4003,6 +4120,25 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           {/* Attribute Calendar Modal */}
           {renderAttributeCalendarModal()}
         </div>
+
+        {/* Admin Lightbox Modal */}
+        {adminActiveLightboxImage && (
+          <div 
+            className={styles.adminLightbox} 
+            onClick={() => setAdminActiveLightboxImage(null)}
+          >
+            <button 
+              className={styles.adminLightboxCloseBtn}
+              onClick={() => setAdminActiveLightboxImage(null)}
+              type="button"
+            >
+              <X size={24} />
+            </button>
+            <div className={styles.adminLightboxContent} onClick={(e) => e.stopPropagation()}>
+              <img src={adminActiveLightboxImage} alt="Fullscreen Attachment" className={styles.adminLightboxImage} />
+            </div>
+          </div>
+        )}
       </div>
     );
   };

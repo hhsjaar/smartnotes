@@ -79,6 +79,7 @@ model ChatMessage {
   senderName String
   senderRole String   // "admin" or "employee"
   message    String
+  imageUrl   String?  // url of the uploaded image
   attribute  String?  // classification (e.g., "Sales", "Progres")
   createdAt  DateTime @default(now())
 

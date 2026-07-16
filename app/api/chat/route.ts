@@ -18,20 +18,21 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { senderName, senderRole, message, attribute } = await request.json();
+    const { senderName, senderRole, message, attribute, imageUrl } = await request.json();
 
     if (!senderName || !senderName.trim()) {
       return NextResponse.json({ error: 'Nama pengirim tidak boleh kosong' }, { status: 400 });
     }
-    if (!message || !message.trim()) {
-      return NextResponse.json({ error: 'Pesan tidak boleh kosong' }, { status: 400 });
+    if ((!message || !message.trim()) && !imageUrl) {
+      return NextResponse.json({ error: 'Pesan atau gambar tidak boleh kosong' }, { status: 400 });
     }
 
     const newMessage = await prisma.chatMessage.create({
       data: {
         senderName: senderName.trim(),
         senderRole: senderRole || 'employee',
-        message: message.trim(),
+        message: message ? message.trim() : '',
+        imageUrl: imageUrl || null,
         attribute: attribute || null,
       },
     });
@@ -127,13 +128,13 @@ TUGAS ANDA:
 
 export async function PUT(request: Request) {
   try {
-    const { id, message, attribute, senderName, senderRole } = await request.json();
+    const { id, message, attribute, senderName, senderRole, imageUrl } = await request.json();
 
     if (!id) {
       return NextResponse.json({ error: 'ID pesan harus ditentukan' }, { status: 400 });
     }
-    if (!message || !message.trim()) {
-      return NextResponse.json({ error: 'Pesan tidak boleh kosong' }, { status: 400 });
+    if ((!message || !message.trim()) && !imageUrl) {
+      return NextResponse.json({ error: 'Pesan atau gambar tidak boleh kosong' }, { status: 400 });
     }
 
     const chatMsg = await prisma.chatMessage.findUnique({
@@ -152,7 +153,8 @@ export async function PUT(request: Request) {
     const updatedMessage = await prisma.chatMessage.update({
       where: { id },
       data: {
-        message: message.trim(),
+        message: message ? message.trim() : '',
+        imageUrl: imageUrl || null,
         attribute: attribute || null,
       },
     });
