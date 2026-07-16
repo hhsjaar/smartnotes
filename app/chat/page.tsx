@@ -886,16 +886,16 @@ export default function EmployeeChatPage() {
             const simpleOptions = allOptions.filter(o => !o.hasTimeframe);
             const taskOptions = allOptions.filter(o => o.hasTimeframe);
 
-            const toggleSimpleOption = (optText: string) => {
+             const toggleSimpleOption = (optText: string) => {
               const currentText = newMessageText.trim();
-              const items = currentText ? currentText.split(',').map(item => item.trim()).filter(Boolean) : [];
+              const items = currentText ? currentText.split('\n').map(item => item.trim()).filter(Boolean) : [];
               const index = items.findIndex(item => item.toLowerCase() === optText.toLowerCase());
               if (index !== -1) {
                 items.splice(index, 1);
               } else {
                 items.push(optText);
               }
-              setNewMessageText(items.join(', '));
+              setNewMessageText(items.join('\n'));
               chatInputRef.current?.focus();
             };
 
@@ -913,10 +913,10 @@ export default function EmployeeChatPage() {
               >
                 {/* Simple Quick Replies */}
                 {simpleOptions.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start', paddingBottom: '2px' }}>
+                  <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px', scrollbarWidth: 'none' }}>
                     {simpleOptions.map((opt) => {
                       const isSelected = newMessageText
-                        ? newMessageText.split(',').map(item => item.trim().toLowerCase()).includes(opt.text.toLowerCase())
+                        ? newMessageText.split('\n').map(item => item.trim().toLowerCase()).includes(opt.text.toLowerCase())
                         : false;
                       
                       return (

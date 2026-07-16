@@ -704,14 +704,14 @@ function DashboardContent() {
 
   const toggleAdminSimpleOption = (optText: string) => {
     const currentText = newChatMessage.trim();
-    const items = currentText ? currentText.split(',').map(item => item.trim()).filter(Boolean) : [];
+    const items = currentText ? currentText.split('\n').map(item => item.trim()).filter(Boolean) : [];
     const index = items.findIndex(item => item.toLowerCase() === optText.toLowerCase());
     if (index !== -1) {
       items.splice(index, 1);
     } else {
       items.push(optText);
     }
-    setNewChatMessage(items.join(', '));
+    setNewChatMessage(items.join('\n'));
     adminChatInputRef.current?.focus();
   };
 
@@ -3660,7 +3660,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px', scrollbarWidth: 'none' }}>
                         {simpleOptions.map((opt) => {
                           const isSelected = newChatMessage
-                            ? newChatMessage.split(',').map(item => item.trim().toLowerCase()).includes(opt.text.toLowerCase())
+                            ? newChatMessage.split('\n').map(item => item.trim().toLowerCase()).includes(opt.text.toLowerCase())
                             : false;
                           
                           return (
