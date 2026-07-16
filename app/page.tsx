@@ -734,8 +734,11 @@ function DashboardContent() {
       if (adminSelectedFile) {
         try {
           uploadedImageUrl = await compressImageToBase64(adminSelectedFile);
-        } catch (err) {
-          throw new Error('Gagal memproses gambar');
+          if (uploadedImageUrl.length > 3.5 * 1024 * 1024) {
+            throw new Error('Ukuran gambar terlalu besar setelah dikompresi (Maksimal 3MB). Silakan pilih foto dengan resolusi lebih rendah.');
+          }
+        } catch (err: any) {
+          throw new Error(err.message || 'Gagal memproses gambar');
         }
       }
 
@@ -780,8 +783,18 @@ function DashboardContent() {
           adminFileInputRef.current.value = '';
         }
       } else {
-        const errorData = await res.json();
-        alert(errorData.error || `Gagal ${isEditing ? 'mengedit' : 'mengirim'} pesan`);
+        let errorMessage = `Gagal ${isEditing ? 'mengedit' : 'mengirim'} pesan`;
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          if (res.status === 413) {
+            errorMessage = 'Ukuran gambar terlalu besar untuk diunggah ke Vercel (Maksimal 3MB).';
+          } else {
+            errorMessage = `Terjadi kesalahan server (Kode status: ${res.status})`;
+          }
+        }
+        throw new Error(errorMessage);
       }
     } catch (err: any) {
       alert(err.message || 'Terjadi kesalahan saat memproses pesan');
@@ -6596,52 +6609,59 @@ function CustomerReservation() {
   );
 }
 
-const compressImageToBase64 = (file: File, maxWidth = 1200, maxHeight = 1200, quality = 0.7): Promise<string> => {
+const compressImageToBase64 = (file: File, maxWidth = 1000, maxHeight = 1000, quality = 0.6): Promise<string> => {
   return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new window.Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
+    const img = new window.Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.src = objectUrl;
 
-        if (width > height) {
-          if (width > maxWidth) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
-          }
-        } else {
-          if (height > maxHeight) {
-            width = Math.round((width * maxHeight) / height);
-            height = maxHeight;
-          }
-        }
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
 
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(event.target?.result as string || '');
-          return;
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
         }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
 
-        ctx.drawImage(img, 0, 0, width, height);
-        try {
-          const base64 = canvas.toDataURL('image/jpeg', quality);
-          resolve(base64);
-        } catch (e) {
-          resolve(event.target?.result as string || '');
-        }
-      };
-      img.onerror = () => {
-        resolve(event.target?.result as string || '');
-      };
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string || '');
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+      try {
+        const base64 = canvas.toDataURL('image/jpeg', quality);
+        resolve(base64);
+      } catch (e) {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string || '');
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(file);
+      }
     };
-    reader.onerror = () => {
-      resolve('');
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target?.result as string || '');
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
     };
   });
 };
