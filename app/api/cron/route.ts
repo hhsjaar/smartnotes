@@ -273,7 +273,121 @@ export async function GET(request: Request) {
 
     // Process Reminders first
     const reminderResults = await processReminders(now);
+
+    // Process Daily Reservation Report at 9 AM (Asia/Jakarta)
+    let dailyReportSent = false;
+    const nowJkt = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
     
+    if (nowJkt.getHours() >= 9) {
+      const year = nowJkt.getFullYear();
+      const month = nowJkt.getMonth();
+      const date = nowJkt.getDate();
+      const jktDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+      const startOfDayUTC = new Date(`${jktDateStr}T00:00:00+07:00`);
+      const endOfDayUTC = new Date(`${jktDateStr}T23:59:59+07:00`);
+
+      // Check if daily reservation report has already been executed today
+      const existingJob = await prisma.scheduledJob.findFirst({
+        where: {
+          actionType: 'daily_reservation_report',
+          created_at: {
+            gte: startOfDayUTC,
+            lte: endOfDayUTC
+          },
+          status: 'completed'
+        }
+      });
+
+      if (!existingJob) {
+        const reservationsToday = await prisma.reservation.findMany({
+          where: {
+            dateTime: {
+              gte: startOfDayUTC,
+              lte: endOfDayUTC
+            },
+            status: {
+              not: 'cancelled'
+            }
+          },
+          orderBy: {
+            dateTime: 'asc'
+          }
+        });
+
+        if (reservationsToday.length > 0) {
+          let reportMessage = `📢 *LAPORAN RESERVASI HARI INI* 📢\n\n`;
+          reportMessage += `Berikut adalah daftar reservasi pelanggan untuk hari ini (${nowJkt.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}):\n\n`;
+          
+          reservationsToday.forEach((res, idx) => {
+            const timeStr = new Date(res.dateTime).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' });
+            reportMessage += `*${idx + 1}. Atas Nama: ${res.name}*\n`;
+            reportMessage += `   ⏰ Waktu: ${timeStr} WIB\n`;
+            reportMessage += `   🪑 Meja/Tempat: ${res.tableInfo}\n`;
+            reportMessage += `   👥 Jumlah Orang: ${res.partySize} orang\n`;
+            reportMessage += `   💰 DP Pembayaran: Rp ${res.dpAmount.toLocaleString('id-ID')}\n`;
+            reportMessage += `   🍽️ Menu Pesanan: ${res.menuList || 'Menyusul'}\n`;
+            reportMessage += `   📌 Status: ${res.status === 'confirmed' ? '✅ Dikonfirmasi' : '⏳ Menunggu'}\n\n`;
+          });
+          
+          reportMessage += `Mohon persiapkan pelayanan terbaik untuk para pelanggan kita! 💪✨`;
+
+          // 1. Send to Chat Group as Admin
+          await prisma.chatMessage.create({
+            data: {
+              senderName: 'Sistem Reservasi',
+              senderRole: 'admin',
+              message: reportMessage,
+              attribute: 'Reservasi Meja'
+            }
+          });
+
+          // 2. Send to WhatsApp via Fonnte
+          const token = process.env.FONNTE_API_TOKEN;
+          if (token) {
+            try {
+              const cleanedTarget = cleanTargetNumber('+62 878-6333-1042');
+              const waRes = await fetch('https://api.fonnte.com/send', {
+                method: 'POST',
+                headers: {
+                  'Authorization': token,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  target: cleanedTarget,
+                  message: reportMessage,
+                  countryCode: '62',
+                }),
+              });
+              const waData = await waRes.json();
+              if (!waRes.ok || !waData.status) {
+                console.error('Failed to send daily WhatsApp report:', waData.reason || 'Unknown error');
+              } else {
+                console.log('Daily WhatsApp report sent successfully to:', cleanedTarget);
+              }
+            } catch (waErr: any) {
+              console.error('Error sending WhatsApp daily report in cron:', waErr.message);
+            }
+          }
+          
+          dailyReportSent = true;
+        }
+
+        // Insert log to prevent duplicate runs
+        await prisma.scheduledJob.create({
+          data: {
+            command: 'daily_reservation_report',
+            actionType: 'daily_reservation_report',
+            runAt: now,
+            status: 'completed',
+            payload: {
+              reservationsCount: reservationsToday.length,
+              sent: dailyReportSent
+            }
+          }
+        });
+      }
+    }
+
     // Find all pending jobs that should be executed
     const pendingJobs = await prisma.scheduledJob.findMany({
       where: {
