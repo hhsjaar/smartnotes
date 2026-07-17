@@ -260,9 +260,12 @@ export default function EmployeeChatPage() {
         const data = await res.json();
         setAttributes(data);
         if (!isSilent) {
-          // Default to "Umum" if present, otherwise first attribute
-          const hasUmum = data.some((a: ChatAttribute) => a.name === 'Umum');
-          setSelectedAttribute(hasUmum ? 'Umum' : (data[0]?.name || ''));
+          setSelectedAttribute(prev => {
+            const exists = data.some((a: ChatAttribute) => a.name === prev);
+            if (exists && prev) return prev;
+            const hasUmum = data.some((a: ChatAttribute) => a.name === 'Umum');
+            return hasUmum ? 'Umum' : (data[0]?.name || '');
+          });
         }
       }
     } catch (err) {
@@ -1142,7 +1145,7 @@ export default function EmployeeChatPage() {
             </div>
 
             {/* Filter Pills */}
-            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '12px', marginBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+            <div className={styles.reservationFilterPillsRow}>
               {[
                 { id: 'upcoming', label: 'Mendatang' },
                 { id: 'all', label: 'Semua' },
@@ -1167,7 +1170,8 @@ export default function EmployeeChatPage() {
                       color: isActive ? '#fff' : '#94a3b8',
                       cursor: 'pointer',
                       whiteSpace: 'nowrap',
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
+                      flexShrink: 0
                     }}
                   >
                     {pill.label}

@@ -568,8 +568,12 @@ function DashboardContent() {
       if (res.ok) {
         const data = await res.json();
         setChatAttributes(data);
-        const hasUmum = data.some((a: any) => a.name === 'Umum');
-        setSelectedChatAttribute(hasUmum ? 'Umum' : (data[0]?.name || ''));
+        setSelectedChatAttribute(prev => {
+          const exists = data.some((a: any) => a.name === prev);
+          if (exists && prev) return prev;
+          const hasUmum = data.some((a: any) => a.name === 'Umum');
+          return hasUmum ? 'Umum' : (data[0]?.name || '');
+        });
         // Load history logs as well
         fetchAttributeHistory();
       }
@@ -3129,7 +3133,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               </div>
 
               {/* Filter Pills */}
-              <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '12px', marginBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+              <div className={styles.reservationFilterPillsRow}>
                 {[
                   { id: 'upcoming', label: 'Mendatang' },
                   { id: 'all', label: 'Semua' },
@@ -3154,7 +3158,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                         color: isActive ? '#fff' : '#94a3b8',
                         cursor: 'pointer',
                         whiteSpace: 'nowrap',
-                        transition: 'all 0.2s'
+                        transition: 'all 0.2s',
+                        flexShrink: 0
                       }}
                     >
                       {pill.label}
