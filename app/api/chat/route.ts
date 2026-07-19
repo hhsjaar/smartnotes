@@ -37,40 +37,53 @@ export async function POST(request: Request) {
       },
     });
 
-    // Chatbot execution (Invoked when employee sends a message with an attribute)
+    // Fire-and-forget Chatbot execution in background without blocking response
     if (senderRole !== 'admin' && attribute) {
-      try {
-        const chatAttr = await prisma.chatAttribute.findFirst({
-          where: {
-            name: {
-              equals: attribute,
-              mode: 'insensitive'
-            }
+      runAIChatbotAsync(senderName, senderRole, message, attribute).catch(botErr => {
+        console.error('Error running background AI Chatbot:', botErr);
+      });
+    }
+
+    return NextResponse.json(newMessage);
+  } catch (error: any) {
+    console.error('Error sending chat message:', error);
+    return NextResponse.json({ error: 'Gagal mengirim pesan' }, { status: 500 });
+  }
+}
+
+async function runAIChatbotAsync(senderName: string, senderRole: string, message: string, attribute: string) {
+  try {
+    const chatAttr = await prisma.chatAttribute.findFirst({
+      where: {
+        name: {
+          equals: attribute,
+          mode: 'insensitive'
+        }
+      }
+    });
+
+    if (chatAttr && chatAttr.chatbotEnabled) {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (apiKey) {
+        // Fetch list of ready options under this attribute
+        const readyTasksList: string[] = [];
+        const opts = Array.isArray(chatAttr.options) ? (chatAttr.options as any[]) : [];
+        opts.forEach(opt => {
+          if (opt.hasTimeframe && opt.status === 'ready') {
+            readyTasksList.push(`- ${opt.text} (Jangka waktu: ${opt.duration || '1 hari'})`);
           }
         });
+        const readyTasksListStr = readyTasksList.join('\n') || 'Tidak ada tugas/jobdesk yang tersedia saat ini.';
 
-        if (chatAttr && chatAttr.chatbotEnabled) {
-          const apiKey = process.env.GEMINI_API_KEY;
-          if (apiKey) {
-            // Fetch list of ready options under this attribute
-            const readyTasksList: string[] = [];
-            const opts = Array.isArray(chatAttr.options) ? (chatAttr.options as any[]) : [];
-            opts.forEach(opt => {
-              if (opt.hasTimeframe && opt.status === 'ready') {
-                readyTasksList.push(`- ${opt.text} (Jangka waktu: ${opt.duration || '1 hari'})`);
-              }
-            });
-            const readyTasksListStr = readyTasksList.join('\n') || 'Tidak ada tugas/jobdesk yang tersedia saat ini.';
+        // Fetch recent 10 messages for context
+        const recentMsgs = await prisma.chatMessage.findMany({
+          where: { attribute },
+          orderBy: { createdAt: 'desc' },
+          take: 10
+        });
+        const conversationHistoryStr = [...recentMsgs].reverse().map(m => `${m.senderName} (${m.senderRole}): ${m.message}`).join('\n');
 
-            // Fetch recent 10 messages for context
-            const recentMsgs = await prisma.chatMessage.findMany({
-              where: { attribute },
-              orderBy: { createdAt: 'desc' },
-              take: 10
-            });
-            const conversationHistoryStr = [...recentMsgs].reverse().map(m => `${m.senderName} (${m.senderRole}): ${m.message}`).join('\n');
-
-            const promptText = `
+        const promptText = `
 Anda adalah AI Chatbot Asisten untuk grup chat koordinasi karyawan Burjolevelup.
 Karyawan bernama "${senderName}" baru saja mengirim pesan di kategori/atribut "${attribute}".
 
@@ -88,41 +101,34 @@ TUGAS ANDA:
 3. Jika pesan tersebut HANYA berupa laporan selesai (misal: "laporan sales aman", "progres selesai"), sapaan saja ("p", "pagi", "halo"), atau informasi sepihak yang tidak memerlukan jawaban, Anda WAJIB menjawab hanya dengan satu kata: "NO_RESPONSE". Jangan menjawab apa-apa lagi jika tidak perlu direspon.
 `;
 
-            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
-            const response = await fetch(geminiUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: promptText }] }],
-                generationConfig: { temperature: 0.2 }
-              })
-            });
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const response = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: promptText }] }],
+            generationConfig: { temperature: 0.2 }
+          })
+        });
 
-            if (response.ok) {
-              const resData = await response.json();
-              const botReply = resData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-              if (botReply && botReply.toUpperCase() !== 'NO_RESPONSE' && botReply !== 'NO_RESPONSE.') {
-                await prisma.chatMessage.create({
-                  data: {
-                    senderName: 'AI Chatbot',
-                    senderRole: 'admin',
-                    message: botReply,
-                    attribute: attribute,
-                  }
-                });
+        if (response.ok) {
+          const resData = await response.json();
+          const botReply = resData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          if (botReply && botReply.toUpperCase() !== 'NO_RESPONSE' && botReply !== 'NO_RESPONSE.') {
+            await prisma.chatMessage.create({
+              data: {
+                senderName: 'AI Chatbot',
+                senderRole: 'admin',
+                message: botReply,
+                attribute: attribute,
               }
-            }
+            });
           }
         }
-      } catch (botErr) {
-        console.error('Error running AI Chatbot:', botErr);
       }
     }
-
-    return NextResponse.json(newMessage);
-  } catch (error: any) {
-    console.error('Error sending chat message:', error);
-    return NextResponse.json({ error: 'Gagal mengirim pesan' }, { status: 500 });
+  } catch (err) {
+    console.error('Failed in runAIChatbotAsync:', err);
   }
 }
 

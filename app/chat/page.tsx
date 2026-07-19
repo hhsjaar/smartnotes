@@ -438,11 +438,15 @@ export default function EmployeeChatPage() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!newMessageText.trim() && !selectedFile) || isSubmitting) return;
+    const textToSend = newMessageText.trim();
+    if ((!textToSend && !selectedFile) || isSubmitting) return;
 
     setIsSubmitting(true);
     setIsUploading(!!selectedFile);
     setErrorMsg('');
+
+    const isEditing = !!editingMessage;
+    let tempId: string | null = null;
 
     try {
       let uploadedImageUrl = null;
@@ -459,13 +463,35 @@ export default function EmployeeChatPage() {
         }
       }
 
-      const isEditing = !!editingMessage;
+      // Optimistic update for new messages
+      if (!isEditing) {
+        tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
+        const optimisticMsg: ChatMessage = {
+          id: tempId,
+          senderName: name,
+          senderRole: 'employee',
+          message: textToSend,
+          imageUrl: uploadedImageUrl,
+          attribute: selectedAttribute || null,
+          createdAt: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, optimisticMsg]);
+
+        // Instantly reset input form state for seamless UX
+        setNewMessageText('');
+        setSelectedFile(null);
+        setImagePreview(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+
       const url = '/api/chat';
       const method = isEditing ? 'PUT' : 'POST';
       const bodyPayload = isEditing 
         ? {
             id: editingMessage.id,
-            message: newMessageText.trim(),
+            message: textToSend,
             attribute: selectedAttribute || null,
             senderName: name,
             senderRole: 'employee',
@@ -474,7 +500,7 @@ export default function EmployeeChatPage() {
         : {
             senderName: name,
             senderRole: 'employee',
-            message: newMessageText.trim(),
+            message: textToSend,
             imageUrl: uploadedImageUrl,
             attribute: selectedAttribute || null,
           };
@@ -507,17 +533,18 @@ export default function EmployeeChatPage() {
       if (isEditing) {
         setMessages(prev => prev.map(m => m.id === resultMsg.id ? resultMsg : m));
         setEditingMessage(null);
-      } else {
-        setMessages(prev => [...prev, resultMsg]);
-      }
-      
-      setNewMessageText('');
-      setSelectedFile(null);
-      setImagePreview(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        setNewMessageText('');
+      } else if (tempId) {
+        // Replace temp optimistic message with actual message from server
+        setMessages(prev => prev.map(m => m.id === tempId ? resultMsg : m));
       }
     } catch (err: any) {
+      // Revert optimistic message on error
+      if (tempId) {
+        setMessages(prev => prev.filter(m => m.id !== tempId));
+        // Restore failed text
+        setNewMessageText(textToSend);
+      }
       setErrorMsg(err.message || 'Terjadi kesalahan.');
     } finally {
       setIsSubmitting(false);
