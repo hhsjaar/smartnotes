@@ -542,23 +542,19 @@ function DashboardContent() {
     }
   };
 
-  const adminChatMessagesUpdateRef = useRef<number>(0);
-  const adminChatAttributesUpdateRef = useRef<number>(0);
-
   const loadChatMessages = async (isSilent = false) => {
     if (!isSilent) setChatLoading(true);
     try {
-      const res = await fetch(`/api/chat?since=${isSilent ? adminChatMessagesUpdateRef.current : 0}`);
+      const res = await fetch('/api/chat');
       if (res.ok) {
         const data = await res.json();
-        if (data.updated === false) {
-          return;
-        }
         const msgs = Array.isArray(data) ? data : (data.messages || []);
-        if (data.lastChatUpdate) {
-          adminChatMessagesUpdateRef.current = data.lastChatUpdate;
-        }
         setChatMessages(prev => {
+          const pendingTempMsgs = prev.filter((m: any) => m.id && typeof m.id === 'string' && m.id.startsWith('temp-'));
+          if (pendingTempMsgs.length > 0) {
+            const uniqueTemp = pendingTempMsgs.filter((t: any) => !msgs.some((m: any) => m.id === t.id));
+            return [...msgs, ...uniqueTemp];
+          }
           if (prev.length === msgs.length && (prev.length === 0 || prev[prev.length - 1].id === msgs[msgs.length - 1].id)) {
             return prev;
           }
@@ -574,16 +570,10 @@ function DashboardContent() {
 
   const loadChatAttributes = async (isSilent = false) => {
     try {
-      const res = await fetch(`/api/chat/attributes?since=${isSilent ? adminChatAttributesUpdateRef.current : 0}`);
+      const res = await fetch('/api/chat/attributes');
       if (res.ok) {
         const data = await res.json();
-        if (data.updated === false) {
-          return;
-        }
         const attrs = Array.isArray(data) ? data : (data.attributes || []);
-        if (data.lastAttributesUpdate) {
-          adminChatAttributesUpdateRef.current = data.lastAttributesUpdate;
-        }
         setChatAttributes(attrs);
         if (!isSilent) {
           setSelectedChatAttribute(prev => {

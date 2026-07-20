@@ -233,23 +233,19 @@ export default function EmployeeChatPage() {
     }
   }, [showReservationsModal]);
 
-  const lastMessagesUpdateRef = useRef<number>(0);
-  const lastAttributesUpdateRef = useRef<number>(0);
-
   const fetchMessages = async (isSilent = false) => {
     if (!isSilent) setIsLoading(true);
     try {
-      const res = await fetch(`/api/chat?since=${isSilent ? lastMessagesUpdateRef.current : 0}`);
+      const res = await fetch('/api/chat');
       if (res.ok) {
         const data = await res.json();
-        if (data.updated === false) {
-          return;
-        }
         const msgs = Array.isArray(data) ? data : (data.messages || []);
-        if (data.lastChatUpdate) {
-          lastMessagesUpdateRef.current = data.lastChatUpdate;
-        }
         setMessages(prev => {
+          const pendingTempMsgs = prev.filter(m => m.id.startsWith('temp-'));
+          if (pendingTempMsgs.length > 0) {
+            const uniqueTemp = pendingTempMsgs.filter(t => !msgs.some((m: ChatMessage) => m.id === t.id));
+            return [...msgs, ...uniqueTemp];
+          }
           if (prev.length === msgs.length && (prev.length === 0 || prev[prev.length - 1].id === msgs[msgs.length - 1].id)) {
             return prev;
           }
@@ -265,16 +261,10 @@ export default function EmployeeChatPage() {
 
   const fetchAttributes = async (isSilent = false) => {
     try {
-      const res = await fetch(`/api/chat/attributes?since=${isSilent ? lastAttributesUpdateRef.current : 0}`);
+      const res = await fetch('/api/chat/attributes');
       if (res.ok) {
         const data = await res.json();
-        if (data.updated === false) {
-          return;
-        }
         const attrs = Array.isArray(data) ? data : (data.attributes || []);
-        if (data.lastAttributesUpdate) {
-          lastAttributesUpdateRef.current = data.lastAttributesUpdate;
-        }
         setAttributes(attrs);
         if (!isSilent) {
           setSelectedAttribute(prev => {

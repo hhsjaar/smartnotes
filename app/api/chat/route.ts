@@ -1,39 +1,17 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-let lastChatUpdate = Date.now();
-let cachedMessages: any[] | null = null;
-
-function invalidateChatCache() {
-  lastChatUpdate = Date.now();
-  cachedMessages = null;
-}
-
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const clientSince = parseInt(searchParams.get('since') || '0', 10);
-
-    if (clientSince && clientSince >= lastChatUpdate && cachedMessages) {
-      return NextResponse.json({ updated: false, lastChatUpdate });
-    }
-
     const messages = await prisma.chatMessage.findMany({
       orderBy: {
         createdAt: 'asc',
       },
       take: 200, // limit to 200 messages to prevent excessive load
     });
-
-    cachedMessages = messages;
-    lastChatUpdate = Date.now();
-
-    return NextResponse.json({ updated: true, lastChatUpdate, messages });
+    return NextResponse.json(messages);
   } catch (error: any) {
     console.error('Error fetching chat messages:', error);
-    if (cachedMessages) {
-      return NextResponse.json({ updated: true, lastChatUpdate, messages: cachedMessages });
-    }
     return NextResponse.json({ error: 'Gagal mengambil data chat' }, { status: 500 });
   }
 }
@@ -58,8 +36,6 @@ export async function POST(request: Request) {
         attribute: attribute || null,
       },
     });
-
-    invalidateChatCache();
 
     // Fire-and-forget Chatbot execution in background without blocking response
     if (senderRole !== 'admin' && attribute) {
@@ -189,8 +165,6 @@ export async function PUT(request: Request) {
       },
     });
 
-    invalidateChatCache();
-
     return NextResponse.json(updatedMessage);
   } catch (error: any) {
     console.error('Error updating chat message:', error);
@@ -225,8 +199,6 @@ export async function DELETE(request: Request) {
     await prisma.chatMessage.delete({
       where: { id },
     });
-
-    invalidateChatCache();
 
     return NextResponse.json({ success: true, message: 'Pesan berhasil dihapus' });
   } catch (error: any) {
