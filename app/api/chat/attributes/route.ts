@@ -22,74 +22,63 @@ function calculateExpiryDate(startDate: Date, duration: string): Date {
   return expiryDate;
 }
 
-export async function GET() {
-  try {
-    let attributes = await prisma.chatAttribute.findMany({
-      orderBy: {
-        name: 'asc',
-      },
-    });
+let lastAttributesUpdate = Date.now();
+let cachedAttributes: any[] | null = null;
+let lastExpirationCheckTime = 0;
 
-    // If no attributes exist, seed default attributes
-    if (attributes.length === 0) {
-      const defaultNames = ['Sales', 'Umum', 'Progres', 'Urgent'];
-      await prisma.chatAttribute.createMany({
-        data: defaultNames.map(name => ({ name })),
-        skipDuplicates: true,
-      });
-      
-      attributes = await prisma.chatAttribute.findMany({
+function invalidateAttributesCache() {
+  lastAttributesUpdate = Date.now();
+  cachedAttributes = null;
+}
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const clientSince = parseInt(searchParams.get('since') || '0', 10);
+    const nowMs = Date.now();
+
+    if (clientSince && clientSince >= lastAttributesUpdate && cachedAttributes) {
+      return NextResponse.json({ updated: false, lastAttributesUpdate });
+    }
+
+    if (!cachedAttributes || (nowMs - lastExpirationCheckTime > 30000)) {
+      lastExpirationCheckTime = nowMs;
+
+      let attributes = await prisma.chatAttribute.findMany({
         orderBy: {
           name: 'asc',
         },
       });
-    }
 
-    // Process expired task countdowns
-    const now = new Date();
-    let hasExpiredUpdates = false;
+      // If no attributes exist, seed default attributes
+      if (attributes.length === 0) {
+        const defaultNames = ['Sales', 'Umum', 'Progres', 'Urgent'];
+        await prisma.chatAttribute.createMany({
+          data: defaultNames.map(name => ({ name })),
+          skipDuplicates: true,
+        });
+        
+        attributes = await prisma.chatAttribute.findMany({
+          orderBy: {
+            name: 'asc',
+          },
+        });
+      }
 
-    for (const attr of attributes) {
-      const opts = Array.isArray(attr.options) ? (attr.options as any[]) : [];
-      let isChanged = false;
-      const newOpts = [];
+      // Process expired task countdowns
+      const now = new Date();
+      let hasExpiredUpdates = false;
 
-      for (const opt of opts) {
-        if (opt.hasTimeframe) {
-          if (!opt.expiryDate) {
-            // Populate legacy or uninitialized timeframe options with active countdown dates immediately
-            const newStart = new Date();
-            const newExpiry = calculateExpiryDate(newStart, opt.duration || '1 hari');
-            newOpts.push({
-              ...opt,
-              status: 'ready',
-              assignedTo: null,
-              startDate: newStart.toISOString(),
-              expiryDate: newExpiry.toISOString()
-            });
-            isChanged = true;
-          } else {
-            const expDate = new Date(opt.expiryDate);
-            if (expDate <= now) {
-              // Record to history
-              await prisma.chatAttributeHistory.create({
-                data: {
-                  attributeId: attr.id,
-                  attributeName: attr.name,
-                  optionId: opt.id,
-                  optionText: opt.text,
-                  status: opt.status === 'taken' ? 'taken' : 'expired',
-                  assignedTo: opt.status === 'taken' ? opt.assignedTo : null,
-                  startDate: new Date(opt.startDate || now),
-                  expiryDate: expDate,
-                }
-              });
+      for (const attr of attributes) {
+        const opts = Array.isArray(attr.options) ? (attr.options as any[]) : [];
+        let isChanged = false;
+        const newOpts = [];
 
-              // Calculate new start and expiry date
+        for (const opt of opts) {
+          if (opt.hasTimeframe) {
+            if (!opt.expiryDate) {
               const newStart = new Date();
               const newExpiry = calculateExpiryDate(newStart, opt.duration || '1 hari');
-
-              // Reset/Restart the option countdown
               newOpts.push({
                 ...opt,
                 status: 'ready',
@@ -99,35 +88,68 @@ export async function GET() {
               });
               isChanged = true;
             } else {
-              newOpts.push(opt);
+              const expDate = new Date(opt.expiryDate);
+              if (expDate <= now) {
+                await prisma.chatAttributeHistory.create({
+                  data: {
+                    attributeId: attr.id,
+                    attributeName: attr.name,
+                    optionId: opt.id,
+                    optionText: opt.text,
+                    status: opt.status === 'taken' ? 'taken' : 'expired',
+                    assignedTo: opt.status === 'taken' ? opt.assignedTo : null,
+                    startDate: new Date(opt.startDate || now),
+                    expiryDate: expDate,
+                  }
+                });
+
+                const newStart = new Date();
+                const newExpiry = calculateExpiryDate(newStart, opt.duration || '1 hari');
+
+                newOpts.push({
+                  ...opt,
+                  status: 'ready',
+                  assignedTo: null,
+                  startDate: newStart.toISOString(),
+                  expiryDate: newExpiry.toISOString()
+                });
+                isChanged = true;
+              } else {
+                newOpts.push(opt);
+              }
             }
+          } else {
+            newOpts.push(opt);
           }
-        } else {
-          newOpts.push(opt);
+        }
+
+        if (isChanged) {
+          await prisma.chatAttribute.update({
+            where: { id: attr.id },
+            data: { options: newOpts }
+          });
+          hasExpiredUpdates = true;
         }
       }
 
-      if (isChanged) {
-        await prisma.chatAttribute.update({
-          where: { id: attr.id },
-          data: { options: newOpts }
+      if (hasExpiredUpdates) {
+        attributes = await prisma.chatAttribute.findMany({
+          orderBy: {
+            name: 'asc',
+          },
         });
-        hasExpiredUpdates = true;
       }
+
+      cachedAttributes = attributes;
+      lastAttributesUpdate = Date.now();
     }
 
-    // If there were updates, refetch the attributes
-    if (hasExpiredUpdates) {
-      attributes = await prisma.chatAttribute.findMany({
-        orderBy: {
-          name: 'asc',
-        },
-      });
-    }
-
-    return NextResponse.json(attributes);
+    return NextResponse.json({ updated: true, lastAttributesUpdate, attributes: cachedAttributes });
   } catch (error: any) {
     console.error('Error fetching/seeding chat attributes:', error);
+    if (cachedAttributes) {
+      return NextResponse.json({ updated: true, lastAttributesUpdate, attributes: cachedAttributes });
+    }
     return NextResponse.json({ error: 'Gagal mengambil data atribut obrolan' }, { status: 500 });
   }
 }
@@ -162,6 +184,8 @@ export async function POST(request: Request) {
       },
     });
 
+    invalidateAttributesCache();
+
     return NextResponse.json(newAttribute);
   } catch (error: any) {
     console.error('Error creating chat attribute:', error);
@@ -183,6 +207,8 @@ export async function DELETE(request: Request) {
         id,
       },
     });
+
+    invalidateAttributesCache();
 
     return NextResponse.json({ success: true, message: 'Atribut berhasil dihapus' });
   } catch (error: any) {
@@ -337,6 +363,8 @@ export async function PUT(request: Request) {
         },
       });
 
+      invalidateAttributesCache();
+
       return NextResponse.json(updated);
     }
 
@@ -347,6 +375,8 @@ export async function PUT(request: Request) {
         chatbotEnabled: typeof chatbotEnabled === 'boolean' ? chatbotEnabled : undefined,
       },
     });
+
+    invalidateAttributesCache();
 
     return NextResponse.json(updated);
   } catch (error: any) {

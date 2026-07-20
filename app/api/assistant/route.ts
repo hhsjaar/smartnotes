@@ -97,26 +97,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'GEMINI_API_KEY tidak dikonfigurasi di server.' }, { status: 500 });
     }
 
-    // Fetch latest 50 chat messages from chat room
-    const chatRoomMessages = await prisma.chatMessage.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 50
-    });
+    // Fetch database context concurrently using Promise.all
+    const [
+      chatRoomMessages,
+      allFolders,
+      notes,
+      chatAttributes,
+      chatAttributeHistories,
+      reservationsList
+    ] = await Promise.all([
+      prisma.chatMessage.findMany({ orderBy: { createdAt: 'desc' }, take: 50 }),
+      prisma.folder.findMany({ select: { id: true, name: true, parentId: true } }),
+      prisma.note.findMany({ select: { id: true, title: true, created_at: true, folder_id: true, summary: true, tags: true } }),
+      prisma.chatAttribute.findMany({ orderBy: { name: 'asc' } }),
+      prisma.chatAttributeHistory.findMany({ orderBy: { recordedAt: 'desc' }, take: 50 }),
+      prisma.reservation.findMany({ orderBy: { dateTime: 'asc' } })
+    ]);
+
     const chatRoomMessagesChronological = [...chatRoomMessages].reverse();
     const formattedChatRoomMessagesText = chatRoomMessagesChronological.map(msg => 
       `[${msg.createdAt.toISOString()}] ${msg.senderName} (${msg.senderRole}) [Atribut: ${msg.attribute || 'Umum'}]: ${msg.message}`
     ).join('\n');
 
-    // Load active folder names and note IDs to populate context for Gemini
-    const allFolders = await prisma.folder.findMany({
-      select: { id: true, name: true, parentId: true }
-    });
     const rootFolders = allFolders.filter(f => !f.parentId && f.name.toLowerCase() !== 'utuh');
     const folderNamesStr = rootFolders.map(f => f.name).join(', ') + ', atau Tanpa Folder';
-
-    const notes = await prisma.note.findMany({
-      select: { id: true, title: true, created_at: true, folder_id: true, summary: true, tags: true }
-    });
 
     const formattedNotesForPrompt = notes.map((n) => ({
       id: n.id,
@@ -128,9 +132,6 @@ export async function POST(request: Request) {
     }));
 
     // Fetch and format Chat Attributes (Tugas/Jobdesk)
-    const chatAttributes = await prisma.chatAttribute.findMany({
-      orderBy: { name: 'asc' }
-    });
     const formattedAttributesListText = chatAttributes.map(attr => {
       const opts = Array.isArray(attr.options) ? (attr.options as any[]) : [];
       const timeframeOpts = opts.filter(o => o.hasTimeframe);
@@ -145,10 +146,6 @@ export async function POST(request: Request) {
     }).join('\n');
 
     // Fetch and format Chat Attribute Histories
-    const chatAttributeHistories = await prisma.chatAttributeHistory.findMany({
-      orderBy: { recordedAt: 'desc' },
-      take: 50
-    });
     const formattedAttributeHistoriesText = chatAttributeHistories.map(h => {
       const timeStr = new Date(h.recordedAt).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
       const statusLabel = h.status === 'taken' ? `Diambil/Selesai oleh ${h.assignedTo || '-'}` : 'Hangus (Tidak Diambil)';
@@ -156,9 +153,6 @@ export async function POST(request: Request) {
     }).join('\n') || 'Belum ada riwayat aktivitas tugas atribut.';
 
     // Fetch and format customer reservations
-    const reservationsList = await prisma.reservation.findMany({
-      orderBy: { dateTime: 'asc' }
-    });
     const formattedReservationsText = reservationsList.map(r => {
       const date = new Date(r.dateTime);
       const formattedDate = date.toLocaleString('id-ID', {

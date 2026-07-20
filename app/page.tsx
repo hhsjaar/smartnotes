@@ -542,17 +542,27 @@ function DashboardContent() {
     }
   };
 
+  const adminChatMessagesUpdateRef = useRef<number>(0);
+  const adminChatAttributesUpdateRef = useRef<number>(0);
+
   const loadChatMessages = async (isSilent = false) => {
     if (!isSilent) setChatLoading(true);
     try {
-      const res = await fetch('/api/chat');
+      const res = await fetch(`/api/chat?since=${isSilent ? adminChatMessagesUpdateRef.current : 0}`);
       if (res.ok) {
         const data = await res.json();
+        if (data.updated === false) {
+          return;
+        }
+        const msgs = Array.isArray(data) ? data : (data.messages || []);
+        if (data.lastChatUpdate) {
+          adminChatMessagesUpdateRef.current = data.lastChatUpdate;
+        }
         setChatMessages(prev => {
-          if (prev.length === data.length && (prev.length === 0 || prev[prev.length - 1].id === data[data.length - 1].id)) {
+          if (prev.length === msgs.length && (prev.length === 0 || prev[prev.length - 1].id === msgs[msgs.length - 1].id)) {
             return prev;
           }
-          return data;
+          return msgs;
         });
       }
     } catch (err) {
@@ -562,20 +572,29 @@ function DashboardContent() {
     }
   };
 
-  const loadChatAttributes = async () => {
+  const loadChatAttributes = async (isSilent = false) => {
     try {
-      const res = await fetch('/api/chat/attributes');
+      const res = await fetch(`/api/chat/attributes?since=${isSilent ? adminChatAttributesUpdateRef.current : 0}`);
       if (res.ok) {
         const data = await res.json();
-        setChatAttributes(data);
-        setSelectedChatAttribute(prev => {
-          const exists = data.some((a: any) => a.name === prev);
-          if (exists && prev) return prev;
-          const hasUmum = data.some((a: any) => a.name === 'Umum');
-          return hasUmum ? 'Umum' : (data[0]?.name || '');
-        });
-        // Load history logs as well
-        fetchAttributeHistory();
+        if (data.updated === false) {
+          return;
+        }
+        const attrs = Array.isArray(data) ? data : (data.attributes || []);
+        if (data.lastAttributesUpdate) {
+          adminChatAttributesUpdateRef.current = data.lastAttributesUpdate;
+        }
+        setChatAttributes(attrs);
+        if (!isSilent) {
+          setSelectedChatAttribute(prev => {
+            const exists = attrs.some((a: any) => a.name === prev);
+            if (exists && prev) return prev;
+            const hasUmum = attrs.some((a: any) => a.name === 'Umum');
+            return hasUmum ? 'Umum' : (attrs[0]?.name || '');
+          });
+          // Load history logs as well
+          fetchAttributeHistory();
+        }
       }
     } catch (err) {
       console.error('Failed to load chat attributes:', err);

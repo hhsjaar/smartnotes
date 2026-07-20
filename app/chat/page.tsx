@@ -233,17 +233,27 @@ export default function EmployeeChatPage() {
     }
   }, [showReservationsModal]);
 
+  const lastMessagesUpdateRef = useRef<number>(0);
+  const lastAttributesUpdateRef = useRef<number>(0);
+
   const fetchMessages = async (isSilent = false) => {
     if (!isSilent) setIsLoading(true);
     try {
-      const res = await fetch('/api/chat');
+      const res = await fetch(`/api/chat?since=${isSilent ? lastMessagesUpdateRef.current : 0}`);
       if (res.ok) {
         const data = await res.json();
+        if (data.updated === false) {
+          return;
+        }
+        const msgs = Array.isArray(data) ? data : (data.messages || []);
+        if (data.lastChatUpdate) {
+          lastMessagesUpdateRef.current = data.lastChatUpdate;
+        }
         setMessages(prev => {
-          if (prev.length === data.length && (prev.length === 0 || prev[prev.length - 1].id === data[data.length - 1].id)) {
+          if (prev.length === msgs.length && (prev.length === 0 || prev[prev.length - 1].id === msgs[msgs.length - 1].id)) {
             return prev;
           }
-          return data;
+          return msgs;
         });
       }
     } catch (err) {
@@ -255,16 +265,23 @@ export default function EmployeeChatPage() {
 
   const fetchAttributes = async (isSilent = false) => {
     try {
-      const res = await fetch('/api/chat/attributes');
+      const res = await fetch(`/api/chat/attributes?since=${isSilent ? lastAttributesUpdateRef.current : 0}`);
       if (res.ok) {
         const data = await res.json();
-        setAttributes(data);
+        if (data.updated === false) {
+          return;
+        }
+        const attrs = Array.isArray(data) ? data : (data.attributes || []);
+        if (data.lastAttributesUpdate) {
+          lastAttributesUpdateRef.current = data.lastAttributesUpdate;
+        }
+        setAttributes(attrs);
         if (!isSilent) {
           setSelectedAttribute(prev => {
-            const exists = data.some((a: ChatAttribute) => a.name === prev);
+            const exists = attrs.some((a: ChatAttribute) => a.name === prev);
             if (exists && prev) return prev;
-            const hasUmum = data.some((a: ChatAttribute) => a.name === 'Umum');
-            return hasUmum ? 'Umum' : (data[0]?.name || '');
+            const hasUmum = attrs.some((a: ChatAttribute) => a.name === 'Umum');
+            return hasUmum ? 'Umum' : (attrs[0]?.name || '');
           });
         }
       }
