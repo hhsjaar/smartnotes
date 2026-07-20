@@ -236,18 +236,15 @@ export default function EmployeeChatPage() {
   const fetchMessages = async (isSilent = false) => {
     if (!isSilent) setIsLoading(true);
     try {
-      const res = await fetch('/api/chat');
+      const res = await fetch('/api/chat', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        const msgs = Array.isArray(data) ? data : (data.messages || []);
+        const msgs: ChatMessage[] = Array.isArray(data) ? data : (data.messages || []);
         setMessages(prev => {
           const pendingTempMsgs = prev.filter(m => m.id.startsWith('temp-'));
           if (pendingTempMsgs.length > 0) {
-            const uniqueTemp = pendingTempMsgs.filter(t => !msgs.some((m: ChatMessage) => m.id === t.id));
+            const uniqueTemp = pendingTempMsgs.filter(t => !msgs.some(m => m.id === t.id));
             return [...msgs, ...uniqueTemp];
-          }
-          if (prev.length === msgs.length && (prev.length === 0 || prev[prev.length - 1].id === msgs[msgs.length - 1].id)) {
-            return prev;
           }
           return msgs;
         });
@@ -261,7 +258,7 @@ export default function EmployeeChatPage() {
 
   const fetchAttributes = async (isSilent = false) => {
     try {
-      const res = await fetch('/api/chat/attributes');
+      const res = await fetch('/api/chat/attributes', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         const attrs = Array.isArray(data) ? data : (data.attributes || []);

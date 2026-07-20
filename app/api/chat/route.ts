@@ -1,15 +1,24 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET() {
   try {
+    // Fetch 500 most recent messages (descending) and reverse for chronological display
     const messages = await prisma.chatMessage.findMany({
       orderBy: {
-        createdAt: 'asc',
+        createdAt: 'desc',
       },
-      take: 200, // limit to 200 messages to prevent excessive load
+      take: 500,
     });
-    return NextResponse.json(messages);
+    const chronologicalMessages = messages.reverse();
+    return NextResponse.json(chronologicalMessages, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      },
+    });
   } catch (error: any) {
     console.error('Error fetching chat messages:', error);
     return NextResponse.json({ error: 'Gagal mengambil data chat' }, { status: 500 });

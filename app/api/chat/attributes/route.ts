@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // Helper function to calculate expiry date based on start date and duration text
 function calculateExpiryDate(startDate: Date, duration: string): Date {
   const expiryDate = new Date(startDate);
@@ -120,7 +123,11 @@ export async function GET() {
       });
     }
 
-    return NextResponse.json(attributes);
+    return NextResponse.json(attributes, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      },
+    });
   } catch (error: any) {
     console.error('Error fetching/seeding chat attributes:', error);
     return NextResponse.json({ error: 'Gagal mengambil data atribut obrolan' }, { status: 500 });
