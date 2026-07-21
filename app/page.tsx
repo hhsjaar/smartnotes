@@ -6686,7 +6686,7 @@ function CustomerReservation() {
   );
 }
 
-const compressImageToBase64 = (file: File, maxWidth = 1000, maxHeight = 1000, quality = 0.6): Promise<string> => {
+const compressImageToBase64 = (file: File, maxWidth = 600, maxHeight = 600, quality = 0.45): Promise<string> => {
   return new Promise((resolve) => {
     const img = new window.Image();
     const objectUrl = URL.createObjectURL(file);

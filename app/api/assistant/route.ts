@@ -109,7 +109,11 @@ export async function POST(request: Request) {
       chatAttributeHistories,
       reservationsList
     ] = await Promise.all([
-      prisma.chatMessage.findMany({ orderBy: { createdAt: 'desc' }, take: 50 }),
+      prisma.chatMessage.findMany({ 
+        orderBy: { createdAt: 'desc' }, 
+        take: 30,
+        select: { id: true, senderName: true, senderRole: true, message: true, attribute: true, createdAt: true }
+      }),
       prisma.folder.findMany({ select: { id: true, name: true, parentId: true } }),
       prisma.note.findMany({ select: { id: true, title: true, created_at: true, folder_id: true, summary: true, tags: true } }),
       prisma.chatAttribute.findMany({ orderBy: { name: 'asc' } }),

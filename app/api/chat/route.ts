@@ -6,12 +6,12 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
-    // Fetch 500 most recent messages (descending) and reverse for chronological display
+    // Fetch 50 most recent messages (descending) and reverse for chronological display
     const messages = await prisma.chatMessage.findMany({
       orderBy: {
         createdAt: 'desc',
       },
-      take: 500,
+      take: 50,
     });
     const chronologicalMessages = messages.reverse();
     return NextResponse.json(chronologicalMessages, {
