@@ -13,6 +13,8 @@ import { WhatsappChat } from '@/components/WhatsappChat';
 import { VoiceAssistant } from '@/components/VoiceAssistant';
 import { InteractiveMerge } from '@/components/InteractiveMerge';
 import styles from './page.module.css';
+import { supabase } from '@/lib/supabase';
+
 
 
 interface Note {
@@ -1113,26 +1115,33 @@ function DashboardContent() {
     }
   }, [isAdminAuthorized]);
 
-  // Polling for Chat Messages when tab is active and authorized
+  // Supabase Realtime Subscription for Admin Chat (Instant WebSocket updates, 0 GB bandwidth short-polling)
   useEffect(() => {
     if (isAdminAuthorized && activeTab === 'chat') {
       loadChatMessages();
       loadChatAttributes();
 
-      let attrTick = 0;
-      chatPollingRef.current = setInterval(() => {
-        loadChatMessages(true);
-        attrTick += 2000;
-        if (attrTick >= 10000) {
-          loadChatAttributes();
-          attrTick = 0;
-        }
-      }, 2000);
+      // Subscribe to postgres changes on chat_messages and chat_attributes tables
+      const channel = supabase
+        .channel('admin_chat_realtime')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'chat_messages' },
+          () => {
+            loadChatMessages(true);
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'chat_attributes' },
+          () => {
+            loadChatAttributes(true);
+          }
+        )
+        .subscribe();
 
       return () => {
-        if (chatPollingRef.current) {
-          clearInterval(chatPollingRef.current);
-        }
+        supabase.removeChannel(channel);
       };
     }
   }, [isAdminAuthorized, activeTab]);
@@ -1161,12 +1170,15 @@ function DashboardContent() {
   }, [chatFilterAttribute]);
 
 
-  // Background cron executor (polls /api/cron to run pending jobs)
+  // Background cron executor (polls /api/cron only when page is visible)
   useEffect(() => {
+    if (typeof document !== 'undefined' && document.hidden) return;
+    
     // Run initial check
     fetch('/api/cron').catch(console.error);
 
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       fetch('/api/cron')
         .then(res => res.json())
         .then(data => {
@@ -1176,7 +1188,7 @@ function DashboardContent() {
           }
         })
         .catch(console.error);
-    }, 30000); // Check every 30 seconds
+    }, 120000); // Check every 2 minutes (120s) instead of 30s
 
     return () => clearInterval(interval);
   }, []);

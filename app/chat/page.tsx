@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2, Calendar as CalendarIcon, X, Image, Copy, Check, ArrowDown } from 'lucide-react';
 import styles from './page.module.css';
+import { supabase } from '@/lib/supabase';
+
 
 interface ChatMessage {
   id: string;
@@ -192,25 +194,36 @@ export default function EmployeeChatPage() {
     };
   }, []);
 
-  // Fetch messages and attributes
+  // Fetch messages and attributes & listen to Supabase Realtime updates (Instant WebSocket updates, 0 GB short-polling)
   useEffect(() => {
-    if (isNameSet && isVisible && isActive) {
+    if (isNameSet) {
       fetchMessages();
       fetchAttributes();
 
-      // Set up short-polling for real-time messages & attribute options (every 4 seconds)
-      pollingIntervalRef.current = setInterval(() => {
-        fetchMessages(true); // silent fetch messages
-        fetchAttributes(true); // silent fetch attributes
-      }, 4000);
+      // Subscribe to Supabase Realtime postgres_changes
+      const channel = supabase
+        .channel('employee_chat_realtime')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'chat_messages' },
+          () => {
+            fetchMessages(true);
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'chat_attributes' },
+          () => {
+            fetchAttributes(true);
+          }
+        )
+        .subscribe();
 
       return () => {
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-        }
+        supabase.removeChannel(channel);
       };
     }
-  }, [isNameSet, isVisible, isActive]);
+  }, [isNameSet]);
 
   // Smart scroll handling when messages change
   useEffect(() => {
