@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2, Calendar as CalendarIcon, X, Image, Copy, Check } from 'lucide-react';
+import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2, Calendar as CalendarIcon, X, Image, Copy, Check, ArrowDown } from 'lucide-react';
 import styles from './page.module.css';
 
 interface ChatMessage {
@@ -108,9 +108,14 @@ export default function EmployeeChatPage() {
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const deferredPrompt = useRef<any>(null);
 
+  const chatAreaRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const isAtBottomRef = useRef<boolean>(true);
+  const isInitialLoadRef = useRef<boolean>(true);
+  const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
+  const [hasNewMessages, setHasNewMessages] = useState(false);
 
   // PWA Install Event Handler
   useEffect(() => {
@@ -207,10 +212,27 @@ export default function EmployeeChatPage() {
     }
   }, [isNameSet, isVisible, isActive]);
 
-  // Scroll to bottom when messages list changes
+  // Smart scroll handling when messages change
   useEffect(() => {
-    scrollToBottom();
+    if (messages.length === 0) return;
+
+    if (isInitialLoadRef.current) {
+      scrollToBottom('auto');
+      isInitialLoadRef.current = false;
+    } else if (isAtBottomRef.current) {
+      scrollToBottom('smooth');
+    } else {
+      setHasNewMessages(true);
+      setShowScrollBottomBtn(true);
+    }
   }, [messages]);
+
+  // Scroll to bottom when filter tab changes
+  useEffect(() => {
+    if (messages.length > 0) {
+      scrollToBottom('auto');
+    }
+  }, [filterAttribute]);
 
   const fetchReservationsForModal = async () => {
     setReservationsLoading(true);
@@ -242,11 +264,21 @@ export default function EmployeeChatPage() {
         const msgs: ChatMessage[] = Array.isArray(data) ? data : (data.messages || []);
         setMessages(prev => {
           const pendingTempMsgs = prev.filter(m => m.id.startsWith('temp-'));
+          let nextMsgs = msgs;
           if (pendingTempMsgs.length > 0) {
             const uniqueTemp = pendingTempMsgs.filter(t => !msgs.some(m => m.id === t.id));
-            return [...msgs, ...uniqueTemp];
+            nextMsgs = [...msgs, ...uniqueTemp];
           }
-          return msgs;
+          // Preserve state reference if messages content has not changed (prevents polling re-renders)
+          if (
+            prev.length === nextMsgs.length &&
+            prev.length > 0 &&
+            prev[prev.length - 1].id === nextMsgs[nextMsgs.length - 1].id &&
+            prev[0].id === nextMsgs[0].id
+          ) {
+            return prev;
+          }
+          return nextMsgs;
         });
       }
     } catch (err) {
@@ -340,8 +372,28 @@ export default function EmployeeChatPage() {
     }
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const handleScroll = () => {
+    if (!chatAreaRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatAreaRef.current;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const isNearBottom = distanceFromBottom <= 120;
+
+    isAtBottomRef.current = isNearBottom;
+    setShowScrollBottomBtn(!isNearBottom);
+    if (isNearBottom) {
+      setHasNewMessages(false);
+    }
+  };
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior });
+    } else if (chatAreaRef.current) {
+      chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
+    }
+    isAtBottomRef.current = true;
+    setShowScrollBottomBtn(false);
+    setHasNewMessages(false);
   };
 
   const handleSetName = (e: React.FormEvent) => {
@@ -706,7 +758,7 @@ export default function EmployeeChatPage() {
         </div>
 
         {/* Messages */}
-        <div className={styles.chatArea}>
+        <div className={styles.chatArea} ref={chatAreaRef} onScroll={handleScroll}>
           {isLoading && messages.length === 0 ? (
             <div className={styles.loaderContainer}>
               <div className="spinner" />
@@ -862,6 +914,18 @@ export default function EmployeeChatPage() {
             </div>
           )}
         </div>
+
+        {showScrollBottomBtn && (
+          <button
+            type="button"
+            onClick={() => scrollToBottom('smooth')}
+            className={styles.scrollToBottomBtn}
+            title="Ke Pesan Terbaru"
+          >
+            <ArrowDown size={18} />
+            {hasNewMessages && <span className={styles.unreadDot} />}
+          </button>
+        )}
 
         {/* Footer input form */}
         <div className={styles.footer}>

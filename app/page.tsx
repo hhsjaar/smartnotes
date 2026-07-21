@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock, GitMerge, Lock, Tag, Users, LogOut, ArrowRight, Send, AlertCircle, Filter, Pencil, Image, Copy, Check } from 'lucide-react';
+import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock, GitMerge, Lock, Tag, Users, LogOut, ArrowRight, Send, AlertCircle, Filter, Pencil, Image, Copy, Check, ArrowDown } from 'lucide-react';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { NoteCard } from '@/components/NoteCard';
 import { NoteEditor } from '@/components/NoteEditor';
@@ -192,9 +192,38 @@ function DashboardContent() {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatSubmitting, setChatSubmitting] = useState(false);
 
+  const adminChatAreaRef = useRef<HTMLDivElement | null>(null);
   const chatMessagesEndRef = useRef<HTMLDivElement | null>(null);
   const chatPollingRef = useRef<NodeJS.Timeout | null>(null);
   const adminChatInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const adminIsAtBottomRef = useRef<boolean>(true);
+  const adminIsInitialLoadRef = useRef<boolean>(true);
+  const [adminShowScrollBottomBtn, setAdminShowScrollBottomBtn] = useState(false);
+  const [adminHasNewMessages, setAdminHasNewMessages] = useState(false);
+
+  const handleAdminChatScroll = () => {
+    if (!adminChatAreaRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = adminChatAreaRef.current;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const isNearBottom = distanceFromBottom <= 120;
+    
+    adminIsAtBottomRef.current = isNearBottom;
+    setAdminShowScrollBottomBtn(!isNearBottom);
+    if (isNearBottom) {
+      setAdminHasNewMessages(false);
+    }
+  };
+
+  const scrollToAdminChatBottom = (behavior: ScrollBehavior = 'smooth') => {
+    if (chatMessagesEndRef.current) {
+      chatMessagesEndRef.current.scrollIntoView({ behavior });
+    } else if (adminChatAreaRef.current) {
+      adminChatAreaRef.current.scrollTop = adminChatAreaRef.current.scrollHeight;
+    }
+    adminIsAtBottomRef.current = true;
+    setAdminShowScrollBottomBtn(false);
+    setAdminHasNewMessages(false);
+  };
 
   // Admin Chat Upload State & Refs
   const adminFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -551,11 +580,20 @@ function DashboardContent() {
         const msgs = Array.isArray(data) ? data : (data.messages || []);
         setChatMessages(prev => {
           const pendingTempMsgs = prev.filter((m: any) => m.id && typeof m.id === 'string' && m.id.startsWith('temp-'));
+          let nextMsgs = msgs;
           if (pendingTempMsgs.length > 0) {
             const uniqueTemp = pendingTempMsgs.filter((t: any) => !msgs.some((m: any) => m.id === t.id));
-            return [...msgs, ...uniqueTemp];
+            nextMsgs = [...msgs, ...uniqueTemp];
           }
-          return msgs;
+          if (
+            prev.length === nextMsgs.length &&
+            prev.length > 0 &&
+            prev[prev.length - 1].id === nextMsgs[nextMsgs.length - 1].id &&
+            prev[0].id === nextMsgs[0].id
+          ) {
+            return prev;
+          }
+          return nextMsgs;
         });
       }
     } catch (err) {
@@ -1099,12 +1137,28 @@ function DashboardContent() {
     }
   }, [isAdminAuthorized, activeTab]);
 
-  // Scroll chat messages to bottom on new messages
+  // Smart scroll chat messages to bottom
   useEffect(() => {
     if (activeTab === 'chat') {
-      chatMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      if (chatMessages.length === 0) return;
+
+      if (adminIsInitialLoadRef.current) {
+        scrollToAdminChatBottom('auto');
+        adminIsInitialLoadRef.current = false;
+      } else if (adminIsAtBottomRef.current) {
+        scrollToAdminChatBottom('smooth');
+      } else {
+        setAdminHasNewMessages(true);
+        setAdminShowScrollBottomBtn(true);
+      }
     }
   }, [chatMessages, activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'chat' && chatMessages.length > 0) {
+      scrollToAdminChatBottom('auto');
+    }
+  }, [chatFilterAttribute]);
 
 
   // Background cron executor (polls /api/cron to run pending jobs)
@@ -3456,7 +3510,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               })}
             </div>
 
-            <div className={styles.adminChatArea}>
+            <div className={styles.adminChatArea} ref={adminChatAreaRef} onScroll={handleAdminChatScroll}>
               {chatLoading && chatMessages.length === 0 ? (
                 <div className={styles.chatLoader}>
                   <div className="spinner" />
@@ -3604,6 +3658,18 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 </div>
               )}
             </div>
+
+            {adminShowScrollBottomBtn && (
+              <button
+                type="button"
+                onClick={() => scrollToAdminChatBottom('smooth')}
+                className={styles.scrollToBottomBtn}
+                title="Ke Pesan Terbaru"
+              >
+                <ArrowDown size={18} />
+                {adminHasNewMessages && <span className={styles.unreadDot} />}
+              </button>
+            )}
 
             <div className={styles.adminChatFooter}>
               {editingChatMessage && (
