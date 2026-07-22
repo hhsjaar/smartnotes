@@ -202,6 +202,9 @@ function DashboardContent() {
   const adminIsInitialLoadRef = useRef<boolean>(true);
   const [adminShowScrollBottomBtn, setAdminShowScrollBottomBtn] = useState(false);
   const [adminHasNewMessages, setAdminHasNewMessages] = useState(false);
+  const [adminHasMoreOlder, setAdminHasMoreOlder] = useState(true);
+  const [adminLoadingOlder, setAdminLoadingOlder] = useState(false);
+  const adminIsLoadingOlderRef = useRef<boolean>(false);
 
   const handleAdminChatScroll = () => {
     if (!adminChatAreaRef.current) return;
@@ -578,32 +581,71 @@ function DashboardContent() {
   const loadChatMessages = async (isSilent = false) => {
     if (!isSilent) setChatLoading(true);
     try {
-      const res = await fetch('/api/chat', { cache: 'no-store' });
+      const res = await fetch('/api/chat?limit=150', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         const msgs = Array.isArray(data) ? data : (data.messages || []);
         setChatMessages(prev => {
           const pendingTempMsgs = prev.filter((m: any) => m.id && typeof m.id === 'string' && m.id.startsWith('temp-'));
-          let nextMsgs = msgs;
-          if (pendingTempMsgs.length > 0) {
-            const uniqueTemp = pendingTempMsgs.filter((t: any) => !msgs.some((m: any) => m.id === t.id));
-            nextMsgs = [...msgs, ...uniqueTemp];
-          }
-          if (
-            prev.length === nextMsgs.length &&
-            prev.length > 0 &&
-            prev[prev.length - 1].id === nextMsgs[nextMsgs.length - 1].id &&
-            prev[0].id === nextMsgs[0].id
-          ) {
-            return prev;
-          }
-          return nextMsgs;
+          
+          const msgMap = new Map(prev.map((m: any) => [m.id, m]));
+          msgs.forEach((m: any) => {
+            msgMap.set(m.id, m);
+          });
+          pendingTempMsgs.forEach((t: any) => {
+            if (!msgMap.has(t.id)) {
+              msgMap.set(t.id, t);
+            }
+          });
+          
+          const sorted = Array.from(msgMap.values()).sort(
+            (a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
+          return sorted;
         });
       }
     } catch (err) {
       console.error('Failed to load chat messages:', err);
     } finally {
       if (!isSilent) setChatLoading(false);
+      adminIsLoadingOlderRef.current = false;
+    }
+  };
+
+  const loadOlderMessages = async () => {
+    if (chatMessages.length === 0 || adminLoadingOlder || !adminHasMoreOlder) return;
+    setAdminLoadingOlder(true);
+    adminIsLoadingOlderRef.current = true;
+    
+    const chatArea = adminChatAreaRef.current;
+    const oldScrollHeight = chatArea ? chatArea.scrollHeight : 0;
+    const oldScrollTop = chatArea ? chatArea.scrollTop : 0;
+    
+    try {
+      const oldestMsg = chatMessages[0];
+      const res = await fetch(`/api/chat?limit=150&before=${encodeURIComponent(oldestMsg.createdAt)}`);
+      if (res.ok) {
+        const newOlderMsgs = await res.json();
+        if (newOlderMsgs.length < 150) {
+          setAdminHasMoreOlder(false);
+        }
+        setChatMessages(prev => {
+          const existingIds = new Set(prev.map((m: any) => m.id));
+          const uniqueOlder = newOlderMsgs.filter((m: any) => !existingIds.has(m.id));
+          return [...uniqueOlder, ...prev];
+        });
+        
+        if (chatArea) {
+          setTimeout(() => {
+            const newScrollHeight = chatArea.scrollHeight;
+            chatArea.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
+          }, 0);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load older messages:', err);
+    } finally {
+      setAdminLoadingOlder(false);
     }
   };
 
@@ -1196,12 +1238,13 @@ function DashboardContent() {
         adminIsInitialLoadRef.current = false;
       } else if (adminIsAtBottomRef.current) {
         scrollToAdminChatBottom('smooth');
-      } else {
+      } else if (!adminIsLoadingOlderRef.current) {
         setAdminHasNewMessages(true);
         setAdminShowScrollBottomBtn(true);
       }
     }
   }, [chatMessages, activeTab]);
+
 
   useEffect(() => {
     if (activeTab === 'chat' && chatMessages.length > 0) {
@@ -3580,6 +3623,37 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 </div>
               ) : (
                 <div className={styles.chatMessagesList}>
+                  {chatMessages.length >= 150 && adminHasMoreOlder && (
+                    <button
+                      type="button"
+                      disabled={adminLoadingOlder}
+                      onClick={loadOlderMessages}
+                      style={{
+                        display: 'block',
+                        margin: '10px auto 20px auto',
+                        padding: '8px 16px',
+                        borderRadius: '16px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        color: '#cbd5e1',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: adminLoadingOlder ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s',
+                        outline: 'none',
+                        textAlign: 'center',
+                        opacity: adminLoadingOlder ? 0.7 : 1,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!adminLoadingOlder) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!adminLoadingOlder) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                      }}
+                    >
+                      {adminLoadingOlder ? 'Memuat...' : 'Muat Chat Lebih Lama...'}
+                    </button>
+                  )}
                   {filteredChatMessages.map((msg, index) => {
                     const isMe = msg.senderRole === 'admin';
                     const date = new Date(msg.createdAt);
@@ -3786,7 +3860,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   >
                     {/* Simple Quick Replies */}
                     {simpleOptions.length > 0 && (
-                      <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px', scrollbarWidth: 'none' }}>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', paddingBottom: '2px' }}>
                         {simpleOptions.map((opt) => {
                           const isSelected = newChatMessage
                             ? newChatMessage.split('\n').map(item => item.trim().toLowerCase()).includes(opt.text.toLowerCase())
@@ -3823,7 +3897,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
                     {/* Task / Timeframe Options */}
                     {taskOptions.length > 0 && (
-                      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', paddingBottom: '4px' }}>
                         {taskOptions.map((task) => {
                           const isTaken = task.status === 'taken';
                           let expiryStr = '';

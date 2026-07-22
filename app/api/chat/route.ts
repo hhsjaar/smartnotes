@@ -4,14 +4,23 @@ import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // Fetch 50 most recent messages (descending) and reverse for chronological display
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get('limit') || '150', 10);
+    const before = searchParams.get('before');
+
+    // Fetch most recent messages (descending) and reverse for chronological display
     const messages = await prisma.chatMessage.findMany({
+      where: before ? {
+        createdAt: {
+          lt: new Date(before),
+        },
+      } : undefined,
       orderBy: {
         createdAt: 'desc',
       },
-      take: 50,
+      take: limit,
     });
     const chronologicalMessages = messages.reverse();
     return NextResponse.json(chronologicalMessages, {

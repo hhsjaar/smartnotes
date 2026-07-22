@@ -118,6 +118,9 @@ export default function EmployeeChatPage() {
   const isInitialLoadRef = useRef<boolean>(true);
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
   const [hasNewMessages, setHasNewMessages] = useState(false);
+  const [hasMoreOlder, setHasMoreOlder] = useState(true);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const isLoadingOlderRef = useRef<boolean>(false);
 
   // PWA Install Event Handler
   useEffect(() => {
@@ -234,11 +237,12 @@ export default function EmployeeChatPage() {
       isInitialLoadRef.current = false;
     } else if (isAtBottomRef.current) {
       scrollToBottom('smooth');
-    } else {
+    } else if (!isLoadingOlderRef.current) {
       setHasNewMessages(true);
       setShowScrollBottomBtn(true);
     }
   }, [messages]);
+
 
   // Scroll to bottom when filter tab changes
   useEffect(() => {
@@ -271,33 +275,67 @@ export default function EmployeeChatPage() {
   const fetchMessages = async (isSilent = false) => {
     if (!isSilent) setIsLoading(true);
     try {
-      const res = await fetch('/api/chat', { cache: 'no-store' });
+      const res = await fetch('/api/chat?limit=150', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         const msgs: ChatMessage[] = Array.isArray(data) ? data : (data.messages || []);
         setMessages(prev => {
           const pendingTempMsgs = prev.filter(m => m.id.startsWith('temp-'));
-          let nextMsgs = msgs;
-          if (pendingTempMsgs.length > 0) {
-            const uniqueTemp = pendingTempMsgs.filter(t => !msgs.some(m => m.id === t.id));
-            nextMsgs = [...msgs, ...uniqueTemp];
-          }
-          // Preserve state reference if messages content has not changed (prevents polling re-renders)
-          if (
-            prev.length === nextMsgs.length &&
-            prev.length > 0 &&
-            prev[prev.length - 1].id === nextMsgs[nextMsgs.length - 1].id &&
-            prev[0].id === nextMsgs[0].id
-          ) {
-            return prev;
-          }
-          return nextMsgs;
+          
+          const msgMap = new Map<string, ChatMessage>(prev.map(m => [m.id, m]));
+          msgs.forEach(m => msgMap.set(m.id, m));
+          pendingTempMsgs.forEach(t => {
+            if (!msgMap.has(t.id)) msgMap.set(t.id, t);
+          });
+          
+          const sorted = Array.from(msgMap.values()).sort(
+            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
+          return sorted;
         });
       }
     } catch (err) {
       console.error('Failed to load chat messages:', err);
     } finally {
       if (!isSilent) setIsLoading(false);
+      isLoadingOlderRef.current = false;
+    }
+  };
+
+  const loadOlderMessages = async () => {
+    if (messages.length === 0 || loadingOlder || !hasMoreOlder) return;
+    setLoadingOlder(true);
+    isLoadingOlderRef.current = true;
+    
+    const chatArea = chatAreaRef.current;
+    const oldScrollHeight = chatArea ? chatArea.scrollHeight : 0;
+    const oldScrollTop = chatArea ? chatArea.scrollTop : 0;
+    
+    try {
+      const oldestMsg = messages[0];
+      const res = await fetch(`/api/chat?limit=150&before=${encodeURIComponent(oldestMsg.createdAt)}`);
+      if (res.ok) {
+        const newOlderMsgs = await res.json();
+        if (newOlderMsgs.length < 150) {
+          setHasMoreOlder(false);
+        }
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(m => m.id));
+          const uniqueOlder = newOlderMsgs.filter((m: any) => !existingIds.has(m.id));
+          return [...uniqueOlder, ...prev];
+        });
+        
+        if (chatArea) {
+          setTimeout(() => {
+            const newScrollHeight = chatArea.scrollHeight;
+            chatArea.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
+          }, 0);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load older messages:', err);
+    } finally {
+      setLoadingOlder(false);
     }
   };
 
@@ -809,6 +847,37 @@ export default function EmployeeChatPage() {
             </div>
           ) : (
             <div className={styles.messagesList}>
+              {messages.length >= 150 && hasMoreOlder && (
+                <button
+                  type="button"
+                  disabled={loadingOlder}
+                  onClick={loadOlderMessages}
+                  style={{
+                    display: 'block',
+                    margin: '10px auto 20px auto',
+                    padding: '8px 16px',
+                    borderRadius: '16px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    color: '#cbd5e1',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    cursor: loadingOlder ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s',
+                    outline: 'none',
+                    textAlign: 'center',
+                    opacity: loadingOlder ? 0.7 : 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!loadingOlder) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!loadingOlder) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                  }}
+                >
+                  {loadingOlder ? 'Memuat...' : 'Muat Chat Lebih Lama...'}
+                </button>
+              )}
               {filteredMessages.map((msg, index) => {
                 const isMe = msg.senderName === name && msg.senderRole === 'employee';
                 const date = new Date(msg.createdAt);
@@ -1042,7 +1111,7 @@ export default function EmployeeChatPage() {
               >
                 {/* Simple Quick Replies */}
                 {simpleOptions.length > 0 && (
-                  <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px', scrollbarWidth: 'none' }}>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', paddingBottom: '2px' }}>
                     {simpleOptions.map((opt) => {
                       const isSelected = newMessageText
                         ? newMessageText.split('\n').map(item => item.trim().toLowerCase()).includes(opt.text.toLowerCase())
@@ -1079,7 +1148,7 @@ export default function EmployeeChatPage() {
 
                 {/* Task / Timeframe Options */}
                 {taskOptions.length > 0 && (
-                  <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', paddingBottom: '4px' }}>
                     {taskOptions.map((task) => {
                       const isTaken = task.status === 'taken';
                       const isMine = isTaken && task.assignedTo === name;
