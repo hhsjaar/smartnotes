@@ -25,6 +25,17 @@ function calculateExpiryDate(startDate: Date, duration: string): Date {
   return expiryDate;
 }
 
+// Helper function to sort options alphabetically
+function sortOptions(options: any[]): any[] {
+  if (!Array.isArray(options)) return [];
+  return [...options].sort((a, b) => {
+    const textA = (typeof a === 'string' ? a : (a?.text || '')).toLowerCase();
+    const textB = (typeof b === 'string' ? b : (b?.text || '')).toLowerCase();
+    return textA.localeCompare(textB);
+  });
+}
+
+
 export async function GET() {
   try {
     let attributes = await prisma.chatAttribute.findMany({
@@ -106,10 +117,14 @@ export async function GET() {
         }
       }
 
-      if (isChanged) {
+      const sortedOpts = sortOptions(newOpts);
+      const originalSerialized = JSON.stringify(opts);
+      const sortedSerialized = JSON.stringify(sortedOpts);
+
+      if (isChanged || originalSerialized !== sortedSerialized) {
         await prisma.chatAttribute.update({
           where: { id: attr.id },
-          data: { options: newOpts }
+          data: { options: sortedOpts }
         });
         hasExpiredUpdates = true;
       }
@@ -123,7 +138,12 @@ export async function GET() {
       });
     }
 
-    return NextResponse.json(attributes, {
+    const sortedAttributes = attributes.map(attr => ({
+      ...attr,
+      options: sortOptions(Array.isArray(attr.options) ? (attr.options as any[]) : [])
+    }));
+
+    return NextResponse.json(sortedAttributes, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
       },
@@ -331,7 +351,7 @@ export async function PUT(request: Request) {
       const updated = await prisma.chatAttribute.update({
         where: { id },
         data: {
-          options: opts,
+          options: sortOptions(opts),
         },
       });
 
@@ -341,7 +361,7 @@ export async function PUT(request: Request) {
     const updated = await prisma.chatAttribute.update({
       where: { id },
       data: {
-        options: Array.isArray(options) ? options : undefined,
+        options: Array.isArray(options) ? sortOptions(options) : undefined,
         chatbotEnabled: typeof chatbotEnabled === 'boolean' ? chatbotEnabled : undefined,
       },
     });

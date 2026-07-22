@@ -247,6 +247,8 @@ function DashboardContent() {
   const [newOptionHasTimeframe, setNewOptionHasTimeframe] = useState(false);
   const [newOptionDuration, setNewOptionDuration] = useState('1 hari');
   const [managedChatbotEnabled, setManagedChatbotEnabled] = useState(false);
+  const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
+  const [editingOptionText, setEditingOptionText] = useState('');
   const [showMobileAttributesModal, setShowMobileAttributesModal] = useState(false);
 
   // Attribute Calendar State
@@ -626,6 +628,25 @@ function DashboardContent() {
     } catch (err) {
       console.error('Failed to load chat attributes:', err);
     }
+  };
+
+  const sortOptions = (opts: any[]) => {
+    if (!Array.isArray(opts)) return [];
+    return [...opts].sort((a, b) => {
+      const textA = (typeof a === 'string' ? a : (a?.text || '')).toLowerCase();
+      const textB = (typeof b === 'string' ? b : (b?.text || '')).toLowerCase();
+      return textA.localeCompare(textB);
+    });
+  };
+
+  const handleSaveOptionRename = (id: string) => {
+    if (!editingOptionText.trim()) return;
+    setManagedOptions(prev =>
+      sortOptions(
+        prev.map(o => o.id === id ? { ...o, text: editingOptionText.trim() } : o)
+      )
+    );
+    setEditingOptionId(null);
   };
 
   const handleSaveAttributeConfig = async (e: React.FormEvent) => {
@@ -3964,10 +3985,16 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                         type="button"
                         onClick={() => {
                           setEditingAttributeForOptions(attr);
-                          setManagedOptions(Array.isArray(attr.options) ? attr.options : []);
+                          const parsedOpts = Array.isArray(attr.options)
+                            ? attr.options.map((opt: any, idx: number) => {
+                                return typeof opt === 'string' ? { id: 'opt_' + idx, text: opt, hasTimeframe: false } : opt;
+                              })
+                            : [];
+                          setManagedOptions(sortOptions(parsedOpts));
                           setManagedChatbotEnabled(attr.chatbotEnabled || false);
                           setNewOptionInput('');
                           setNewOptionHasTimeframe(false);
+                          setEditingOptionId(null);
                         }}
                         style={{
                           background: 'rgba(99, 102, 241, 0.15)',
@@ -4098,25 +4125,89 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       {managedOptions.length === 0 ? (
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-dark)', fontStyle: 'italic', padding: '4px' }}>Belum ada opsi pesan cepat.</div>
                       ) : (
-                        managedOptions.map((opt, idx) => (
-                          <div key={opt.id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', padding: '6px 10px', borderRadius: '6px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                              <span style={{ fontSize: '0.8rem', color: '#e2e8f0', fontWeight: 600 }}>{opt.text || opt}</span>
-                              {opt.hasTimeframe && (
-                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                                  ⏱️ Jangka Waktu: {opt.duration} ({opt.status === 'taken' ? `Diambil: ${opt.assignedTo}` : 'Tersedia'})
-                                </span>
+                        managedOptions.map((opt, idx) => {
+                          const isEditing = editingOptionId === opt.id;
+                          return (
+                            <div key={opt.id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', padding: '6px 10px', borderRadius: '6px' }}>
+                              {isEditing ? (
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
+                                  <input
+                                    type="text"
+                                    value={editingOptionText}
+                                    onChange={(e) => setEditingOptionText(e.target.value)}
+                                    style={{
+                                      background: 'rgba(0, 0, 0, 0.4)',
+                                      border: '1px solid rgba(99, 102, 241, 0.4)',
+                                      color: '#ffffff',
+                                      fontSize: '0.8rem',
+                                      padding: '4px 8px',
+                                      borderRadius: '4px',
+                                      outline: 'none',
+                                      flex: 1
+                                    }}
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleSaveOptionRename(opt.id);
+                                      } else if (e.key === 'Escape') {
+                                        setEditingOptionId(null);
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveOptionRename(opt.id)}
+                                    style={{ background: 'transparent', border: 'none', color: '#10b981', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
+                                    title="Simpan"
+                                  >
+                                    <Check size={14} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingOptionId(null)}
+                                    style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
+                                    title="Batal"
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <>
+                                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ fontSize: '0.8rem', color: '#e2e8f0', fontWeight: 600 }}>{opt.text || opt}</span>
+                                    {opt.hasTimeframe && (
+                                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                                        ⏱️ Jangka Waktu: {opt.duration} ({opt.status === 'taken' ? `Diambil: ${opt.assignedTo}` : 'Tersedia'})
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingOptionId(opt.id);
+                                        setEditingOptionText(opt.text || opt);
+                                      }}
+                                      style={{ background: 'transparent', border: 'none', color: '#38bdf8', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
+                                      title="Ubah Nama"
+                                    >
+                                      <Pencil size={12} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setManagedOptions(prev => prev.filter((_, i) => i !== idx))}
+                                      style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
+                                      title="Hapus"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  </div>
+                                </>
                               )}
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => setManagedOptions(prev => prev.filter((_, i) => i !== idx))}
-                              style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
 
@@ -4211,7 +4302,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                               startDate: newOptionHasTimeframe ? now.toISOString() : null,
                               expiryDate: expiry
                             };
-                            setManagedOptions(prev => [...prev, newOptObj]);
+                            setManagedOptions(prev => sortOptions([...prev, newOptObj]));
                             setNewOptionInput('');
                             setNewOptionHasTimeframe(false);
                           }
@@ -4377,10 +4468,16 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                             type="button"
                             onClick={() => {
                               setEditingAttributeForOptions(attr);
-                              setManagedOptions(Array.isArray(attr.options) ? attr.options : []);
+                              const parsedOpts = Array.isArray(attr.options)
+                                ? attr.options.map((opt: any, idx: number) => {
+                                    return typeof opt === 'string' ? { id: 'opt_' + idx, text: opt, hasTimeframe: false } : opt;
+                                  })
+                                : [];
+                              setManagedOptions(sortOptions(parsedOpts));
                               setManagedChatbotEnabled(attr.chatbotEnabled || false);
                               setNewOptionInput('');
                               setNewOptionHasTimeframe(false);
+                              setEditingOptionId(null);
                             }}
                             style={{
                               background: 'rgba(99, 102, 241, 0.15)',
