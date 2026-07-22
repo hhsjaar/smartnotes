@@ -923,9 +923,11 @@
   border-color: rgba(99, 102, 241, 0.4);
 }
 
-.attachBtn:disabled {
+.attachBtn:disabled,
+.attachBtn.disabledAttachBtn {
   opacity: 0.5;
   cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* Image inside Message Bubble */

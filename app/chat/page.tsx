@@ -473,6 +473,19 @@ export default function EmployeeChatPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Check if Supabase credentials are placeholder or missing
+    const isPlaceholder = !process.env.NEXT_PUBLIC_SUPABASE_URL || 
+                          process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder') || 
+                          (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY && !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
+                          process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY === 'placeholder-key' || 
+                          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === 'placeholder-key';
+    
+    if (isPlaceholder) {
+      alert('PERINGATAN: Konfigurasi Supabase Storage belum diset di file .env atau .env.local Anda. Silakan tambahkan NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY agar pengunggahan gambar berfungsi.');
+      e.target.value = '';
+      return;
+    }
+
     // Validate type with file extension fallback
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
     const ext = file.name ? (file.name.split('.').pop() || '').toLowerCase() : '';
@@ -1249,22 +1262,21 @@ export default function EmployeeChatPage() {
 
           <form onSubmit={handleSendMessage} className={styles.inputForm}>
             {/* Attachment Button */}
-            <button
-              type="button"
-              className={styles.attachBtn}
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isSubmitting}
+            <label 
+              className={`${styles.attachBtn} ${isSubmitting ? styles.disabledAttachBtn : ''}`}
+              style={{ cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
               title="Lampirkan foto"
             >
               <Image size={20} />
-            </button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              style={{ display: 'none' }}
-              accept="image/*"
-            />
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+                accept="image/*"
+                disabled={isSubmitting}
+              />
+            </label>
 
             {/* Chat Text Input */}
             <textarea
