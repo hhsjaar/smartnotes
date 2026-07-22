@@ -520,13 +520,31 @@ export default function EmployeeChatPage() {
     try {
       let uploadedImageUrl = null;
 
-      // Convert file directly to compressed Base64 string if selected
+      // Compress and upload file to Supabase Storage if selected
       if (selectedFile) {
         try {
-          uploadedImageUrl = await compressImageToBase64(selectedFile);
-          if (uploadedImageUrl.length > 3.5 * 1024 * 1024) {
-            throw new Error('Ukuran gambar terlalu besar setelah dikompresi (Maksimal 3MB). Silakan pilih foto dengan resolusi lebih rendah.');
+          const compressedBlob = await compressImageToBlob(selectedFile);
+          const fileExt = selectedFile.name.split('.').pop() || 'jpg';
+          const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+          const filePath = `${fileName}`;
+
+          const { data, error } = await supabase.storage
+            .from('chat-attachments')
+            .upload(filePath, compressedBlob, {
+              contentType: 'image/jpeg',
+              cacheControl: '3600',
+              upsert: false
+            });
+
+          if (error) {
+            throw new Error(`Gagal mengunggah gambar ke storage: ${error.message}`);
           }
+
+          const { data: urlData } = supabase.storage
+            .from('chat-attachments')
+            .getPublicUrl(filePath);
+
+          uploadedImageUrl = urlData.publicUrl;
         } catch (err: any) {
           throw new Error(err.message || 'Gagal memproses gambar');
         }
@@ -1513,7 +1531,7 @@ export default function EmployeeChatPage() {
   );
 }
 
-const compressImageToBase64 = (file: File, maxWidth = 600, maxHeight = 600, quality = 0.45): Promise<string> => {
+const compressImageToBlob = (file: File, maxWidth = 600, maxHeight = 600, quality = 0.45): Promise<Blob> => {
   return new Promise((resolve) => {
     const img = new window.Image();
     const objectUrl = URL.createObjectURL(file);
@@ -1541,31 +1559,27 @@ const compressImageToBase64 = (file: File, maxWidth = 600, maxHeight = 600, qual
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target?.result as string || '');
-        reader.onerror = () => resolve('');
-        reader.readAsDataURL(file);
+        resolve(file);
         return;
       }
 
       ctx.drawImage(img, 0, 0, width, height);
       try {
-        const base64 = canvas.toDataURL('image/jpeg', quality);
-        resolve(base64);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            resolve(file);
+          }
+        }, 'image/jpeg', quality);
       } catch (e) {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target?.result as string || '');
-        reader.onerror = () => resolve('');
-        reader.readAsDataURL(file);
+        resolve(file);
       }
     };
 
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target?.result as string || '');
-      reader.onerror = () => resolve('');
-      reader.readAsDataURL(file);
+      resolve(file);
     };
   });
 };
