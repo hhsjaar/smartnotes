@@ -1159,6 +1159,10 @@ function DashboardContent() {
       }
 
       const registration = await navigator.serviceWorker.ready;
+      if (!registration || !registration.pushManager) {
+        alert('Fitur notifikasi push tidak didukung atau dibatasi oleh browser Anda (misalnya di iOS Safari, fitur notifikasi hanya aktif jika aplikasi ditambahkan ke layar utama / Home Screen terlebih dahulu).');
+        return;
+      }
       
       const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!publicKey) {
@@ -1301,9 +1305,13 @@ function DashboardContent() {
         
         if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
           navigator.serviceWorker.ready.then((registration) => {
-            registration.pushManager.getSubscription().then((subscription) => {
-              setIsPushSubscribed(!!subscription);
-            });
+            if (registration && registration.pushManager) {
+              registration.pushManager.getSubscription().then((subscription) => {
+                setIsPushSubscribed(!!subscription);
+              }).catch((e) => {
+                console.warn('Failed to get push subscription:', e);
+              });
+            }
           });
         }
       }
