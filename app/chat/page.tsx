@@ -34,6 +34,102 @@ function formatBoldText(text: string) {
   });
 }
 
+function getValidDate(dateVal: any): Date | null {
+  if (!dateVal) return null;
+  const date = new Date(dateVal);
+  if (isNaN(date.getTime())) {
+    if (typeof dateVal === 'string') {
+      const normalized = dateVal.replace(' ', 'T');
+      const fallbackDate = new Date(normalized);
+      if (!isNaN(fallbackDate.getTime())) {
+        return fallbackDate;
+      }
+    }
+    return null;
+  }
+  return date;
+}
+
+function formatTime(dateVal: any): string {
+  const date = getValidDate(dateVal);
+  if (!date) return '';
+  try {
+    return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    try {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (e2) {
+      const h = String(date.getHours()).padStart(2, '0');
+      const m = String(date.getMinutes()).padStart(2, '0');
+      return `${h}:${m}`;
+    }
+  }
+}
+
+function formatDateLong(dateVal: any): string {
+  const date = getValidDate(dateVal);
+  if (!date) return '';
+  try {
+    return date.toLocaleDateString('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  } catch (e) {
+    try {
+      return date.toLocaleDateString([], {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch (e2) {
+      return date.toDateString();
+    }
+  }
+}
+
+function formatDateShort(dateVal: any): string {
+  const date = getValidDate(dateVal);
+  if (!date) return '';
+  try {
+    return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+  } catch (e) {
+    try {
+      return date.toLocaleDateString([], { day: 'numeric', month: 'short' });
+    } catch (e2) {
+      return `${date.getDate()}/${date.getMonth() + 1}`;
+    }
+  }
+}
+
+function formatDateTime(dateVal: any): string {
+  const date = getValidDate(dateVal);
+  if (!date) return '';
+  try {
+    return date.toLocaleDateString('id-ID', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (e) {
+    try {
+      return date.toLocaleDateString([], {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e2) {
+      return date.toLocaleString();
+    }
+  }
+}
+
 export default function EmployeeChatPage() {
   const [name, setName] = useState('');
   const [isNameSet, setIsNameSet] = useState(false);
@@ -288,9 +384,13 @@ export default function EmployeeChatPage() {
             if (!msgMap.has(t.id)) msgMap.set(t.id, t);
           });
           
-          const sorted = Array.from(msgMap.values()).sort(
-            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-          );
+          const sorted = Array.from(msgMap.values()).sort((a, b) => {
+            const dateA = getValidDate(a.createdAt);
+            const dateB = getValidDate(b.createdAt);
+            const timeA = dateA ? dateA.getTime() : 0;
+            const timeB = dateB ? dateB.getTime() : 0;
+            return timeA - timeB;
+          });
           return sorted;
         });
       }
@@ -893,15 +993,16 @@ export default function EmployeeChatPage() {
               )}
               {filteredMessages.map((msg, index) => {
                 const isMe = msg.senderName === name && msg.senderRole === 'employee';
-                const date = new Date(msg.createdAt);
-                const timeStr = date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                const date = getValidDate(msg.createdAt) || new Date();
+                const timeStr = formatTime(msg.createdAt);
 
                 let showDivider = false;
                 let dividerText = '';
                 
                 const currentDateKey = date.toDateString();
                 const prevMsg = index > 0 ? filteredMessages[index - 1] : null;
-                const prevDateKey = prevMsg ? new Date(prevMsg.createdAt).toDateString() : null;
+                const prevDate = prevMsg ? getValidDate(prevMsg.createdAt) : null;
+                const prevDateKey = prevDate ? prevDate.toDateString() : null;
                 
                 if (currentDateKey !== prevDateKey) {
                   showDivider = true;
@@ -920,12 +1021,7 @@ export default function EmployeeChatPage() {
                   } else if (compareDate.getTime() === yesterday.getTime()) {
                     dividerText = 'Kemarin';
                   } else {
-                    dividerText = compareDate.toLocaleDateString('id-ID', {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric'
-                    });
+                    dividerText = formatDateLong(date);
                   }
                 }
 
@@ -1168,8 +1264,7 @@ export default function EmployeeChatPage() {
                       
                       let expiryStr = '';
                       if (task.expiryDate) {
-                        const expDate = new Date(task.expiryDate);
-                        expiryStr = expDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' ' + expDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+                        expiryStr = formatTime(task.expiryDate) + ' ' + formatDateShort(task.expiryDate);
                       }
 
                       return (
@@ -1420,14 +1515,8 @@ export default function EmployeeChatPage() {
                 return (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {filtered.map((res: any) => {
-                      const date = new Date(res.dateTime);
-                      const formattedDate = date.toLocaleDateString('id-ID', {
-                        weekday: 'short',
-                        day: 'numeric',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      });
+                      const date = getValidDate(res.dateTime) || new Date();
+                      const formattedDate = formatDateTime(res.dateTime);
 
                       const statusColors: Record<string, string> = {
                         pending: 'rgba(245, 158, 11, 0.15)',
