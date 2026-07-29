@@ -268,6 +268,175 @@ Perintah Terbaru Pengguna: "${command}"
       });
     }
 
+    const isShoppingListRequest = 
+      lowerCommand.includes('belanja') && (
+        lowerCommand.includes('buat') || 
+        lowerCommand.includes('buatkan') || 
+        lowerCommand.includes('list') || 
+        lowerCommand.includes('daftar') || 
+        lowerCommand.includes('rekap') || 
+        lowerCommand.includes('rangkum') || 
+        lowerCommand.includes('susun') || 
+        lowerCommand.includes('tabel') ||
+        lowerCommand.includes('catat')
+      );
+
+    if (isShoppingListRequest) {
+      // Fetch messages containing 'belanja' or 'belanjaan' from the last 72 hours
+      const startDate = new Date(currentDateTime.getTime() - 72 * 60 * 60 * 1000);
+      let shoppingMessages = await prisma.chatMessage.findMany({
+        where: {
+          createdAt: { gte: startDate },
+          OR: [
+            { attribute: { contains: 'belanja', mode: 'insensitive' } },
+            { attribute: { contains: 'belanjaan', mode: 'insensitive' } },
+            { message: { contains: 'belanja', mode: 'insensitive' } },
+            { message: { contains: 'belanjaan', mode: 'insensitive' } }
+          ]
+        },
+        orderBy: { createdAt: 'asc' }
+      });
+
+      if (shoppingMessages.length === 0) {
+        // Fallback to last 7 days if no messages in last 72 hours
+        shoppingMessages = await prisma.chatMessage.findMany({
+          where: {
+            createdAt: { gte: new Date(currentDateTime.getTime() - 7 * 24 * 60 * 60 * 1000) },
+            OR: [
+              { attribute: { contains: 'belanja', mode: 'insensitive' } },
+              { attribute: { contains: 'belanjaan', mode: 'insensitive' } },
+              { message: { contains: 'belanja', mode: 'insensitive' } },
+              { message: { contains: 'belanjaan', mode: 'insensitive' } }
+            ]
+          },
+          orderBy: { createdAt: 'asc' }
+        });
+      }
+
+      if (shoppingMessages.length === 0) {
+        return NextResponse.json({
+          action: null,
+          payload: {},
+          response: `Saya tidak menemukan laporan belanjaan atau pesan dengan atribut belanja di chat room dalam 7 hari terakhir.`
+        });
+      }
+
+      // Format messages for LLM prompt
+      const formattedChatText = shoppingMessages.map((c, i) => {
+        const formattedDate = new Date(c.createdAt).toLocaleString('id-ID', {
+          timeZone: 'Asia/Jakarta',
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        return `[Pesan #${i + 1}] Waktu: ${formattedDate} | Pengirim: ${c.senderName} (${c.senderRole}) | Atribut: ${c.attribute || 'Umum'}\nIsi Pesan: ${c.message}\n`;
+      }).join('\n');
+
+      // Find or create "Belanjaan" folder
+      let parentFolder = await prisma.folder.findFirst({
+        where: { name: { equals: 'Belanjaan', mode: 'insensitive' } }
+      });
+      if (!parentFolder) {
+        parentFolder = await prisma.folder.create({
+          data: { name: 'Belanjaan' }
+        });
+      }
+
+      // Find or create "Utuh" subfolder under it
+      let targetFolderId = parentFolder.id;
+      const utuhSubfolder = await prisma.folder.findFirst({
+        where: { parentId: parentFolder.id, name: { equals: 'Utuh', mode: 'insensitive' } }
+      });
+      if (utuhSubfolder) {
+        targetFolderId = utuhSubfolder.id;
+      } else {
+        const newUtuhFolder = await prisma.folder.create({
+          data: {
+            name: 'Utuh',
+            parentId: parentFolder.id
+          }
+        });
+        targetFolderId = newUtuhFolder.id;
+      }
+
+      const shoppingPrompt = `
+Anda adalah asisten AI suara pintar untuk aplikasi "Catatan Pintar". Tugas Anda adalah menyusun daftar belanjaan yang profesional, terstruktur, dan rapi dalam format Markdown berdasarkan pesan-pesan chat koordinasi di chat room yang memiliki atribut atau konten belanjaan.
+
+Berikut adalah daftar percakapan chat bertema belanja yang ditemukan di database:
+${formattedChatText}
+
+Tugas Anda adalah:
+1. Ekstrak semua barang belanjaan/belanja dari pesan-pesan di atas.
+2. Kelompokkan barang-barang tersebut berdasarkan kategori/tujuan belanja (misalnya: Belanja Pasar, Belanja Superindo, Belanja Sembako, Belanja Lain-lain, dsb.).
+3. Susun dalam tabel Markdown yang rapi. Tabel tersebut harus berisi kolom: No, Kategori/Atribut Belanja, Nama Barang / Detail Belanjaan, Pengirim, dan Waktu Chat.
+4. Buat daftar checklist (todo_list) berisi barang-barang belanjaan tersebut.
+
+Struktur Dokumen (Format Markdown Konten):
+# Daftar Belanjaan - [Tanggal Terkini/Besok]
+
+Dibuat otomatis oleh AI Asisten Suara pada: ${currentDateTimeStr}
+
+| No | Kategori/Atribut | Nama Barang / Detail | Pengirim | Waktu Chat |
+| :--- | :--- | :--- | :--- | :--- |
+| [No] | [Kategori/Atribut] | [Nama Barang / Detail Belanjaan] | [Pengirim] | [Hari, Tanggal, Jam] |
+
+PENTING: Jangan menyisipkan baris kosong (blank line/double newline) di antara baris-baris tabel Markdown agar dapat dirender dengan benar.
+
+Format Keluaran (JSON murni):
+{
+  "title": "Daftar Belanjaan - [Tanggal Terkini/Besok]",
+  "content": "[Tuliskan seluruh isi catatan detail dengan format Markdown di atas di sini]",
+  "summary": "Membuat daftar belanjaan dari chat room secara otomatis.",
+  "todo_list": ["[Nama Barang 1]", "[Nama Barang 2]"],
+  "tags": ["Belanja", "Daftar Belanja", "Otomatis"]
+}
+
+Aturan Penting:
+1. Pastikan isi "content" memuat draf dalam bahasa Indonesia yang formal dan sangat rapi.
+2. Jangan menggunakan tag markdown pembungkus json seperti \`\`\`json pada output. Kembalikan string JSON murni yang valid.
+`;
+
+      try {
+        const resultText = await callGemini(apiKey, [{ role: 'user', parts: [{ text: 'Mulai pembuatan daftar belanjaan dari chat' }] }], shoppingPrompt, true);
+        let cleanedText = resultText.trim();
+        if (cleanedText.startsWith('```')) {
+          cleanedText = cleanedText.replace(/^```(json)?\n?/, '');
+          cleanedText = cleanedText.replace(/\n?```$/, '');
+        }
+        cleanedText = cleanedText.trim();
+
+        const firstBrace = cleanedText.indexOf('{');
+        const lastBrace = cleanedText.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1 && firstBrace < lastBrace) {
+          cleanedText = cleanedText.substring(firstBrace, lastBrace + 1);
+        }
+        cleanedText = cleanedText.replace(/,\s*([\]}])/g, '$1');
+
+        const generatedShopping = robustJsonParse(cleanedText);
+
+        return NextResponse.json({
+          action: 'CREATE_NOTE_DIRECT',
+          payload: {
+            title: generatedShopping.title,
+            content: generatedShopping.content,
+            summary: generatedShopping.summary,
+            todo_list: generatedShopping.todo_list,
+            tags: generatedShopping.tags,
+            folderId: targetFolderId
+          },
+          response: `Saya telah merangkum pesan belanja dari chat room dan berhasil membuat catatan daftar belanjaan baru di folder "Belanjaan" (sub-folder "Utuh").`
+        });
+      } catch (err: any) {
+        console.error('Error generating shopping list from chat:', err);
+        return NextResponse.json({
+          error: 'Gagal membuat daftar belanjaan menggunakan AI.'
+        }, { status: 500 });
+      }
+    }
+
     // 1. Classifier to check if this is a request for a meeting draft
     const classifierPrompt = `
 Analyze the user's latest command and the conversation history to determine if they are requesting a meeting draft (Draft Pembahasan Rapat).
