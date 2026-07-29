@@ -289,6 +289,7 @@ function DashboardContent() {
   const [editingChatMessage, setEditingChatMessage] = useState<any | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatSubmitting, setChatSubmitting] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
 
   const adminChatAreaRef = useRef<HTMLDivElement | null>(null);
   const chatMessagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -676,8 +677,9 @@ function DashboardContent() {
 
   const loadChatMessages = async (isSilent = false) => {
     if (!isSilent) setChatLoading(true);
+    setChatError(null);
     try {
-      const res = await fetch('/api/chat?limit=150', { cache: 'no-store' });
+      const res = await fetch(`/api/chat?limit=150&_t=${Date.now()}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         const msgs = Array.isArray(data) ? data : (data.messages || []);
@@ -703,9 +705,13 @@ function DashboardContent() {
           });
           return sorted;
         });
+      } else {
+        const errText = await res.text();
+        setChatError(`Server HTTP ${res.status}: ${errText}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load chat messages:', err);
+      setChatError(err.message || String(err));
     } finally {
       if (!isSilent) setChatLoading(false);
       adminIsLoadingOlderRef.current = false;
@@ -723,7 +729,7 @@ function DashboardContent() {
     
     try {
       const oldestMsg = chatMessages[0];
-      const res = await fetch(`/api/chat?limit=150&before=${encodeURIComponent(oldestMsg.createdAt)}`);
+      const res = await fetch(`/api/chat?limit=150&before=${encodeURIComponent(oldestMsg.createdAt)}&_t=${Date.now()}`);
       if (res.ok) {
         const newOlderMsgs = await res.json();
         if (newOlderMsgs.length < 150) {
@@ -3612,6 +3618,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 <Users className={styles.adminChatHeaderIcon} />
                 <div>
                   <h3>Grup Koordinasi Burjolevelup</h3>
+                  <p style={{ margin: 0, fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                    Pesan: {chatMessages.length} {chatLoading ? ' (Memuat...)' : ''}
+                  </p>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -3727,6 +3736,26 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 <div className={styles.chatEmpty}>
                   <MessageSquare size={40} />
                   <p>Belum ada pesan di chat room ini.</p>
+                  {chatError && (
+                    <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '8px', padding: '0 20px', textAlign: 'center' }}>
+                      Error: {chatError}
+                    </p>
+                  )}
+                  <button 
+                    onClick={() => loadChatMessages(false)}
+                    style={{
+                      marginTop: '12px',
+                      padding: '6px 16px',
+                      background: 'var(--primary)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '0.8rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Refresh Obrolan
+                  </button>
                 </div>
               ) : filteredChatMessages.length === 0 ? (
                 <div className={styles.chatEmpty}>
