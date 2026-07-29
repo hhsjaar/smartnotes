@@ -87,6 +87,7 @@
   gap: 20px;
   position: relative;
   width: 100%;
+  flex: 1;
 }
 
 .textarea {
@@ -101,7 +102,7 @@
   font-family: var(--font-sans);
   font-size: 0.95rem;
   line-height: 1.6;
-  resize: vertical;
+  resize: none;
   outline: none;
 }
 
@@ -112,6 +113,8 @@
 .previewArea {
   width: 100%;
   min-height: 350px;
+  flex: 1;
+  overflow-y: auto;
   background: rgba(0, 0, 0, 0.1);
   border: 1px solid var(--glass-border);
   border-radius: var(--border-radius-md);
