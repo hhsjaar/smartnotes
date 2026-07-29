@@ -953,7 +953,10 @@
 
 .mobileEditorContainer,
 .mobileNewsContainer {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .mobileRecorderContainer {
@@ -3445,18 +3448,27 @@
 @media (max-width: 768px) {
   .adminChatContainer {
     padding: 0;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
   
   .adminChatLayout {
     grid-template-columns: 1fr;
     gap: 0;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   .adminChatRoomPanel {
     border-radius: var(--border-radius-md);
-    height: 100%;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     border: 1px solid var(--glass-border);
   }
   

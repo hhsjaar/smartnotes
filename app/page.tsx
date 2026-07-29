@@ -694,9 +694,13 @@ function DashboardContent() {
             }
           });
           
-          const sorted = Array.from(msgMap.values()).sort(
-            (a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-          );
+          const sorted = Array.from(msgMap.values()).sort((a: any, b: any) => {
+            const dateA = getValidDate(a.createdAt);
+            const dateB = getValidDate(b.createdAt);
+            const timeA = dateA ? dateA.getTime() : 0;
+            const timeB = dateB ? dateB.getTime() : 0;
+            return timeA - timeB;
+          });
           return sorted;
         });
       }
@@ -2983,10 +2987,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                         {note.title || 'Catatan Tanpa Judul'}
                                       </div>
                                       <span className={styles.mobileNoteDate}>
-                                        {new Date(note.created_at).toLocaleDateString('id-ID', {
-                                          day: 'numeric',
-                                          month: 'short',
-                                        })}
+                                        {formatDateShort(note.created_at)}
                                       </span>
                                     </div>
                                     
@@ -6025,10 +6026,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                 <div className={styles.noteCardHeader}>
                                   <span className={styles.noteCardTitle}>{note.title || 'Catatan Tanpa Judul'}</span>
                                   <span className={styles.noteCardDate}>
-                                    {new Date(note.created_at).toLocaleDateString('id-ID', {
-                                      day: 'numeric',
-                                      month: 'short',
-                                    })}
+                                    {formatDateShort(note.created_at)}
                                   </span>
                                 </div>
 
