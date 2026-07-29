@@ -156,7 +156,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { name } = await request.json();
+    const { name, isGroup, groupAttributes } = await request.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json({ error: 'Nama atribut tidak boleh kosong' }, { status: 400 });
@@ -164,7 +164,7 @@ export async function POST(request: Request) {
 
     const trimmedName = name.trim();
 
-    // Check if attribute already exists (case-insensitive or exact)
+    // Check if attribute already exists (case-insensitive)
     const existing = await prisma.chatAttribute.findFirst({
       where: {
         name: {
@@ -174,9 +174,15 @@ export async function POST(request: Request) {
       },
     });
 
+    if (existing) {
+      return NextResponse.json({ error: 'Nama atribut tersebut sudah digunakan' }, { status: 400 });
+    }
+
     const newAttribute = await prisma.chatAttribute.create({
       data: {
         name: trimmedName,
+        isGroup: typeof isGroup === 'boolean' ? isGroup : false,
+        groupAttributes: Array.isArray(groupAttributes) ? groupAttributes : [],
       },
     });
 
@@ -196,11 +202,38 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'ID atribut harus ditentukan' }, { status: 400 });
     }
 
+    const targetAttribute = await prisma.chatAttribute.findUnique({
+      where: { id }
+    });
+
+    if (!targetAttribute) {
+      return NextResponse.json({ error: 'Atribut tidak ditemukan' }, { status: 404 });
+    }
+
+    const { name } = targetAttribute;
+
     await prisma.chatAttribute.delete({
       where: {
         id,
       },
     });
+
+    // Clean up references in other groups if this is a standard attribute
+    if (!targetAttribute.isGroup) {
+      const groupAttrs = await prisma.chatAttribute.findMany({
+        where: { isGroup: true }
+      });
+      for (const groupAttr of groupAttrs) {
+        const members = Array.isArray(groupAttr.groupAttributes) ? (groupAttr.groupAttributes as string[]) : [];
+        if (members.includes(name)) {
+          const updatedMembers = members.filter(m => m !== name);
+          await prisma.chatAttribute.update({
+            where: { id: groupAttr.id },
+            data: { groupAttributes: updatedMembers }
+          });
+        }
+      }
+    }
 
     return NextResponse.json({ success: true, message: 'Atribut berhasil dihapus' });
   } catch (error: any) {
@@ -211,7 +244,7 @@ export async function DELETE(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { id, options, chatbotEnabled, action, optionId, assignedTo, name } = await request.json();
+    const { id, options, chatbotEnabled, action, optionId, assignedTo, name, isGroup, groupAttributes } = await request.json();
 
     if (!id) {
       return NextResponse.json({ error: 'ID atribut harus ditentukan' }, { status: 400 });
@@ -253,7 +286,24 @@ export async function PUT(request: Request) {
           return NextResponse.json({ error: 'Nama atribut tersebut sudah digunakan' }, { status: 400 });
         }
 
-        // Rename across all referencing tables in a transaction
+        // Rename across all referencing tables in a transaction, including group lists in other attributes
+        const groupAttrs = await prisma.chatAttribute.findMany({
+          where: { isGroup: true }
+        });
+        const groupUpdates = [];
+        for (const g of groupAttrs) {
+          const members = Array.isArray(g.groupAttributes) ? (g.groupAttributes as string[]) : [];
+          if (members.includes(oldName)) {
+            const updatedMembers = members.map(m => m === oldName ? trimmedName : m);
+            groupUpdates.push(
+              prisma.chatAttribute.update({
+                where: { id: g.id },
+                data: { groupAttributes: updatedMembers }
+              })
+            );
+          }
+        }
+
         await prisma.$transaction([
           prisma.chatAttribute.update({
             where: { id },
@@ -267,6 +317,7 @@ export async function PUT(request: Request) {
             where: { attributeName: oldName },
             data: { attributeName: trimmedName },
           }),
+          ...groupUpdates
         ]);
         
         // Update local reference so subsequent updates in this request use the new name
@@ -363,6 +414,8 @@ export async function PUT(request: Request) {
       data: {
         options: Array.isArray(options) ? sortOptions(options) : undefined,
         chatbotEnabled: typeof chatbotEnabled === 'boolean' ? chatbotEnabled : undefined,
+        isGroup: typeof isGroup === 'boolean' ? isGroup : undefined,
+        groupAttributes: Array.isArray(groupAttributes) ? groupAttributes : undefined,
       },
     });
 

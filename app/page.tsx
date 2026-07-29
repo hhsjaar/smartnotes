@@ -339,6 +339,9 @@ function DashboardContent() {
   const [adminActiveContextMenu, setAdminActiveContextMenu] = useState<{ x: number, y: number, messageId: string, text: string } | null>(null);
   const adminLongPressTimeout = useRef<NodeJS.Timeout | null>(null);
   const [newAttributeInput, setNewAttributeInput] = useState('');
+  const [newAttributeIsGroup, setNewAttributeIsGroup] = useState(false);
+  const [newAttributeGroupMembers, setNewAttributeGroupMembers] = useState<string[]>([]);
+  const [managedGroupMembers, setManagedGroupMembers] = useState<string[]>([]);
 
   // Manage Attribute options / chatbot state
   const [editingAttributeForOptions, setEditingAttributeForOptions] = useState<any | null>(null);
@@ -801,14 +804,22 @@ function DashboardContent() {
     e.preventDefault();
     if (!editingAttributeForOptions) return;
     try {
+      const payload: any = {
+        id: editingAttributeForOptions.id,
+      };
+
+      if (editingAttributeForOptions.isGroup) {
+        payload.isGroup = true;
+        payload.groupAttributes = managedGroupMembers;
+      } else {
+        payload.options = managedOptions;
+        payload.chatbotEnabled = managedChatbotEnabled;
+      }
+
       const res = await fetch('/api/chat/attributes', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingAttributeForOptions.id,
-          options: managedOptions,
-          chatbotEnabled: managedChatbotEnabled,
-        }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         setEditingAttributeForOptions(null);
@@ -1062,12 +1073,18 @@ function DashboardContent() {
       const res = await fetch('/api/chat/attributes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newAttributeInput.trim() }),
+        body: JSON.stringify({ 
+          name: newAttributeInput.trim(),
+          isGroup: newAttributeIsGroup,
+          groupAttributes: newAttributeGroupMembers
+        }),
       });
       if (res.ok) {
         const newAttr = await res.json();
         setChatAttributes(prev => [...prev, newAttr].sort((a, b) => a.name.localeCompare(b.name)));
         setNewAttributeInput('');
+        setNewAttributeIsGroup(false);
+        setNewAttributeGroupMembers([]);
       } else {
         const errData = await res.json();
         alert(errData.error || 'Gagal menambahkan atribut');
@@ -3604,9 +3621,17 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
   }
 
   function renderAdminChatRoom() {
-    const filteredChatMessages = chatFilterAttribute === 'Semua'
-      ? chatMessages
-      : chatMessages.filter((msg: any) => msg.attribute === chatFilterAttribute);
+    const filteredChatMessages = (() => {
+      if (chatFilterAttribute === 'Semua') return chatMessages;
+      const filterAttrObj = chatAttributes.find(a => a.name === chatFilterAttribute);
+      if (filterAttrObj?.isGroup) {
+        const groupAttrs = Array.isArray(filterAttrObj.groupAttributes)
+          ? (filterAttrObj.groupAttributes as string[])
+          : [];
+        return chatMessages.filter((msg: any) => msg.attribute === chatFilterAttribute || (msg.attribute && groupAttrs.includes(msg.attribute)));
+      }
+      return chatMessages.filter((msg: any) => msg.attribute === chatFilterAttribute);
+    })();
 
     return (
       <div className={styles.adminChatContainer}>
@@ -3951,7 +3976,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               )}
 
               <div className={styles.attributeChipsContainer}>
-                {chatAttributes.map((attr) => {
+                {chatAttributes.filter(attr => !attr.isGroup).map((attr) => {
                   const isActive = selectedChatAttribute === attr.name;
                   const color = getChatAttributeColor(attr.name);
                   return (
@@ -4156,20 +4181,71 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               Atribut klasifikasi laporan koordinasi karyawan (e.g. Sales, Progres, dll).
             </p>
 
-            <form onSubmit={handleAddChatAttribute} className={styles.addAttrForm}>
-              <input
-                type="text"
-                placeholder="Nama atribut baru..."
-                value={newAttributeInput}
-                onChange={(e) => setNewAttributeInput(e.target.value)}
-                className={styles.attrInput}
-                maxLength={20}
-                required
-              />
-              <button type="submit" className={styles.attrAddBtn}>
-                <Plus size={16} />
-                <span>Tambah</span>
-              </button>
+            <form onSubmit={handleAddChatAttribute} className={styles.addAttrForm} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                <input
+                  type="text"
+                  placeholder="Nama atribut baru..."
+                  value={newAttributeInput}
+                  onChange={(e) => setNewAttributeInput(e.target.value)}
+                  className={styles.attrInput}
+                  style={{ flex: 1 }}
+                  maxLength={20}
+                  required
+                />
+                <button type="submit" className={styles.attrAddBtn}>
+                  <Plus size={16} />
+                  <span>Tambah</span>
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                <input
+                  type="checkbox"
+                  id="attr-is-group"
+                  checked={newAttributeIsGroup}
+                  onChange={(e) => {
+                    setNewAttributeIsGroup(e.target.checked);
+                    setNewAttributeGroupMembers([]);
+                  }}
+                  style={{ cursor: 'pointer', width: '14px', height: '14px' }}
+                />
+                <label htmlFor="attr-is-group" style={{ cursor: 'pointer', userSelect: 'none' }}>Jadikan Kumpulan Atribut (Grup)</label>
+              </div>
+
+              {newAttributeIsGroup && (
+                <div style={{
+                  padding: '10px',
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  marginTop: '4px'
+                }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>Pilih Atribut Anggota:</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {chatAttributes.filter(a => !a.isGroup && a.name !== 'Umum').map(a => (
+                      <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={newAttributeGroupMembers.includes(a.name)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setNewAttributeGroupMembers(prev => [...prev, a.name]);
+                            } else {
+                              setNewAttributeGroupMembers(prev => prev.filter(name => name !== a.name));
+                            }
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        {a.name}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </form>
 
             <div className={styles.attrsList}>
@@ -4188,22 +4264,28 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className={styles.attrItemName} style={{ fontWeight: 600, color: '#fff', fontSize: '0.9rem' }}>🏷️ {attr.name}</span>
+                    <span className={styles.attrItemName} style={{ fontWeight: 600, color: '#fff', fontSize: '0.9rem' }}>
+                      {attr.isGroup ? '📁' : '🏷️'} {attr.name}
+                    </span>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                       <button
                         type="button"
                         onClick={() => {
                           setEditingAttributeForOptions(attr);
-                          const parsedOpts = Array.isArray(attr.options)
-                            ? attr.options.map((opt: any, idx: number) => {
-                                return typeof opt === 'string' ? { id: 'opt_' + idx, text: opt, hasTimeframe: false } : opt;
-                              })
-                            : [];
-                          setManagedOptions(sortOptions(parsedOpts));
-                          setManagedChatbotEnabled(attr.chatbotEnabled || false);
-                          setNewOptionInput('');
-                          setNewOptionHasTimeframe(false);
-                          setEditingOptionId(null);
+                          if (attr.isGroup) {
+                            setManagedGroupMembers(Array.isArray(attr.groupAttributes) ? attr.groupAttributes : []);
+                          } else {
+                            const parsedOpts = Array.isArray(attr.options)
+                              ? attr.options.map((opt: any, idx: number) => {
+                                  return typeof opt === 'string' ? { id: 'opt_' + idx, text: opt, hasTimeframe: false } : opt;
+                                })
+                              : [];
+                            setManagedOptions(sortOptions(parsedOpts));
+                            setManagedChatbotEnabled(attr.chatbotEnabled || false);
+                            setNewOptionInput('');
+                            setNewOptionHasTimeframe(false);
+                            setEditingOptionId(null);
+                          }
                         }}
                         style={{
                           background: 'rgba(99, 102, 241, 0.15)',
@@ -4247,12 +4329,21 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       )}
                     </div>
                   </div>
-                  
-                  {/* Configuration overview summary */}
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    <span>Pilihan Ganda: <strong>{Array.isArray(attr.options) ? attr.options.length : 0} opsi</strong></span>
-                    <span>AI Chatbot: <strong style={{ color: attr.chatbotEnabled ? '#10b981' : '#ef4444' }}>{attr.chatbotEnabled ? 'Aktif' : 'Nonaktif'}</strong></span>
-                  </div>
+
+                  {attr.isGroup ? (
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                      Kumpulan: <strong style={{ color: '#818cf8' }}>
+                        {Array.isArray(attr.groupAttributes) && attr.groupAttributes.length > 0 
+                          ? attr.groupAttributes.join(', ') 
+                          : 'Kosong'}
+                      </strong>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      <span>Pilihan Ganda: <strong>{Array.isArray(attr.options) ? attr.options.length : 0} opsi</strong></span>
+                      <span>AI Chatbot: <strong style={{ color: attr.chatbotEnabled ? '#10b981' : '#ef4444' }}>{attr.chatbotEnabled ? 'Aktif' : 'Nonaktif'}</strong></span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -4294,7 +4385,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '12px', marginBottom: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Tag size={20} style={{ color: '#6366f1' }} />
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: '#fff' }}>Kelola Atribut: {editingAttributeForOptions.name}</h3>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: '#fff' }}>
+                      {editingAttributeForOptions.isGroup ? 'Kelola Kumpulan:' : 'Kelola Atribut:'} {editingAttributeForOptions.name}
+                    </h3>
                   </div>
                   <button 
                     onClick={() => setEditingAttributeForOptions(null)}
@@ -4304,269 +4397,340 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   </button>
                 </div>
 
-                <form onSubmit={handleSaveAttributeConfig} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {/* AI Chatbot configuration */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>AI Chatbot</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '12px', borderRadius: '8px' }}>
-                      <input
-                        type="checkbox"
-                        id="enable-chatbot"
-                        checked={managedChatbotEnabled}
-                        onChange={(e) => setManagedChatbotEnabled(e.target.checked)}
-                        style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                      />
-                      <label htmlFor="enable-chatbot" style={{ fontSize: '0.85rem', cursor: 'pointer', color: '#f1f5f9' }}>
-                        Aktifkan AI Chatbot untuk Atribut ini
-                      </label>
-                    </div>
-                    <p style={{ fontSize: '0.72rem', color: 'var(--text-dark)', margin: '2px 0 0 0' }}>
-                      Jika aktif, AI akan otomatis membalas pertanyaan karyawan di kategori ini (misalnya list progres yang tersedia).
-                    </p>
-                  </div>
-
-                  {/* Quick Options configuration */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pesan Cepat / Opsi Pilihan Ganda</label>
-                    
-                    {/* Options List */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '150px', overflowY: 'auto', marginBottom: '8px', scrollbarWidth: 'none' }}>
-                      {managedOptions.length === 0 ? (
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-dark)', fontStyle: 'italic', padding: '4px' }}>Belum ada opsi pesan cepat.</div>
-                      ) : (
-                        managedOptions.map((opt, idx) => {
-                          const isEditing = editingOptionId === opt.id;
-                          return (
-                            <div key={opt.id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', padding: '6px 10px', borderRadius: '6px' }}>
-                              {isEditing ? (
-                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
-                                  <input
-                                    type="text"
-                                    value={editingOptionText}
-                                    onChange={(e) => setEditingOptionText(e.target.value)}
-                                    style={{
-                                      background: 'rgba(0, 0, 0, 0.4)',
-                                      border: '1px solid rgba(99, 102, 241, 0.4)',
-                                      color: '#ffffff',
-                                      fontSize: '0.8rem',
-                                      padding: '4px 8px',
-                                      borderRadius: '4px',
-                                      outline: 'none',
-                                      flex: 1
-                                    }}
-                                    autoFocus
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        e.preventDefault();
-                                        handleSaveOptionRename(opt.id);
-                                      } else if (e.key === 'Escape') {
-                                        setEditingOptionId(null);
-                                      }
-                                    }}
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSaveOptionRename(opt.id)}
-                                    style={{ background: 'transparent', border: 'none', color: '#10b981', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
-                                    title="Simpan"
-                                  >
-                                    <Check size={14} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditingOptionId(null)}
-                                    style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
-                                    title="Batal"
-                                  >
-                                    <X size={14} />
-                                  </button>
-                                </div>
-                              ) : (
-                                <>
-                                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <span style={{ fontSize: '0.8rem', color: '#e2e8f0', fontWeight: 600 }}>{opt.text || opt}</span>
-                                    {opt.hasTimeframe && (
-                                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                                        ⏱️ Jangka Waktu: {opt.duration} ({opt.status === 'taken' ? `Diambil: ${opt.assignedTo}` : 'Tersedia'})
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setEditingOptionId(opt.id);
-                                        setEditingOptionText(opt.text || opt);
-                                      }}
-                                      style={{ background: 'transparent', border: 'none', color: '#38bdf8', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
-                                      title="Ubah Nama"
-                                    >
-                                      <Pencil size={12} />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setManagedOptions(prev => prev.filter((_, i) => i !== idx))}
-                                      style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
-                                      title="Hapus"
-                                    >
-                                      <Trash2 size={12} />
-                                    </button>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-
-                    {/* Add option form */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.04)', padding: '12px', borderRadius: '8px' }}>
-                      <input
-                        type="text"
-                        placeholder="Tulis opsi pesan baru..."
-                        value={newOptionInput}
-                        onChange={(e) => setNewOptionInput(e.target.value)}
-                        style={{
-                          background: 'rgba(0, 0, 0, 0.3)',
-                          border: '1px solid var(--glass-border)',
-                          color: '#ffffff',
-                          fontSize: '0.85rem',
-                          padding: '8px 12px',
-                          borderRadius: '6px',
-                          outline: 'none'
-                        }}
-                      />
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <input
-                          type="checkbox"
-                          id="enable-option-timeframe"
-                          checked={newOptionHasTimeframe}
-                          onChange={(e) => setNewOptionHasTimeframe(e.target.checked)}
-                          style={{ cursor: 'pointer', width: '14px', height: '14px' }}
-                        />
-                        <label htmlFor="enable-option-timeframe" style={{ fontSize: '0.78rem', color: '#cbd5e1', cursor: 'pointer' }}>
-                          Aktifkan Jangka Waktu (Tugas Progres)
-                        </label>
+                {editingAttributeForOptions.isGroup ? (
+                  <form onSubmit={handleSaveAttributeConfig} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Anggota Atribut</label>
+                      <div style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '8px', 
+                        background: 'rgba(255,255,255,0.02)', 
+                        border: '1px solid rgba(255,255,255,0.05)', 
+                        padding: '12px', 
+                        borderRadius: '8px', 
+                        maxHeight: '200px', 
+                        overflowY: 'auto' 
+                      }}>
+                        {chatAttributes.filter(a => !a.isGroup && a.name !== 'Umum' && a.name !== editingAttributeForOptions.name).map(a => (
+                          <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer', color: '#f1f5f9' }}>
+                            <input
+                              type="checkbox"
+                              checked={managedGroupMembers.includes(a.name)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setManagedGroupMembers(prev => [...prev, a.name]);
+                                } else {
+                                  setManagedGroupMembers(prev => prev.filter(name => name !== a.name));
+                                }
+                              }}
+                              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                            />
+                            {a.name}
+                          </label>
+                        ))}
                       </div>
-                      
-                      {newOptionHasTimeframe && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Pilih Durasi Jangka Waktu:</label>
-                          <select
-                            value={newOptionDuration}
-                            onChange={(e) => setNewOptionDuration(e.target.value)}
-                            style={{
-                              background: 'rgba(0, 0, 0, 0.3)',
-                              border: '1px solid var(--glass-border)',
-                              color: '#ffffff',
-                              fontSize: '0.85rem',
-                              padding: '8px',
-                              borderRadius: '6px',
-                              outline: 'none',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <option value="1 hari" style={{ background: '#0f172a' }}>1 Hari</option>
-                            <option value="3 hari" style={{ background: '#0f172a' }}>3 Hari</option>
-                            <option value="7 hari" style={{ background: '#0f172a' }}>7 Hari</option>
-                            <option value="2 minggu" style={{ background: '#0f172a' }}>2 Minggu</option>
-                            <option value="1 bulan" style={{ background: '#0f172a' }}>1 Bulan</option>
-                          </select>
-                        </div>
-                      )}
+                    </div>
 
+                    {/* Form buttons */}
+                    <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (newOptionInput.trim()) {
-                            const now = new Date();
-                            let expiry = null;
-                            if (newOptionHasTimeframe) {
-                              const expiryDate = new Date(now);
-                              const dur = (newOptionDuration || '1 hari').toLowerCase();
-                              if (dur.includes('1 hari')) {
-                                expiryDate.setDate(expiryDate.getDate() + 1);
-                              } else if (dur.includes('3 hari')) {
-                                expiryDate.setDate(expiryDate.getDate() + 3);
-                              } else if (dur.includes('7 hari')) {
-                                expiryDate.setDate(expiryDate.getDate() + 7);
-                              } else if (dur.includes('2 minggu')) {
-                                expiryDate.setDate(expiryDate.getDate() + 14);
-                              } else if (dur.includes('1 bulan')) {
-                                expiryDate.setMonth(expiryDate.getMonth() + 1);
-                              } else {
-                                expiryDate.setDate(expiryDate.getDate() + 1);
-                              }
-                              expiry = expiryDate.toISOString();
-                            }
-
-                            const newOptObj = {
-                              id: 'opt_' + Math.random().toString(36).substr(2, 9),
-                              text: newOptionInput.trim(),
-                              hasTimeframe: newOptionHasTimeframe,
-                              duration: newOptionHasTimeframe ? newOptionDuration : null,
-                              status: 'ready',
-                              assignedTo: null,
-                              startDate: newOptionHasTimeframe ? now.toISOString() : null,
-                              expiryDate: expiry
-                            };
-                            setManagedOptions(prev => sortOptions([...prev, newOptObj]));
-                            setNewOptionInput('');
-                            setNewOptionHasTimeframe(false);
-                          }
-                        }}
+                        onClick={() => setEditingAttributeForOptions(null)}
                         style={{
-                          background: 'rgba(99, 102, 241, 0.15)',
-                          border: '1px solid rgba(99, 102, 241, 0.3)',
-                          color: '#818cf8',
-                          padding: '6px 12px',
+                          padding: '8px 16px',
                           borderRadius: '6px',
-                          fontSize: '0.78rem',
+                          fontSize: '0.85rem',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          color: '#94a3b8',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="submit"
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: '6px',
+                          fontSize: '0.85rem',
+                          border: 'none',
+                          background: '#6366f1',
+                          color: '#fff',
                           cursor: 'pointer',
-                          alignSelf: 'flex-end',
                           fontWeight: 600
                         }}
                       >
-                        Tambah Opsi
+                        Simpan Anggota
                       </button>
                     </div>
-                  </div>
+                  </form>
+                ) : (
+                  <form onSubmit={handleSaveAttributeConfig} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {/* AI Chatbot configuration */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>AI Chatbot</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '12px', borderRadius: '8px' }}>
+                        <input
+                          type="checkbox"
+                          id="enable-chatbot"
+                          checked={managedChatbotEnabled}
+                          onChange={(e) => setManagedChatbotEnabled(e.target.checked)}
+                          style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                        />
+                        <label htmlFor="enable-chatbot" style={{ fontSize: '0.85rem', cursor: 'pointer', color: '#f1f5f9' }}>
+                          Aktifkan AI Chatbot untuk Atribut ini
+                        </label>
+                      </div>
+                      <p style={{ fontSize: '0.72rem', color: 'var(--text-dark)', margin: '2px 0 0 0' }}>
+                        Jika aktif, AI akan otomatis membalas pertanyaan karyawan di kategori ini (misalnya list progres yang tersedia).
+                      </p>
+                    </div>
 
-                  {/* Form buttons */}
-                  <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
-                    <button
-                      type="button"
-                      onClick={() => setEditingAttributeForOptions(null)}
-                      style={{
-                        padding: '8px 16px',
-                        borderRadius: '6px',
-                        fontSize: '0.85rem',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        background: 'rgba(255, 255, 255, 0.03)',
-                        color: '#94a3b8',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Batal
-                    </button>
-                    <button
-                      type="submit"
-                      style={{
-                        padding: '8px 16px',
-                        borderRadius: '6px',
-                        fontSize: '0.85rem',
-                        border: 'none',
-                        background: '#6366f1',
-                        color: '#fff',
-                        cursor: 'pointer',
-                        fontWeight: 600
-                      }}
-                    >
-                      Simpan Konfigurasi
-                    </button>
-                  </div>
-                </form>
+                    {/* Quick Options configuration */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pesan Cepat / Opsi Pilihan Ganda</label>
+                      
+                      {/* Options List */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '150px', overflowY: 'auto', marginBottom: '8px', scrollbarWidth: 'none' }}>
+                        {managedOptions.length === 0 ? (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-dark)', fontStyle: 'italic', padding: '4px' }}>Belum ada opsi pesan cepat.</div>
+                        ) : (
+                          managedOptions.map((opt, idx) => {
+                            const isEditing = editingOptionId === opt.id;
+                            return (
+                              <div key={opt.id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', padding: '6px 10px', borderRadius: '6px' }}>
+                                {isEditing ? (
+                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
+                                    <input
+                                      type="text"
+                                      value={editingOptionText}
+                                      onChange={(e) => setEditingOptionText(e.target.value)}
+                                      style={{
+                                        background: 'rgba(0, 0, 0, 0.4)',
+                                        border: '1px solid rgba(99, 102, 241, 0.4)',
+                                        color: '#ffffff',
+                                        fontSize: '0.8rem',
+                                        padding: '4px 8px',
+                                        borderRadius: '4px',
+                                        outline: 'none',
+                                        flex: 1
+                                      }}
+                                      autoFocus
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          handleSaveOptionRename(opt.id);
+                                        } else if (e.key === 'Escape') {
+                                          setEditingOptionId(null);
+                                        }
+                                      }}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveOptionRename(opt.id)}
+                                      style={{ background: 'transparent', border: 'none', color: '#10b981', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
+                                      title="Simpan"
+                                    >
+                                      <Check size={14} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingOptionId(null)}
+                                      style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
+                                      title="Batal"
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                      <span style={{ fontSize: '0.8rem', color: '#e2e8f0', fontWeight: 600 }}>{opt.text || opt}</span>
+                                      {opt.hasTimeframe && (
+                                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                                          ⏱️ Jangka Waktu: {opt.duration} ({opt.status === 'taken' ? `Diambil: ${opt.assignedTo}` : 'Tersedia'})
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingOptionId(opt.id);
+                                          setEditingOptionText(opt.text || opt);
+                                        }}
+                                        style={{ background: 'transparent', border: 'none', color: '#38bdf8', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
+                                        title="Ubah Nama"
+                                      >
+                                        <Pencil size={12} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setManagedOptions(prev => prev.filter((_, i) => i !== idx))}
+                                        style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
+                                        title="Hapus"
+                                      >
+                                        <Trash2 size={12} />
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      {/* Add option form */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.04)', padding: '12px', borderRadius: '8px' }}>
+                        <input
+                          type="text"
+                          placeholder="Tulis opsi pesan baru..."
+                          value={newOptionInput}
+                          onChange={(e) => setNewOptionInput(e.target.value)}
+                          style={{
+                            background: 'rgba(0, 0, 0, 0.3)',
+                            border: '1px solid var(--glass-border)',
+                            color: '#ffffff',
+                            fontSize: '0.85rem',
+                            padding: '8px 12px',
+                            borderRadius: '6px',
+                            outline: 'none'
+                          }}
+                        />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <input
+                            type="checkbox"
+                            id="enable-option-timeframe"
+                            checked={newOptionHasTimeframe}
+                            onChange={(e) => setNewOptionHasTimeframe(e.target.checked)}
+                            style={{ cursor: 'pointer', width: '14px', height: '14px' }}
+                          />
+                          <label htmlFor="enable-option-timeframe" style={{ fontSize: '0.78rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                            Aktifkan Jangka Waktu (Tugas Progres)
+                          </label>
+                        </div>
+                        
+                        {newOptionHasTimeframe && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Pilih Durasi Jangka Waktu:</label>
+                            <select
+                              value={newOptionDuration}
+                              onChange={(e) => setNewOptionDuration(e.target.value)}
+                              style={{
+                                background: 'rgba(0, 0, 0, 0.3)',
+                                border: '1px solid var(--glass-border)',
+                                color: '#ffffff',
+                                fontSize: '0.85rem',
+                                padding: '8px',
+                                borderRadius: '6px',
+                                outline: 'none',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <option value="1 hari" style={{ background: '#0f172a' }}>1 Hari</option>
+                              <option value="3 hari" style={{ background: '#0f172a' }}>3 Hari</option>
+                              <option value="7 hari" style={{ background: '#0f172a' }}>7 Hari</option>
+                              <option value="2 minggu" style={{ background: '#0f172a' }}>2 Minggu</option>
+                              <option value="1 bulan" style={{ background: '#0f172a' }}>1 Bulan</option>
+                            </select>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (newOptionInput.trim()) {
+                              const now = new Date();
+                              let expiry = null;
+                              if (newOptionHasTimeframe) {
+                                const expiryDate = new Date(now);
+                                const dur = (newOptionDuration || '1 hari').toLowerCase();
+                                if (dur.includes('1 hari')) {
+                                  expiryDate.setDate(expiryDate.getDate() + 1);
+                                } else if (dur.includes('3 hari')) {
+                                  expiryDate.setDate(expiryDate.getDate() + 3);
+                                } else if (dur.includes('7 hari')) {
+                                  expiryDate.setDate(expiryDate.getDate() + 7);
+                                } else if (dur.includes('2 minggu')) {
+                                  expiryDate.setDate(expiryDate.getDate() + 14);
+                                } else if (dur.includes('1 bulan')) {
+                                  expiryDate.setMonth(expiryDate.getMonth() + 1);
+                                } else {
+                                  expiryDate.setDate(expiryDate.getDate() + 1);
+                                }
+                                expiry = expiryDate.toISOString();
+                              }
+
+                              const newOptObj = {
+                                id: 'opt_' + Math.random().toString(36).substr(2, 9),
+                                text: newOptionInput.trim(),
+                                hasTimeframe: newOptionHasTimeframe,
+                                duration: newOptionHasTimeframe ? newOptionDuration : null,
+                                status: 'ready',
+                                assignedTo: null,
+                                startDate: newOptionHasTimeframe ? now.toISOString() : null,
+                                expiryDate: expiry
+                              };
+                              setManagedOptions(prev => sortOptions([...prev, newOptObj]));
+                              setNewOptionInput('');
+                              setNewOptionHasTimeframe(false);
+                            }
+                          }}
+                          style={{
+                            background: 'rgba(99, 102, 241, 0.15)',
+                            border: '1px solid rgba(99, 102, 241, 0.3)',
+                            color: '#818cf8',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            fontSize: '0.78rem',
+                            cursor: 'pointer',
+                            alignSelf: 'flex-end',
+                            fontWeight: 600
+                          }}
+                        >
+                          Tambah Opsi
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Form buttons */}
+                    <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setEditingAttributeForOptions(null)}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: '6px',
+                          fontSize: '0.85rem',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          color: '#94a3b8',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="submit"
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: '6px',
+                          fontSize: '0.85rem',
+                          border: 'none',
+                          background: '#6366f1',
+                          color: '#fff',
+                          cursor: 'pointer',
+                          fontWeight: 600
+                        }}
+                      >
+                        Simpan Konfigurasi
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
             </div>
           )}

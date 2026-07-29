@@ -19,8 +19,10 @@ interface ChatMessage {
 interface ChatAttribute {
   id: string;
   name: string;
-  options?: string[];
+  options?: any;
   chatbotEnabled?: boolean;
+  isGroup?: boolean;
+  groupAttributes?: any;
 }
 
 function formatBoldText(text: string) {
@@ -153,9 +155,17 @@ export default function EmployeeChatPage() {
   const [activeContextMenu, setActiveContextMenu] = useState<{ x: number, y: number, messageId: string, text: string } | null>(null);
   const longPressTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  const filteredMessages = filterAttribute === 'Semua'
-    ? messages
-    : messages.filter(msg => msg.attribute === filterAttribute);
+  const filteredMessages = (() => {
+    if (filterAttribute === 'Semua') return messages;
+    const filterAttrObj = attributes.find(a => a.name === filterAttribute);
+    if (filterAttrObj?.isGroup) {
+      const groupAttrs = Array.isArray(filterAttrObj.groupAttributes)
+        ? (filterAttrObj.groupAttributes as string[])
+        : [];
+      return messages.filter(msg => msg.attribute === filterAttribute || (msg.attribute && groupAttrs.includes(msg.attribute)));
+    }
+    return messages.filter(msg => msg.attribute === filterAttribute);
+  })();
 
   const [newMessageText, setNewMessageText] = useState('');
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
@@ -1162,7 +1172,7 @@ export default function EmployeeChatPage() {
 
           {/* Attribute Chips Selection */}
           <div className={styles.attributeChipsContainer}>
-            {attributes.map((attr) => {
+            {attributes.filter(attr => !attr.isGroup).map((attr) => {
               const isActive = selectedAttribute === attr.name;
               const color = getAttributeColor(attr.name);
               return (

@@ -92,6 +92,8 @@ model ChatAttribute {
   name           String   @unique
   options        Json     @default("[]")
   chatbotEnabled Boolean  @default(false)
+  isGroup        Boolean  @default(false)
+  groupAttributes Json    @default("[]")
   createdAt      DateTime @default(now())
 
   @@map("chat_attributes")

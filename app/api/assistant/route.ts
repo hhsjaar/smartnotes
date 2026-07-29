@@ -140,6 +140,10 @@ export async function POST(request: Request) {
 
     // Fetch and format Chat Attributes (Tugas/Jobdesk)
     const formattedAttributesListText = chatAttributes.map(attr => {
+      if (attr.isGroup) {
+        const members = Array.isArray(attr.groupAttributes) ? (attr.groupAttributes as string[]) : [];
+        return `- Kumpulan Atribut "${attr.name}": Gabungan dari atribut standar [${members.join(', ')}].`;
+      }
       const opts = Array.isArray(attr.options) ? (attr.options as any[]) : [];
       const timeframeOpts = opts.filter(o => o.hasTimeframe);
       if (timeframeOpts.length === 0) return `- Atribut "${attr.name}": Tidak ada tugas jangka waktu.`;
