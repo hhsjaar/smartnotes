@@ -60,6 +60,102 @@ interface Reminder {
 }
 
 
+function getValidDate(dateVal: any): Date | null {
+  if (!dateVal) return null;
+  const date = new Date(dateVal);
+  if (isNaN(date.getTime())) {
+    if (typeof dateVal === 'string') {
+      const normalized = dateVal.replace(' ', 'T');
+      const fallbackDate = new Date(normalized);
+      if (!isNaN(fallbackDate.getTime())) {
+        return fallbackDate;
+      }
+    }
+    return null;
+  }
+  return date;
+}
+
+function formatTime(dateVal: any): string {
+  const date = getValidDate(dateVal);
+  if (!date) return '';
+  try {
+    return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    try {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (e2) {
+      const h = String(date.getHours()).padStart(2, '0');
+      const m = String(date.getMinutes()).padStart(2, '0');
+      return `${h}:${m}`;
+    }
+  }
+}
+
+function formatDateLong(dateVal: any): string {
+  const date = getValidDate(dateVal);
+  if (!date) return '';
+  try {
+    return date.toLocaleDateString('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  } catch (e) {
+    try {
+      return date.toLocaleDateString([], {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch (e2) {
+      return date.toDateString();
+    }
+  }
+}
+
+function formatDateShort(dateVal: any): string {
+  const date = getValidDate(dateVal);
+  if (!date) return '';
+  try {
+    return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+  } catch (e) {
+    try {
+      return date.toLocaleDateString([], { day: 'numeric', month: 'short' });
+    } catch (e2) {
+      return `${date.getDate()}/${date.getMonth() + 1}`;
+    }
+  }
+}
+
+function formatDateTime(dateVal: any): string {
+  const date = getValidDate(dateVal);
+  if (!date) return '';
+  try {
+    return date.toLocaleDateString('id-ID', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (e) {
+    try {
+      return date.toLocaleDateString([], {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e2) {
+      return date.toLocaleString();
+    }
+  }
+}
+
 const getGroupedNotes = (notesList: Note[]) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -3366,14 +3462,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {filtered.map((res: any) => {
-                        const date = new Date(res.dateTime);
-                        const formattedDate = date.toLocaleDateString('id-ID', {
-                          weekday: 'short',
-                          day: 'numeric',
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        });
+                        const date = getValidDate(res.dateTime) || new Date();
+                        const formattedDate = formatDateTime(res.dateTime);
 
                         const statusColors: Record<string, string> = {
                           pending: 'rgba(245, 158, 11, 0.15)',
@@ -3669,15 +3759,16 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   )}
                   {filteredChatMessages.map((msg, index) => {
                     const isMe = msg.senderRole === 'admin';
-                    const date = new Date(msg.createdAt);
-                    const timeStr = date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                    const date = getValidDate(msg.createdAt) || new Date();
+                    const timeStr = formatTime(msg.createdAt);
                     
                     let showDivider = false;
                     let dividerText = '';
                     
                     const currentDateKey = date.toDateString();
                     const prevMsg = index > 0 ? filteredChatMessages[index - 1] : null;
-                    const prevDateKey = prevMsg ? new Date(prevMsg.createdAt).toDateString() : null;
+                    const prevDate = prevMsg ? getValidDate(prevMsg.createdAt) : null;
+                    const prevDateKey = prevDate ? prevDate.toDateString() : null;
                     
                     if (currentDateKey !== prevDateKey) {
                       showDivider = true;
@@ -3696,12 +3787,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       } else if (compareDate.getTime() === yesterday.getTime()) {
                         dividerText = 'Kemarin';
                       } else {
-                        dividerText = compareDate.toLocaleDateString('id-ID', {
-                          weekday: 'long',
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric'
-                        });
+                        dividerText = formatDateLong(date);
                       }
                     }
 
@@ -3915,8 +4001,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                           const isTaken = task.status === 'taken';
                           let expiryStr = '';
                           if (task.expiryDate) {
-                            const expDate = new Date(task.expiryDate);
-                            expiryStr = expDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' ' + expDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+                            expiryStr = formatTime(task.expiryDate) + ' ' + formatDateShort(task.expiryDate);
                           }
 
                           return (
@@ -4834,7 +4919,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             {/* Selected Date Details */}
             <div className={styles.attrCalDetailsContainer}>
               <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', color: '#fff', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '6px' }}>
-                {selectedAttrCalDate ? `Detail Aktivitas: ${new Date(selectedAttrCalDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}` : 'Pilih tanggal di atas untuk melihat detail'}
+                {selectedAttrCalDate ? `Detail Aktivitas: ${formatDateLong(selectedAttrCalDate)}` : 'Pilih tanggal di atas untuk melihat detail'}
               </h4>
 
               {selectedAttrCalDate ? (
@@ -4843,9 +4928,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto', paddingRight: '4px' }}>
                     {selectedLogs.map((log: any) => {
-                      const logTime = new Date(log.recordedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-                      const sDate = new Date(log.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-                      const eDate = new Date(log.expiryDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+                      const logTime = formatTime(log.recordedAt);
+                      const sDate = formatDateShort(log.startDate);
+                      const eDate = formatDateShort(log.expiryDate);
                       
                       let statusText = 'Hangus/Tidak Diambil';
                       let statusClass = styles.attrCalLogStatusExpired;
@@ -5072,7 +5157,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               className={`${styles.adminMobileCalBtn} ${adminSelectedDate ? styles.adminMobileCalBtnActive : ''}`}
               onClick={() => setIsAdminCalOpenMobile(true)}
             >
-              📅 {adminSelectedDate ? new Date(adminSelectedDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Semua Tanggal'}
+              📅 {adminSelectedDate ? formatDateLong(adminSelectedDate) : 'Semua Tanggal'}
             </button>
             
             <div className={styles.adminMobileStatusRow}>
@@ -5094,7 +5179,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
           {adminSelectedDate && (
             <div className={styles.selectedDateInfoBannerMobile}>
-              <span>Tanggal: <strong>{new Date(adminSelectedDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</strong></span>
+              <span>Tanggal: <strong>{formatDateShort(adminSelectedDate)}</strong></span>
               <button type="button" className={styles.bannerClearFilterBtnMobile} onClick={() => setAdminSelectedDate(null)}>
                 Hapus
               </button>
@@ -5113,14 +5198,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               </div>
             ) : (
               filtered.map((r) => {
-                const date = new Date(r.dateTime);
-                const formattedDate = date.toLocaleDateString('id-ID', {
-                  weekday: 'short',
-                  day: 'numeric',
-                  month: 'short',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                });
+                const date = getValidDate(r.dateTime) || new Date();
+                const formattedDate = formatDateTime(r.dateTime);
                 return (
                   <div key={r.id} className={`${styles.resMobileCard} glass-panel`}>
                     <div className={styles.resMobileCardHeader}>
@@ -5267,12 +5346,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             {adminSelectedDate && (
               <div className={styles.selectedDateInfoBanner}>
                 <span>Menampilkan reservasi tanggal: <strong>{
-                  new Date(adminSelectedDate).toLocaleDateString('id-ID', {
-                    weekday: 'long',
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric'
-                  })
+                  formatDateLong(adminSelectedDate)
                 }</strong></span>
                 <button type="button" className={styles.bannerClearFilterBtn} onClick={() => setAdminSelectedDate(null)}>
                   Tampilkan Semua
@@ -5308,15 +5382,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   </thead>
                   <tbody>
                     {filtered.map((r) => {
-                      const date = new Date(r.dateTime);
-                      const formattedDate = date.toLocaleDateString('id-ID', {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      });
+                      const date = getValidDate(r.dateTime) || new Date();
+                      const formattedDate = formatDateLong(r.dateTime) + ' ' + formatTime(r.dateTime);
                       return (
                         <tr key={r.id}>
                           <td className={styles.resClientName}>{r.name}</td>
@@ -6640,14 +6707,7 @@ function CustomerReservation() {
                 <div className={styles.summaryItem}>
                   <span className={styles.summaryLabel}>Jadwal Booking:</span>
                   <span className={styles.summaryValue}>
-                    {new Date(submittedRes.dateTime).toLocaleDateString('id-ID', {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
+                    {formatDateLong(submittedRes.dateTime) + ' ' + formatTime(submittedRes.dateTime)}
                   </span>
                 </div>
                 <div className={styles.summaryItem}>
