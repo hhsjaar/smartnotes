@@ -3050,6 +3050,7 @@
   padding: 16px 24px;
   border-bottom: 1px solid var(--glass-border);
   background: rgba(13, 20, 38, 0.2);
+  flex-shrink: 0;
 }
 
 .adminChatHeaderTitle {
@@ -3225,6 +3226,10 @@
   padding: 16px 20px;
   border-top: 1px solid var(--glass-border);
   background: rgba(13, 20, 38, 0.2);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .adminChatInputForm {
@@ -3452,6 +3457,7 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
+    height: auto;
   }
   
   .adminChatLayout {
@@ -3461,6 +3467,7 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
+    height: auto;
   }
 
   .adminChatRoomPanel {
@@ -3470,6 +3477,7 @@
     display: flex;
     flex-direction: column;
     border: 1px solid var(--glass-border);
+    height: auto;
   }
   
   .adminChatArea {
@@ -3560,6 +3568,7 @@
   border-bottom: 1px solid var(--glass-border);
   overflow-x: auto;
   scrollbar-width: none;
+  flex-shrink: 0;
 }
 
 .filterContainer::-webkit-scrollbar {
