@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, X, Sparkles, Volume2, VolumeX, AlertCircle } from 'lucide-react';
+import { Mic, MicOff, X, Sparkles, Volume2, VolumeX, AlertCircle, Send, Square } from 'lucide-react';
 import styles from './VoiceAssistant.module.css';
 
 // Declare SpeechRecognition properties safely on window
@@ -59,6 +59,15 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
   const [errorMsg, setErrorMsg] = useState('');
   const [showPanel, setShowPanel] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  
+  const [inputText, setInputText] = useState('');
+  
+  // MediaRecorder states for voice note fallback mode
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [isRecordingVoiceNote, setIsRecordingVoiceNote] = useState(false);
+  const [voiceNoteSeconds, setVoiceNoteSeconds] = useState(0);
+  const voiceNoteTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const shouldAutoListenRef = useRef(false);
   
   // Dragging states for mobile/desktop flexibility
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -176,7 +185,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
   const transcriptRef = useRef(transcript);
   const selectedNoteRef = useRef<any>(selectedNote);
   const isProcessingRef = useRef(false);
-
+ 
   useEffect(() => {
     chatHistoryRef.current = chatHistory;
   }, [chatHistory]);
@@ -339,7 +348,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
   useEffect(() => {
     let rec: any = null;
     if (typeof window !== 'undefined') {
-      setIsSupported(!!SpeechRecognition);
+      setIsSupported(true); // Always supported because typing/voice notes fallback are available
       synthRef.current = window.speechSynthesis;
       
       if (SpeechRecognition) {
@@ -459,22 +468,126 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
+      if (voiceNoteTimerRef.current) {
+        clearInterval(voiceNoteTimerRef.current);
+      }
     };
   }, []);
 
   const autoListenNext = () => {
-    // Delay slightly to prevent microphone catching the end of output speech
-    setTimeout(() => {
-      if (showPanelRef.current && recognition) {
-        accumulatedTranscriptRef.current = ''; // Reset accumulated transcript for next instruction
-        setTranscript('');
-        try {
-          recognition.start();
-        } catch (e) {
-          console.warn('Auto-start SpeechRecognition ignored', e);
+    if (shouldAutoListenRef.current) {
+      shouldAutoListenRef.current = false;
+      // Delay slightly to prevent microphone catching the end of output speech
+      setTimeout(() => {
+        if (showPanelRef.current) {
+          if (SpeechRecognition && recognition) {
+            accumulatedTranscriptRef.current = '';
+            setTranscript('');
+            try {
+              recognition.start();
+            } catch (e) {
+              console.warn('Auto-start SpeechRecognition ignored', e);
+            }
+          } else if (!SpeechRecognition) {
+            startVoiceNoteRecording();
+          }
         }
+      }, 450);
+    }
+  };
+
+  // Timer format helper
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const startVoiceNoteRecording = async () => {
+    if (synthRef.current) {
+      synthRef.current.cancel();
+    }
+    setErrorMsg('');
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunks.push(e.data);
+        }
+      };
+      
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+        stream.getTracks().forEach(track => track.stop());
+        await uploadVoiceNote(audioBlob);
+      };
+      
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecordingVoiceNote(true);
+      setVoiceNoteSeconds(0);
+      
+      voiceNoteTimerRef.current = setInterval(() => {
+        setVoiceNoteSeconds(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error('Failed to start voice note recording', err);
+      setErrorMsg('Gagal mengakses mikrofon.');
+    }
+  };
+
+  const stopVoiceNoteRecording = () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+    setIsRecordingVoiceNote(false);
+    if (voiceNoteTimerRef.current) {
+      clearInterval(voiceNoteTimerRef.current);
+      voiceNoteTimerRef.current = null;
+    }
+  };
+
+  const uploadVoiceNote = async (blob: Blob) => {
+    setStatus('processing');
+    setErrorMsg('');
+    
+    try {
+      const file = new File([blob], 'voice_assistant_note.webm', { type: 'audio/webm' });
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await fetch('/api/transcribe', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Gagal mentranskripsi voice note');
       }
-    }, 450);
+      
+      const data = await res.json();
+      if (data.text && data.text.trim()) {
+        await processCommand(data.text.trim());
+      } else {
+        throw new Error('Suara tidak terdeteksi atau transkrip kosong.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.message || 'Gagal memproses voice note.');
+      setStatus('error');
+    }
+  };
+
+  const handleSendText = async () => {
+    if (!inputText.trim() || isProcessingRef.current) return;
+    const textToSend = inputText.trim();
+    setInputText('');
+    await processCommand(textToSend);
   };
 
   const startListening = () => {
@@ -490,17 +603,20 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
       setChatHistory([]);
       setPendingAction(null);
       setShowPanel(true);
+      shouldAutoListenRef.current = true; // Auto-listen after the first welcome message
       
       const welcomeMsg = "Halo! Saya asisten suara cerdas Anda. Ada yang bisa saya bantu hari ini?";
       setChatHistory([{ role: 'model', text: welcomeMsg }]);
       speak(welcomeMsg);
     } else {
-      if (recognition) {
+      if (SpeechRecognition && recognition) {
         try {
           recognition.start();
         } catch (e) {
           console.warn('SpeechRecognition already started', e);
         }
+      } else if (!SpeechRecognition) {
+        startVoiceNoteRecording();
       }
     }
   };
@@ -583,6 +699,9 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
       silenceTimeoutRef.current = null;
     }
     stopListening();
+    if (isRecordingVoiceNote) {
+      stopVoiceNoteRecording();
+    }
     setShowPanel(false);
   };
 
@@ -595,6 +714,9 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
       synthRef.current.cancel();
     }
     stopListening();
+    if (isRecordingVoiceNote) {
+      stopVoiceNoteRecording();
+    }
     setShowPanel(false);
     setStatus('idle');
   };
@@ -664,26 +786,34 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
             </div>
 
             <div className={styles.panelBody}>
-              {/* Glowing Orb Animation Wave */}
-              <div className={styles.orbWrapper}>
-                <div className={`${styles.orb} ${styles[status]}`}>
-                  <div className={styles.orbInner} />
-                  <div className={styles.orbGlow} />
-                  <div className={styles.wave1} />
-                  <div className={styles.wave2} />
-                  <div className={styles.wave3} />
+              {/* Glowing Orb Animation Wave - only show when active */}
+              {(status === 'listening' || status === 'processing' || status === 'speaking' || isRecordingVoiceNote) && (
+                <div className={styles.orbWrapper}>
+                  <div className={`${styles.orb} ${styles[isRecordingVoiceNote ? 'listening' : status]}`}>
+                    <div className={styles.orbInner} />
+                    <div className={styles.orbGlow} />
+                    <div className={styles.wave1} />
+                    <div className={styles.wave2} />
+                    <div className={styles.wave3} />
+                  </div>
+                  <span className={styles.statusLabel}>
+                    {isRecordingVoiceNote && `Merekam Voice Note... (${formatTime(voiceNoteSeconds)})`}
+                    {!isRecordingVoiceNote && status === 'listening' && 'Mendengarkan Anda...'}
+                    {!isRecordingVoiceNote && status === 'processing' && 'Memproses instruksi...'}
+                    {!isRecordingVoiceNote && status === 'speaking' && 'Menjawab...'}
+                  </span>
                 </div>
-                <span className={styles.statusLabel}>
-                  {status === 'listening' && 'Mendengarkan Anda...'}
-                  {status === 'processing' && 'Memproses instruksi...'}
-                  {status === 'speaking' && 'Menjawab...'}
-                  {status === 'idle' && 'Siap melayani Anda'}
-                  {status === 'error' && 'Terjadi Kesalahan'}
-                </span>
-              </div>
+              )}
 
               {/* Dialog Panel Contents */}
-              <div className={styles.dialogContainer}>
+              <div 
+                className={styles.dialogContainer} 
+                style={{ 
+                  maxHeight: (status === 'listening' || status === 'processing' || status === 'speaking' || isRecordingVoiceNote) 
+                    ? '190px' 
+                    : '330px' 
+                }}
+              >
                 {chatHistory.length === 0 && !transcript && (
                   <div className={styles.aiBubble}>
                     <span className={styles.bubbleLabelAI}>Asisten</span>
@@ -731,6 +861,59 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
                   </div>
                 )}
                 <div ref={dialogEndRef} />
+              </div>
+
+              {/* Unified Chat Input Bar at the Bottom */}
+              <div className={styles.chatInputBar}>
+                <input
+                  type="text"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSendText();
+                    }
+                  }}
+                  placeholder={
+                    status === 'listening' 
+                      ? "Sedang mendengarkan..." 
+                      : isRecordingVoiceNote 
+                      ? "Sedang merekam..." 
+                      : "Ketik pesan/perintah untuk asisten..."
+                  }
+                  className={styles.chatInputField}
+                  disabled={status === 'processing' || status === 'listening' || isRecordingVoiceNote}
+                />
+                
+                {inputText.trim() !== '' ? (
+                  <button
+                    type="button"
+                    className={styles.chatSendBtn}
+                    onClick={handleSendText}
+                    disabled={status === 'processing'}
+                    title="Kirim Pesan"
+                  >
+                    <Send size={18} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={`${styles.chatMicBtn} ${(status === 'listening' || isRecordingVoiceNote) ? styles.recording : ''}`}
+                    onClick={() => {
+                      if (status === 'listening') {
+                        stopListening();
+                      } else if (isRecordingVoiceNote) {
+                        stopVoiceNoteRecording();
+                      } else {
+                        startListening();
+                      }
+                    }}
+                    disabled={status === 'processing' || status === 'speaking'}
+                    title={(status === 'listening' || isRecordingVoiceNote) ? 'Selesai Rekam' : 'Mulai Rekam'}
+                  >
+                    {(status === 'listening' || isRecordingVoiceNote) ? <Square size={18} /> : <Mic size={18} />}
+                  </button>
+                )}
               </div>
             </div>
 
