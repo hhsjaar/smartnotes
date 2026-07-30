@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, X, Sparkles, Volume2, VolumeX, AlertCircle, Send, Square } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
 import styles from './VoiceAssistant.module.css';
 
 // Declare SpeechRecognition properties safely on window
@@ -51,13 +52,15 @@ interface VoiceAssistantProps {
 }
 
 export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) => {
+  const router = useRouter();
+  const pathname = usePathname();
   const [recognition, setRecognition] = useState<any>(null);
   const [isSupported, setIsSupported] = useState(false);
   const [status, setStatus] = useState<'idle' | 'listening' | 'processing' | 'speaking' | 'error'>('idle');
   const [transcript, setTranscript] = useState('');
   const [response, setResponse] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [showPanel, setShowPanel] = useState(false);
+  const showPanel = pathname === '/assistant';
   const [isMuted, setIsMuted] = useState(false);
   
   const [inputText, setInputText] = useState('');
@@ -233,9 +236,9 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
     selectedNoteRef.current = selectedNote;
   }, [selectedNote]);
 
-  // Load contacts whenever panel opens
+  // Load contacts and greet the user when entering the assistant route
   useEffect(() => {
-    if (showPanel && typeof window !== 'undefined') {
+    if (pathname === '/assistant' && typeof window !== 'undefined') {
       const saved = localStorage.getItem('wa_contacts');
       if (saved) {
         try {
@@ -244,8 +247,20 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
           console.error('Failed to parse wa_contacts', e);
         }
       }
+
+      // If chatHistory is empty, greet the user and set up auto-listening
+      if (chatHistory.length === 0) {
+        const welcomeMsg = "Halo! Saya asisten suara cerdas Anda. Ada yang bisa saya bantu hari ini?";
+        setChatHistory([{ role: 'model', text: welcomeMsg }]);
+        speak(welcomeMsg);
+        shouldAutoListenRef.current = true;
+      }
+    } else if (pathname !== '/assistant') {
+      // Clear history and pending state when panel is closed (navigating back to home /)
+      setChatHistory([]);
+      setPendingAction(null);
     }
-  }, [showPanel]);
+  }, [pathname]);
 
   // Scroll to bottom of chat dialog whenever history changes
   useEffect(() => {
@@ -253,6 +268,138 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
       dialogEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chatHistory, status, transcript]);
+
+  const handleActionAndClose = async (action: string, payload: any, responseText?: string) => {
+    console.log('Standalone Action executing:', action, payload);
+
+    if (action === 'SHOW_NEWS') {
+      router.push('/?action=SHOW_NEWS');
+    } else if (action === 'CREATE_REMINDER') {
+      try {
+        let waNum = payload.whatsappNumber;
+        if (!waNum || waNum === 'default') {
+          waNum = localStorage.getItem('default_wa_reminder_number') || '';
+        }
+        const res = await fetch('/api/reminders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: payload.title || 'Pengingat Suara',
+            description: payload.description || 'Dibuat via Asisten Suara.',
+            dateTime: payload.dateTime,
+            notify1Day: payload.notify1Day,
+            notify1Hour: payload.notify1Hour,
+            notifyExact: payload.notifyExact,
+            whatsappNumber: waNum || null
+          })
+        });
+        if (res.ok) {
+          router.push('/?action=CREATE_REMINDER');
+        }
+      } catch (err) {
+        console.error('Failed to create reminder via standalone assistant:', err);
+      }
+    } else if (action === 'CREATE_NOTE') {
+      let folderQuery = '';
+      if (payload && payload.folderIds && Array.isArray(payload.folderIds)) {
+        folderQuery = `&folderIds=${JSON.stringify(payload.folderIds)}`;
+      } else if (payload && payload.folderId) {
+        folderQuery = `&folderIds=${JSON.stringify([payload.folderId])}`;
+      }
+      router.push(`/?action=CREATE_NOTE${folderQuery}`);
+    } else if (action === 'CREATE_NOTE_DIRECT') {
+      if (payload) {
+        try {
+          const parsedTodos = payload.todo_list ? payload.todo_list.map((task: string) => ({
+            text: task,
+            completed: false,
+          })) : [];
+
+          const res = await fetch('/api/notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: payload.title,
+              content: payload.content,
+              summary: payload.summary,
+              tags: payload.tags || ['Draft Rapat'],
+              todo_list: parsedTodos,
+              folder_id: payload.folderId || null,
+            })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            router.push(`/?action=VIEW_NOTE&noteId=${data.id}`);
+          }
+        } catch (err) {
+          console.error('Failed to create note directly via standalone assistant:', err);
+        }
+      }
+    } else if (action === 'UPDATE_NOTE') {
+      if (payload.noteId) {
+        try {
+          const parsedTodos = payload.todo_list ? payload.todo_list.map((task: string) => ({
+            text: task,
+            completed: false,
+          })) : undefined;
+
+          const res = await fetch('/api/notes', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: payload.noteId,
+              title: payload.title,
+              content: payload.content,
+              summary: payload.summary,
+              tags: payload.tags,
+              todo_list: parsedTodos
+            })
+          });
+          if (res.ok) {
+            router.push(`/?action=VIEW_NOTE&noteId=${payload.noteId}`);
+          }
+        } catch (err) {
+          console.error('Failed to update note via standalone assistant:', err);
+        }
+      }
+    } else if (action === 'VIEW_NOTE') {
+      if (payload.noteId) {
+        router.push(`/?action=VIEW_NOTE&noteId=${payload.noteId}`);
+      }
+    } else if (action === 'CATEGORIZE_NOTE') {
+      if (payload.noteId) {
+        let targetFolderId = payload.folderId;
+        
+        if (!targetFolderId && payload.folderName) {
+          router.push(`/?action=CATEGORIZE_NOTE&noteId=${payload.noteId}&folderName=${encodeURIComponent(payload.folderName)}`);
+          return;
+        }
+
+        try {
+          const res = await fetch('/api/notes', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: payload.noteId,
+              folder_id: targetFolderId
+            })
+          });
+          if (res.ok) {
+            router.push(`/?action=VIEW_NOTE&noteId=${payload.noteId}&folderId=${targetFolderId}`);
+          }
+        } catch (err) {
+          console.error('Failed to move note via standalone assistant:', err);
+        }
+      }
+    } else if (action === 'SUMMARIZE_AI') {
+      if (payload.noteId) {
+        router.push(`/?action=SUMMARIZE_AI&noteId=${payload.noteId}`);
+      }
+    } else if (action === 'SUMMARIZE_FOLDER') {
+      router.push(`/?action=SUMMARIZE_FOLDER&folderId=${payload.folderId || ''}&folderName=${encodeURIComponent(payload.folderName || '')}`);
+    }
+  };
+
 
   // Core function to process commands via the Gemini API
   const processCommand = async (commandText: string) => {
@@ -301,24 +448,12 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
         isTerminal = true;
         if (data.action === 'CONFIRM_JOB') {
           setPendingAction(null);
-          window.dispatchEvent(new CustomEvent('assistant-action', {
-            detail: {
-              action: 'SCHEDULE_JOB',
-              payload: data.payload,
-              response: data.response
-            }
-          }));
+          handleActionAndClose('SCHEDULE_JOB', data.payload, data.response);
         } else if (data.action === 'CANCEL_JOB') {
           setPendingAction(null);
         } else {
           setPendingAction(null);
-          window.dispatchEvent(new CustomEvent('assistant-action', {
-            detail: {
-              action: data.action,
-              payload: data.payload,
-              response: data.response
-            }
-          }));
+          handleActionAndClose(data.action, data.payload, data.response);
         }
       }
       
@@ -598,26 +733,14 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
     accumulatedTranscriptRef.current = ''; // Reset accumulated transcript
     setTranscript('');
 
-    // Reset history for a fresh dialogue session if the panel was completely closed
-    if (!showPanel) {
-      setChatHistory([]);
-      setPendingAction(null);
-      setShowPanel(true);
-      shouldAutoListenRef.current = true; // Auto-listen after the first welcome message
-      
-      const welcomeMsg = "Halo! Saya asisten suara cerdas Anda. Ada yang bisa saya bantu hari ini?";
-      setChatHistory([{ role: 'model', text: welcomeMsg }]);
-      speak(welcomeMsg);
-    } else {
-      if (SpeechRecognition && recognition) {
-        try {
-          recognition.start();
-        } catch (e) {
-          console.warn('SpeechRecognition already started', e);
-        }
-      } else if (!SpeechRecognition) {
-        startVoiceNoteRecording();
+    if (SpeechRecognition && recognition) {
+      try {
+        recognition.start();
+      } catch (e) {
+        console.warn('SpeechRecognition already started', e);
       }
+    } else if (!SpeechRecognition) {
+      startVoiceNoteRecording();
     }
   };
 
@@ -702,7 +825,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
     if (isRecordingVoiceNote) {
       stopVoiceNoteRecording();
     }
-    setShowPanel(false);
+    router.push('/');
   };
 
   const closePanel = () => {
@@ -717,8 +840,8 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
     if (isRecordingVoiceNote) {
       stopVoiceNoteRecording();
     }
-    setShowPanel(false);
     setStatus('idle');
+    router.push('/');
   };
 
   if (!isSupported) {
@@ -728,36 +851,40 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
   return (
     <>
       {/* Floating Wave Trigger Button */}
-      <button 
-        type="button" 
-        className={`${styles.floatingAssistantBtn} ${status === 'listening' ? styles.btnListening : ''}`}
-        onClick={status === 'listening' ? stopListening : startListening}
-        onMouseDown={handleMouseDown}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        style={{
-          transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
-          touchAction: 'none',
-          transition: isDraggingRef.current ? 'none' : 'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-        }}
-        title="Bicara dengan Asisten AI"
-      >
-        {status === 'listening' ? (
-          <div className={styles.pulseContainer}>
-            <div className={styles.pulseWave} />
-            <MicOff size={22} className={styles.assistantIcon} />
-          </div>
-        ) : (
-          <div className={styles.btnGlowWrapper}>
-            <Mic size={22} className={styles.assistantIcon} />
-            <Sparkles size={10} className={styles.sparkleIcon} />
-          </div>
-        )}
-      </button>
+      {pathname !== '/assistant' && (
+        <button 
+          type="button" 
+          className={`${styles.floatingAssistantBtn} ${status === 'listening' ? styles.btnListening : ''}`}
+          onClick={() => {
+            router.push('/assistant');
+          }}
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          style={{
+            transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
+            touchAction: 'none',
+            transition: isDraggingRef.current ? 'none' : 'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+          }}
+          title="Bicara dengan Asisten AI"
+        >
+          {status === 'listening' ? (
+            <div className={styles.pulseContainer}>
+              <div className={styles.pulseWave} />
+              <MicOff size={22} className={styles.assistantIcon} />
+            </div>
+          ) : (
+            <div className={styles.btnGlowWrapper}>
+              <Mic size={22} className={styles.assistantIcon} />
+              <Sparkles size={10} className={styles.sparkleIcon} />
+            </div>
+          )}
+        </button>
+      )}
 
       {/* Siri-like Assistant Overlay Panel */}
-      {showPanel && (
+      {pathname === '/assistant' && (
         <div className={styles.assistantPanelOverlay} onClick={closePanel}>
           <div className={styles.assistantPanel} onClick={(e) => e.stopPropagation()}>
             <div className={styles.panelHeader}>
@@ -810,8 +937,8 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
                 className={styles.dialogContainer} 
                 style={{ 
                   maxHeight: (status === 'listening' || status === 'processing' || status === 'speaking' || isRecordingVoiceNote) 
-                    ? '190px' 
-                    : '330px' 
+                    ? '280px' 
+                    : '450px' 
                 }}
               >
                 {chatHistory.length === 0 && !transcript && (
@@ -936,9 +1063,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
                         { role: 'model', text: responseText }
                       ]);
                       speak(responseText);
-                      window.dispatchEvent(new CustomEvent('assistant-action', {
-                        detail: { action: 'SHOW_NEWS', payload: {} }
-                      }));
+                      handleActionAndClose('SHOW_NEWS', {});
                       autoClosePanel();
                     }}
                   >
@@ -958,12 +1083,10 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
                         { role: 'model', text: responseText }
                       ]);
                       speak(responseText);
-                      window.dispatchEvent(new CustomEvent('assistant-action', {
-                        detail: { 
-                          action: 'CREATE_NOTE', 
-                          payload: { title: 'Agenda Rapat Besok', content: '# Agenda Rapat Besok\n\n1. Pembahasan rencana kuartalan\n2. Alokasi budget divisi baru\n3. Tanya jawab' } 
-                        }
-                      }));
+                      handleActionAndClose('CREATE_NOTE', { 
+                        title: 'Agenda Rapat Besok', 
+                        content: '# Agenda Rapat Besok\n\n1. Pembahasan rencana kuartalan\n2. Alokasi budget divisi baru\n3. Tanya jawab' 
+                      });
                       autoClosePanel();
                     }}
                   >
@@ -977,4 +1100,5 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
       )}
     </>
   );
+
 };

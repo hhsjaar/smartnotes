@@ -1341,6 +1341,120 @@ function DashboardContent() {
     }
   }, [isAdminAuthorized]);
 
+  // Handle actions redirected from the standalone Voice Assistant page
+  useEffect(() => {
+    if (!isAdminAuthorized || isLoadingNotes) return;
+    
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const action = params.get('action');
+      if (action) {
+        console.log('Processing standalone assistant redirect action:', action);
+        if (action === 'SHOW_NEWS') {
+          setActiveTab('news');
+        } else if (action === 'CREATE_REMINDER') {
+          setActiveTab('reminders');
+          loadReminders();
+        } else if (action === 'CREATE_NOTE') {
+          const folderIdsStr = params.get('folderIds');
+          if (folderIdsStr) {
+            try {
+              setAssistantSelectedFolderIds(JSON.parse(folderIdsStr));
+            } catch (e) {
+              console.error('Failed to parse folderIds', e);
+            }
+          }
+          setAutoStartRecorder(true);
+          if (window.innerWidth <= 768) {
+            setActiveTab('recorder');
+          } else {
+            setActiveTab('notes');
+            setWorkspaceView('recorder');
+          }
+        } else if (action === 'VIEW_NOTE') {
+          const noteId = params.get('noteId');
+          if (noteId) {
+            const noteToView = notes.find(n => n.id === noteId);
+            if (noteToView) {
+              setSelectedNote(noteToView);
+              setActiveTab('notes');
+              setWorkspaceView('editor');
+              if (window.innerWidth <= 768) {
+                setMobileView('editor');
+              }
+            }
+          }
+        } else if (action === 'CATEGORIZE_NOTE') {
+          const noteId = params.get('noteId');
+          const folderName = params.get('folderName');
+          if (noteId && folderName) {
+            const handleCategorizeFromParam = async () => {
+              const existingFolder = folders.find(f => f.name.toLowerCase() === folderName.toLowerCase());
+              let targetFolderId = existingFolder?.id;
+              if (!targetFolderId) {
+                const newF = await handleCreateFolder(folderName);
+                if (newF) targetFolderId = newF.id;
+              }
+              if (targetFolderId) {
+                try {
+                  const res = await fetch('/api/notes', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      id: noteId,
+                      folder_id: targetFolderId
+                    })
+                  });
+                  if (res.ok) {
+                    const data = await res.json();
+                    setNotes(prev => prev.map(n => n.id === data.id ? data : n));
+                    if (selectedNote?.id === data.id) {
+                      setSelectedNote(data);
+                    }
+                    setSelectedFolderId(targetFolderId);
+                    setActiveTab('notes');
+                    setWorkspaceView('editor');
+                  }
+                } catch (err) {
+                  console.error('Failed to move note via param:', err);
+                }
+              }
+            };
+            handleCategorizeFromParam();
+          }
+        } else if (action === 'SUMMARIZE_AI') {
+          const noteId = params.get('noteId');
+          if (noteId) {
+            const noteToSummarize = notes.find(n => n.id === noteId);
+            if (noteToSummarize) {
+              setSelectedNote(noteToSummarize);
+              setActiveTab('notes');
+              setWorkspaceView('editor');
+            }
+          }
+        } else if (action === 'SUMMARIZE_FOLDER') {
+          const folderId = params.get('folderId');
+          const folderName = params.get('folderName');
+          if (folderId) {
+            setSelectedFolderId(folderId);
+            setActiveTab('notes');
+          } else if (folderName) {
+            const matchedFolder = folders.find(f => f.name.toLowerCase() === folderName.toLowerCase());
+            if (matchedFolder) {
+              setSelectedFolderId(matchedFolder.id);
+              setActiveTab('notes');
+            }
+          }
+        }
+        
+        // Clean URL params to avoid repeating on page refresh
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+      }
+    }
+  }, [isAdminAuthorized, isLoadingNotes, notes, folders]);
+
+
   // Supabase Realtime Subscription for Admin Chat (Instant WebSocket updates, 0 GB bandwidth short-polling)
   useEffect(() => {
     if (isAdminAuthorized && activeTab === 'chat') {
