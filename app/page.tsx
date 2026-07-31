@@ -286,6 +286,9 @@ function DashboardContent() {
   const [newChatMessage, setNewChatMessage] = useState('');
   const [selectedChatAttribute, setSelectedChatAttribute] = useState('Umum');
   const [chatFilterAttribute, setChatFilterAttribute] = useState('Semua');
+  const [filterAttrSearchQuery, setFilterAttrSearchQuery] = useState('');
+  const [selectAttrSearchQuery, setSelectAttrSearchQuery] = useState('');
+  const [manageAttrSearchQuery, setManageAttrSearchQuery] = useState('');
   const [editingChatMessage, setEditingChatMessage] = useState<any | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatSubmitting, setChatSubmitting] = useState(false);
@@ -3848,25 +3851,48 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               <span className={styles.filterLabel}>
                 <Filter size={12} style={{ marginRight: '4px' }} /> Filter:
               </span>
-              {['Semua', ...chatAttributes.map(a => a.name)].map((attrName) => {
-                const isActive = chatFilterAttribute === attrName;
-                const color = attrName === 'Semua' ? '#6366f1' : getChatAttributeColor(attrName);
-                return (
-                  <button
-                    key={attrName}
-                    type="button"
-                    className={`${styles.filterChip} ${isActive ? styles.filterChipActive : ''}`}
-                    onClick={() => setChatFilterAttribute(attrName)}
-                    style={{
-                      borderColor: isActive ? color : 'var(--glass-border)',
-                      color: isActive ? '#fff' : 'var(--text-muted)',
-                      background: isActive ? color : 'rgba(255, 255, 255, 0.03)',
-                    }}
+              
+              <div className={styles.attrSearchWrapper}>
+                <Search size={11} className={styles.attrSearchIcon} />
+                <input
+                  type="text"
+                  placeholder="Cari filter..."
+                  className={styles.attrSearchInput}
+                  value={filterAttrSearchQuery}
+                  onChange={(e) => setFilterAttrSearchQuery(e.target.value)}
+                />
+                {filterAttrSearchQuery && (
+                  <button 
+                    type="button" 
+                    className={styles.attrSearchClearBtn} 
+                    onClick={() => setFilterAttrSearchQuery('')}
                   >
-                    {attrName}
+                    <X size={10} />
                   </button>
-                );
-              })}
+                )}
+              </div>
+
+              {['Semua', ...chatAttributes.map(a => a.name)]
+                .filter(name => name === 'Semua' || name.toLowerCase().includes(filterAttrSearchQuery.toLowerCase()))
+                .map((attrName) => {
+                  const isActive = chatFilterAttribute === attrName;
+                  const color = attrName === 'Semua' ? '#6366f1' : getChatAttributeColor(attrName);
+                  return (
+                    <button
+                      key={attrName}
+                      type="button"
+                      className={`${styles.filterChip} ${isActive ? styles.filterChipActive : ''}`}
+                      onClick={() => setChatFilterAttribute(attrName)}
+                      style={{
+                        borderColor: isActive ? color : 'var(--glass-border)',
+                        color: isActive ? '#fff' : 'var(--text-muted)',
+                        background: isActive ? color : 'rgba(255, 255, 255, 0.03)',
+                      }}
+                    >
+                      {attrName}
+                    </button>
+                  );
+                })}
             </div>
 
             <div className={styles.adminChatArea} ref={adminChatAreaRef} onScroll={handleAdminChatScroll}>
@@ -4093,27 +4119,52 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 </div>
               )}
 
-              <div className={styles.attributeChipsContainer}>
-                {chatAttributes.filter(attr => !attr.isGroup).map((attr) => {
-                  const isActive = selectedChatAttribute === attr.name;
-                  const color = getChatAttributeColor(attr.name);
-                  return (
-                    <button
-                      key={attr.id}
-                      type="button"
-                      className={`${styles.attributeChip} ${isActive ? styles.attributeChipActive : ''}`}
-                      onClick={() => setSelectedChatAttribute(attr.name)}
-                      style={{
-                        borderColor: isActive ? color : 'var(--glass-border)',
-                        color: isActive ? '#fff' : 'var(--text-muted)',
-                        background: isActive ? color : 'rgba(255, 255, 255, 0.03)',
-                      }}
+              <div className={styles.attributeSelectRow}>
+                <div className={`${styles.attrSearchWrapper} ${styles.attrSearchWrapperSelect}`}>
+                  <Search size={11} className={styles.attrSearchIcon} />
+                  <input
+                    type="text"
+                    placeholder="Cari kategori..."
+                    className={styles.attrSearchInput}
+                    value={selectAttrSearchQuery}
+                    onChange={(e) => setSelectAttrSearchQuery(e.target.value)}
+                  />
+                  {selectAttrSearchQuery && (
+                    <button 
+                      type="button" 
+                      className={styles.attrSearchClearBtn} 
+                      onClick={() => setSelectAttrSearchQuery('')}
                     >
-                      <Tag size={10} style={{ marginRight: '4px' }} />
-                      {attr.name}
+                      <X size={10} />
                     </button>
-                  );
-                })}
+                  )}
+                </div>
+
+                <div className={styles.attributeChipsContainer}>
+                  {chatAttributes
+                    .filter(attr => !attr.isGroup)
+                    .filter(attr => attr.name.toLowerCase().includes(selectAttrSearchQuery.toLowerCase()))
+                    .map((attr) => {
+                      const isActive = selectedChatAttribute === attr.name;
+                      const color = getChatAttributeColor(attr.name);
+                      return (
+                        <button
+                          key={attr.id}
+                          type="button"
+                          className={`${styles.attributeChip} ${isActive ? styles.attributeChipActive : ''}`}
+                          onClick={() => setSelectedChatAttribute(attr.name)}
+                          style={{
+                            borderColor: isActive ? color : 'var(--glass-border)',
+                            color: isActive ? '#fff' : 'var(--text-muted)',
+                            background: isActive ? color : 'rgba(255, 255, 255, 0.03)',
+                          }}
+                        >
+                          <Tag size={10} style={{ marginRight: '4px' }} />
+                          {attr.name}
+                        </button>
+                      );
+                    })}
+                </div>
               </div>
 
               {/* Quick Options for Admin (Pesan Cepat / Pilihan Ganda) */}
@@ -4366,8 +4417,33 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               )}
             </form>
 
+            {/* Search Input for Attribute Management */}
+            <div className={styles.attrsListSearchContainer} style={{ marginBottom: '4px' }}>
+              <div className={styles.attrSearchWrapper} style={{ width: '100%' }}>
+                <Search size={11} className={styles.attrSearchIcon} />
+                <input
+                  type="text"
+                  placeholder="Cari atribut..."
+                  className={styles.attrSearchInput}
+                  value={manageAttrSearchQuery}
+                  onChange={(e) => setManageAttrSearchQuery(e.target.value)}
+                />
+                {manageAttrSearchQuery && (
+                  <button 
+                    type="button" 
+                    className={styles.attrSearchClearBtn} 
+                    onClick={() => setManageAttrSearchQuery('')}
+                  >
+                    <X size={10} />
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className={styles.attrsList}>
-              {chatAttributes.map((attr) => (
+              {chatAttributes
+                .filter(attr => attr.name.toLowerCase().includes(manageAttrSearchQuery.toLowerCase()))
+                .map((attr) => (
                 <div 
                   key={attr.id} 
                   style={{
@@ -4937,8 +5013,33 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   </button>
                 </form>
 
+                {/* Search Input for Mobile Attribute Management */}
+                <div className={styles.attrsListSearchContainer} style={{ marginBottom: '10px' }}>
+                  <div className={styles.attrSearchWrapper} style={{ width: '100%' }}>
+                    <Search size={11} className={styles.attrSearchIcon} />
+                    <input
+                      type="text"
+                      placeholder="Cari atribut..."
+                      className={styles.attrSearchInput}
+                      value={manageAttrSearchQuery}
+                      onChange={(e) => setManageAttrSearchQuery(e.target.value)}
+                    />
+                    {manageAttrSearchQuery && (
+                      <button 
+                        type="button" 
+                        className={styles.attrSearchClearBtn} 
+                        onClick={() => setManageAttrSearchQuery('')}
+                      >
+                        <X size={10} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 <div className={styles.attrsList}>
-                  {chatAttributes.map((attr) => (
+                  {chatAttributes
+                    .filter(attr => attr.name.toLowerCase().includes(manageAttrSearchQuery.toLowerCase()))
+                    .map((attr) => (
                     <div 
                       key={attr.id} 
                       style={{
