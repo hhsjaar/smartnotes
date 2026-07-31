@@ -213,14 +213,14 @@ const getSortedFolderTree = (foldersList: Folder[]) => {
   return result;
 };
 
-export default function Home() {
+export default function Home({ hideManifest = false }: { hideManifest?: boolean }) {
   return (
     <Suspense fallback={
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100vw', height: '100vh', backgroundColor: 'var(--bg-primary)' }}>
         <div className="spinner" />
       </div>
     }>
-      <link rel="manifest" href="/manifest.json?v=2" />
+      {!hideManifest && <link rel="manifest" href="/manifest.json?v=2" />}
       <HomeContentWrapper />
     </Suspense>
   );
