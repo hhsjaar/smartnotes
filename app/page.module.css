@@ -3737,6 +3737,34 @@
   flex-shrink: 0;
 }
 
+.filterSearchToggleBtn,
+.attributeSearchToggleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  flex-shrink: 0;
+}
+
+.filterSearchToggleBtn:hover,
+.attributeSearchToggleBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.filterSearchToggleBtn:active,
+.attributeSearchToggleBtn:active {
+  transform: scale(0.92);
+}
+
 /* Chat Message Actions (Edit & Delete) */
 .messageActions {
   display: flex;

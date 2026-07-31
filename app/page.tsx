@@ -289,6 +289,8 @@ function DashboardContent() {
   const [filterAttrSearchQuery, setFilterAttrSearchQuery] = useState('');
   const [selectAttrSearchQuery, setSelectAttrSearchQuery] = useState('');
   const [manageAttrSearchQuery, setManageAttrSearchQuery] = useState('');
+  const [showFilterSearch, setShowFilterSearch] = useState(false);
+  const [showSelectSearch, setShowSelectSearch] = useState(false);
   const [editingChatMessage, setEditingChatMessage] = useState<any | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatSubmitting, setChatSubmitting] = useState(false);
@@ -3852,25 +3854,38 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 <Filter size={12} style={{ marginRight: '4px' }} /> Filter:
               </span>
               
-              <div className={styles.attrSearchWrapper}>
-                <Search size={11} className={styles.attrSearchIcon} />
-                <input
-                  type="text"
-                  placeholder="Cari filter..."
-                  className={styles.attrSearchInput}
-                  value={filterAttrSearchQuery}
-                  onChange={(e) => setFilterAttrSearchQuery(e.target.value)}
-                />
-                {filterAttrSearchQuery && (
+              {!showFilterSearch ? (
+                <button 
+                  type="button" 
+                  onClick={() => setShowFilterSearch(true)}
+                  className={styles.filterSearchToggleBtn}
+                  title="Cari filter"
+                >
+                  <Search size={12} />
+                </button>
+              ) : (
+                <div className={styles.attrSearchWrapper}>
+                  <Search size={11} className={styles.attrSearchIcon} />
+                  <input
+                    type="text"
+                    placeholder="Cari filter..."
+                    className={styles.attrSearchInput}
+                    value={filterAttrSearchQuery}
+                    onChange={(e) => setFilterAttrSearchQuery(e.target.value)}
+                    autoFocus
+                  />
                   <button 
                     type="button" 
                     className={styles.attrSearchClearBtn} 
-                    onClick={() => setFilterAttrSearchQuery('')}
+                    onClick={() => {
+                      setFilterAttrSearchQuery('');
+                      setShowFilterSearch(false);
+                    }}
                   >
                     <X size={10} />
                   </button>
-                )}
-              </div>
+                </div>
+              )}
 
               {['Semua', ...chatAttributes.map(a => a.name)]
                 .filter(name => name === 'Semua' || name.toLowerCase().includes(filterAttrSearchQuery.toLowerCase()))
@@ -4120,30 +4135,43 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               )}
 
               <div className={styles.attributeSelectRow}>
-                <div className={`${styles.attrSearchWrapper} ${styles.attrSearchWrapperSelect}`}>
-                  <Search size={11} className={styles.attrSearchIcon} />
-                  <input
-                    type="text"
-                    placeholder="Cari kategori..."
-                    className={styles.attrSearchInput}
-                    value={selectAttrSearchQuery}
-                    onChange={(e) => setSelectAttrSearchQuery(e.target.value)}
-                  />
-                  {selectAttrSearchQuery && (
+                {!showSelectSearch ? (
+                  <button 
+                    type="button" 
+                    onClick={() => setShowSelectSearch(true)}
+                    className={styles.attributeSearchToggleBtn}
+                    title="Cari kategori"
+                  >
+                    <Search size={12} />
+                  </button>
+                ) : (
+                  <div className={`${styles.attrSearchWrapper} ${styles.attrSearchWrapperSelect}`}>
+                    <Search size={11} className={styles.attrSearchIcon} />
+                    <input
+                      type="text"
+                      placeholder="Cari..."
+                      className={styles.attrSearchInput}
+                      value={selectAttrSearchQuery}
+                      onChange={(e) => setSelectAttrSearchQuery(e.target.value)}
+                      autoFocus
+                    />
                     <button 
                       type="button" 
                       className={styles.attrSearchClearBtn} 
-                      onClick={() => setSelectAttrSearchQuery('')}
+                      onClick={() => {
+                        setSelectAttrSearchQuery('');
+                        setShowSelectSearch(false);
+                      }}
                     >
                       <X size={10} />
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className={styles.attributeChipsContainer}>
                   {chatAttributes
                     .filter(attr => !attr.isGroup)
-                    .filter(attr => attr.name.toLowerCase().includes(selectAttrSearchQuery.toLowerCase()))
+                    .filter(attr => !showSelectSearch || attr.name.toLowerCase().includes(selectAttrSearchQuery.toLowerCase()))
                     .map((attr) => {
                       const isActive = selectedChatAttribute === attr.name;
                       const color = getChatAttributeColor(attr.name);
