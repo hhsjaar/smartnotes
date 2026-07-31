@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock, GitMerge, Lock, Tag, Users, LogOut, ArrowRight, Send, AlertCircle, Filter, Pencil, Image, Copy, Check, ArrowDown } from 'lucide-react';
+import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock, GitMerge, Lock, Tag, Users, LogOut, ArrowRight, Send, AlertCircle, Filter, Pencil, Image, Copy, Check, ArrowDown, FolderPlus, Settings } from 'lucide-react';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { NoteCard } from '@/components/NoteCard';
 import { NoteEditor } from '@/components/NoteEditor';
@@ -2790,55 +2790,59 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   </button>
                 </div>
 
-                {/* Horizontal Folder Category Pills */}
-                <div className={styles.mobileFolderScrollContainer}>
-                  <button
-                    type="button"
-                    className={`${styles.mobileFolderChip} ${selectedFolderId === null ? styles.mobileFolderChipActive : ''}`}
-                    onClick={() => setSelectedFolderId(null)}
-                  >
-                    📂 Semua
-                  </button>
-                  
-                  {/* Render Root/Parent Folders */}
-                  {folders.filter(f => !f.parentId).map((parentFolder) => {
-                    const isParentActive = activeParentId === parentFolder.id;
-                    return (
-                      <button
-                        key={parentFolder.id}
-                        type="button"
-                        className={`${styles.mobileFolderChip} ${isParentActive ? styles.mobileFolderChipActive : ''}`}
-                        onClick={() => setSelectedFolderId(parentFolder.id)}
-                      >
-                        📁 {parentFolder.name}
-                      </button>
-                    );
-                  })}
-                  
-                  <button
-                    type="button"
-                    className={styles.mobileFolderChip}
-                    onClick={async () => {
-                      const name = prompt('Masukkan nama folder baru:');
-                      if (name && name.trim()) {
-                        const newF = await handleCreateFolder(name.trim());
-                        if (newF) {
-                          setSelectedFolderId(newF.id);
+                {/* Horizontal Folder Category Pills Wrapper */}
+                <div className={styles.mobileFolderRowWrapper}>
+                  <div className={styles.mobileFolderScrollContainer}>
+                    <button
+                      type="button"
+                      className={`${styles.mobileFolderChip} ${selectedFolderId === null ? styles.mobileFolderChipActive : ''}`}
+                      onClick={() => setSelectedFolderId(null)}
+                    >
+                      📂 Semua
+                    </button>
+                    
+                    {/* Render Root/Parent Folders */}
+                    {folders.filter(f => !f.parentId).map((parentFolder) => {
+                      const isParentActive = activeParentId === parentFolder.id;
+                      return (
+                        <button
+                          key={parentFolder.id}
+                          type="button"
+                          className={`${styles.mobileFolderChip} ${isParentActive ? styles.mobileFolderChipActive : ''}`}
+                          onClick={() => setSelectedFolderId(parentFolder.id)}
+                        >
+                          📁 {parentFolder.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className={styles.mobileFolderActions}>
+                    <button
+                      type="button"
+                      className={`${styles.mobileFolderActionButton} ${styles.mobileFolderActionAdd}`}
+                      onClick={async () => {
+                        const name = prompt('Masukkan nama folder baru:');
+                        if (name && name.trim()) {
+                          const newF = await handleCreateFolder(name.trim());
+                          if (newF) {
+                            setSelectedFolderId(newF.id);
+                          }
                         }
-                      }
-                    }}
-                    title="Tambah Folder Baru"
-                  >
-                    ➕ Baru
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.mobileFolderChip} ${styles.mobileFolderChipManage}`}
-                    onClick={() => setIsMobileFoldersOpen(true)}
-                    title="Kelola Folder"
-                  >
-                    ⚙️ Kelola
-                  </button>
+                      }}
+                      title="Tambah Folder Baru"
+                    >
+                      <FolderPlus size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.mobileFolderActionButton} ${styles.mobileFolderActionManage}`}
+                      onClick={() => setIsMobileFoldersOpen(true)}
+                      title="Kelola Folder"
+                    >
+                      <Settings size={16} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Subfolder Sub-tier Row */}
