@@ -291,6 +291,7 @@ function DashboardContent() {
   const [manageAttrSearchQuery, setManageAttrSearchQuery] = useState('');
   const [showFilterSearch, setShowFilterSearch] = useState(false);
   const [showSelectSearch, setShowSelectSearch] = useState(false);
+  const [managedQuickText, setManagedQuickText] = useState('');
   const [editingChatMessage, setEditingChatMessage] = useState<any | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatSubmitting, setChatSubmitting] = useState(false);
@@ -819,6 +820,7 @@ function DashboardContent() {
       } else {
         payload.options = managedOptions;
         payload.chatbotEnabled = managedChatbotEnabled;
+        payload.quickText = managedQuickText;
       }
 
       const res = await fetch('/api/chat/attributes', {
@@ -4180,7 +4182,18 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                           key={attr.id}
                           type="button"
                           className={`${styles.attributeChip} ${isActive ? styles.attributeChipActive : ''}`}
-                          onClick={() => setSelectedChatAttribute(attr.name)}
+                          onClick={() => {
+                            setSelectedChatAttribute(attr.name);
+                            if (attr.quickText && attr.quickText.trim()) {
+                              setNewChatMessage(prev => {
+                                if (!prev.trim()) return attr.quickText;
+                                return prev + '\n\n' + attr.quickText;
+                              });
+                              if (adminChatInputRef.current) {
+                                adminChatInputRef.current.focus();
+                              }
+                            }
+                          }}
                           style={{
                             borderColor: isActive ? color : 'var(--glass-border)',
                             color: isActive ? '#fff' : 'var(--text-muted)',
@@ -4504,6 +4517,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                               : [];
                             setManagedOptions(sortOptions(parsedOpts));
                             setManagedChatbotEnabled(attr.chatbotEnabled || false);
+                            setManagedQuickText(attr.quickText || '');
                             setNewOptionInput('');
                             setNewOptionHasTimeframe(false);
                             setEditingOptionId(null);
@@ -4707,6 +4721,31 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       </div>
                       <p style={{ fontSize: '0.72rem', color: 'var(--text-dark)', margin: '2px 0 0 0' }}>
                         Jika aktif, AI akan otomatis membalas pertanyaan karyawan di kategori ini (misalnya list progres yang tersedia).
+                      </p>
+                    </div>
+
+                    {/* Quick Text configuration */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Teks Cepat (Quick Text)</label>
+                      <textarea
+                        placeholder="Masukkan template teks cepat yang otomatis muncul di kotak pesan saat atribut diklik..."
+                        value={managedQuickText}
+                        onChange={(e) => setManagedQuickText(e.target.value)}
+                        rows={3}
+                        style={{
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          border: '1px solid var(--glass-border)',
+                          color: '#ffffff',
+                          fontSize: '0.85rem',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          outline: 'none',
+                          resize: 'vertical',
+                          fontFamily: 'inherit'
+                        }}
+                      />
+                      <p style={{ fontSize: '0.72rem', color: 'var(--text-dark)', margin: '2px 0 0 0' }}>
+                        Teks template di atas akan otomatis mengisi kotak pesan chat saat chip atribut ini diklik.
                       </p>
                     </div>
 
@@ -5095,6 +5134,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                 : [];
                               setManagedOptions(sortOptions(parsedOpts));
                               setManagedChatbotEnabled(attr.chatbotEnabled || false);
+                              setManagedQuickText(attr.quickText || '');
                               setNewOptionInput('');
                               setNewOptionHasTimeframe(false);
                               setEditingOptionId(null);

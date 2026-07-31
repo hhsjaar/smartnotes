@@ -244,7 +244,7 @@ export async function DELETE(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { id, options, chatbotEnabled, action, optionId, assignedTo, name, isGroup, groupAttributes } = await request.json();
+    const { id, options, chatbotEnabled, action, optionId, assignedTo, name, isGroup, groupAttributes, quickText } = await request.json();
 
     if (!id) {
       return NextResponse.json({ error: 'ID atribut harus ditentukan' }, { status: 400 });
@@ -416,6 +416,7 @@ export async function PUT(request: Request) {
         chatbotEnabled: typeof chatbotEnabled === 'boolean' ? chatbotEnabled : undefined,
         isGroup: typeof isGroup === 'boolean' ? isGroup : undefined,
         groupAttributes: Array.isArray(groupAttributes) ? groupAttributes : undefined,
+        quickText: quickText !== undefined ? quickText : undefined,
       },
     });
 

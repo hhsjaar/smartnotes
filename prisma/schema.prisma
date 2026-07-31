@@ -94,6 +94,7 @@ model ChatAttribute {
   chatbotEnabled Boolean  @default(false)
   isGroup        Boolean  @default(false)
   groupAttributes Json    @default("[]")
+  quickText      String?
   createdAt      DateTime @default(now())
 
   @@map("chat_attributes")
