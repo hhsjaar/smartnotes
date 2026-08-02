@@ -7822,8 +7822,9 @@ function HomeContentWrapper() {
     setMounted(true);
     const params = new URLSearchParams(window.location.search);
     const isAdminParam = params.get('admin') === 'true';
+    const isAssistantPath = window.location.pathname === '/assistant';
     const isAuthorized = localStorage.getItem('admin_authorized') === 'true';
-    setIsAdminMode(isAdminParam || isAuthorized);
+    setIsAdminMode(isAdminParam || isAuthorized || isAssistantPath);
   }, []);
 
   if (!mounted) {
