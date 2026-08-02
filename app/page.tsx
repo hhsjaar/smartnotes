@@ -1641,12 +1641,13 @@ function DashboardContent() {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const isAdminParam = urlParams.get('admin') === 'true';
+      const isAssistantPath = window.location.pathname === '/assistant';
       const auth = localStorage.getItem('admin_authorized') === 'true';
 
       if (auth) {
         setIsAdminAuthorized(true);
         setAuthChecking(false);
-      } else if (isAdminParam) {
+      } else if (isAdminParam || isAssistantPath) {
         setIsAdminAuthorized(false);
         setAuthChecking(false);
       } else {

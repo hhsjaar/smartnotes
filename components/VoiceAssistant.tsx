@@ -170,7 +170,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
 
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
-  const synthRef = useRef<SpeechSynthesis | null>(null);
+  const synthRef = useRef<SpeechSynthesis | null>(typeof window !== 'undefined' ? window.speechSynthesis : null);
   const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const dialogEndRef = useRef<HTMLDivElement | null>(null);
   
@@ -252,8 +252,32 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
       if (chatHistory.length === 0) {
         const welcomeMsg = "Halo! Saya asisten suara cerdas Anda. Ada yang bisa saya bantu hari ini?";
         setChatHistory([{ role: 'model', text: welcomeMsg }]);
+        
+        // Try speaking immediately
         speak(welcomeMsg);
         shouldAutoListenRef.current = true;
+
+        // Fallback: speak on first user interaction if blocked by autoplay policy
+        let spoken = false;
+        const triggerSpeakOnInteraction = () => {
+          if (!spoken && synthRef.current && !synthRef.current.speaking) {
+            speak(welcomeMsg);
+            spoken = true;
+          }
+          document.removeEventListener('click', triggerSpeakOnInteraction);
+          document.removeEventListener('touchstart', triggerSpeakOnInteraction);
+        };
+        document.addEventListener('click', triggerSpeakOnInteraction);
+        document.addEventListener('touchstart', triggerSpeakOnInteraction);
+
+        // Mark as spoken if the immediate speak starts successfully
+        setTimeout(() => {
+          if (synthRef.current?.speaking) {
+            spoken = true;
+            document.removeEventListener('click', triggerSpeakOnInteraction);
+            document.removeEventListener('touchstart', triggerSpeakOnInteraction);
+          }
+        }, 150);
       }
     } else if (pathname !== '/assistant') {
       // Clear history and pending state when panel is closed (navigating back to home /)
