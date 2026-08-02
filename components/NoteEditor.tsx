@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Edit3, Check, Trash2, Calendar, FileText, CheckSquare, Sparkles, Tag, Plus, X, ArrowLeft, Copy, Mic, FolderInput, Square, Upload, AlertCircle, List, FileAudio, Shield } from 'lucide-react';
+import { Edit3, Check, Trash2, Calendar, FileText, CheckSquare, Sparkles, Tag, Plus, X, ArrowLeft, Copy, Mic, FolderInput, Square, Upload, AlertCircle, List, FileAudio, Shield, ChevronUp, ChevronDown } from 'lucide-react';
 import { GlowButton } from './ui/GlowButton';
 import styles from './NoteEditor.module.css';
 
@@ -112,6 +112,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
   const [targetMoveFolderId, setTargetMoveFolderId] = useState<string | null>(null);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
   const [isTodosExpanded, setIsTodosExpanded] = useState(false);
+  const [newTodoText, setNewTodoText] = useState('');
 
   const [isMobile, setIsMobile] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<'content' | 'summary' | 'todos'>('content');
@@ -130,6 +131,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
 
   const recognitionRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isRecordingRef = useRef(false);
   const accumulatedTextRef = useRef('');
   const currentFinalRef = useRef('');
@@ -410,6 +412,13 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Auto-expand checklist when starting editing
+  useEffect(() => {
+    if (isEditing) {
+      setIsTodosExpanded(true);
+    }
+  }, [isEditing]);
+
   // Sync state with note prop changes
   useEffect(() => {
     if (note) {
@@ -418,9 +427,13 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
       setSummary(note.summary || '');
       setTags(note.tags || []);
 
-      // Parse todo list to ensure {text, completed} format
+      // Parse todo list to ensure {text, completed} format (markdown content checklist takes precedence if present)
       let parsedTodos: { text: string; completed: boolean }[] = [];
-      if (note.todo_list) {
+      const markdownTodos = parseTodosFromContent(note.content || '');
+      
+      if (markdownTodos.length > 0) {
+        parsedTodos = markdownTodos;
+      } else if (note.todo_list) {
         parsedTodos = (note.todo_list as any[]).map((item) => {
           if (typeof item === 'string') {
             return { text: item, completed: false };
@@ -456,8 +469,147 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
     );
   }
 
+  const parseTodosFromContent = (text: string): { text: string; completed: boolean }[] => {
+    if (!text) return [];
+    const lines = text.split('\n');
+    const parsed: { text: string; completed: boolean }[] = [];
+    lines.forEach((line) => {
+      const match = line.match(/^(\s*)[\-\*]\s+\[([ xX])\]\s+(.*)$/);
+      if (match) {
+        parsed.push({
+          text: match[3].trim(),
+          completed: match[2].toLowerCase() === 'x',
+        });
+      }
+    });
+    return parsed;
+  };
+
+  const insertTextAtCursor = (insertText: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const currentText = textarea.value;
+
+    const newText = currentText.substring(0, start) + insertText + currentText.substring(end);
+    setContent(newText);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + insertText.length, start + insertText.length);
+    }, 0);
+  };
+
+  const renderEditorToolbar = () => {
+    return (
+      <div className={styles.editorToolbar}>
+        <button
+          type="button"
+          className={styles.toolbarBtn}
+          onClick={() => insertTextAtCursor('**teks**')}
+          title="Tebal (Bold)"
+        >
+          <strong>B</strong>
+        </button>
+        <button
+          type="button"
+          className={styles.toolbarBtn}
+          onClick={() => insertTextAtCursor('*teks*')}
+          title="Miring (Italic)"
+          style={{ fontStyle: 'italic' }}
+        >
+          I
+        </button>
+        <button
+          type="button"
+          className={styles.toolbarBtn}
+          onClick={() => insertTextAtCursor('- [ ] ')}
+          title="Checklist"
+          style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--secondary)' }}
+        >
+          <CheckSquare size={13} />
+          <span>Checklist</span>
+        </button>
+        <button
+          type="button"
+          className={styles.toolbarBtn}
+          onClick={() => insertTextAtCursor('### ')}
+          title="Heading"
+        >
+          H3
+        </button>
+        <button
+          type="button"
+          className={styles.toolbarBtn}
+          onClick={() => insertTextAtCursor('- ')}
+          title="Daftar Poin (List)"
+        >
+          • List
+        </button>
+      </div>
+    );
+  };
+
+  const toggleMarkdownCheckbox = async (lineIndex: number) => {
+    const lines = content.split('\n');
+    if (lineIndex >= 0 && lineIndex < lines.length) {
+      const line = lines[lineIndex];
+      let newLine = line;
+      
+      if (line.includes('[ ]')) {
+        newLine = line.replace('[ ]', '[x]');
+      } else if (line.includes('[x]')) {
+        newLine = line.replace('[x]', '[ ]');
+      } else if (line.includes('[X]')) {
+        newLine = line.replace('[X]', '[ ]');
+      }
+      
+      lines[lineIndex] = newLine;
+      const newContent = lines.join('\n');
+      setContent(newContent);
+      
+      const parsedTodos = parseTodosFromContent(newContent);
+      setTodos(parsedTodos);
+      
+      try {
+        await onSave({
+          id: note.id,
+          content: newContent,
+          todo_list: parsedTodos,
+        });
+      } catch (err) {
+        console.error('Failed to auto-save markdown checkbox toggle:', err);
+      }
+    }
+  };
+
+  const handlePreviewClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    let lineIndexAttr = target.getAttribute('data-line-index');
+    let checkboxInput: HTMLInputElement | null = null;
+    
+    if (target.tagName === 'INPUT' && target.getAttribute('type') === 'checkbox') {
+      checkboxInput = target as HTMLInputElement;
+    } else if (target.tagName === 'SPAN' && target.previousElementSibling?.tagName === 'INPUT') {
+      checkboxInput = target.previousElementSibling as HTMLInputElement;
+      lineIndexAttr = checkboxInput.getAttribute('data-line-index');
+    }
+    
+    if (lineIndexAttr !== null && checkboxInput !== null) {
+      e.preventDefault();
+      const lineIndex = parseInt(lineIndexAttr, 10);
+      toggleMarkdownCheckbox(lineIndex);
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
+    const parsedTodos = parseTodosFromContent(content);
+    const originalHasMarkdownTodos = note ? parseTodosFromContent(note.content).length > 0 : false;
+    const finalTodos = (parsedTodos.length > 0 || originalHasMarkdownTodos) ? parsedTodos : todos;
+
     try {
       await onSave({
         id: note.id,
@@ -465,9 +617,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
         content,
         summary,
         tags,
-        todo_list: todos,
+        todo_list: finalTodos,
         folder_id: folderId,
       });
+      setTodos(finalTodos);
       setIsEditing(false);
     } catch (err) {
       console.error(err);
@@ -476,20 +629,62 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
     }
   };
 
-  const handleTodoToggle = async (index: number) => {
-    const updatedTodos = todos.map((todo, idx) =>
-      idx === index ? { ...todo, completed: !todo.completed } : todo
-    );
-    setTodos(updatedTodos);
-    // Auto save todo state in background
-    try {
-      await onSave({
-        id: note.id,
-        todo_list: updatedTodos,
-      });
-    } catch (e) {
-      console.error('Failed to auto-save todo state:', e);
+  const getLineIndexForTodoIndex = (todoIdx: number): number => {
+    const lines = content.split('\n');
+    let checklistCount = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const match = lines[i].match(/^(\s*)[\-\*]\s+\[([ xX])\]\s+(.*)$/);
+      if (match) {
+        if (checklistCount === todoIdx) {
+          return i;
+        }
+        checklistCount++;
+      }
     }
+    return -1;
+  };
+
+  const handleTodoToggle = async (index: number) => {
+    const markdownLineIdx = getLineIndexForTodoIndex(index);
+    
+    if (markdownLineIdx !== -1) {
+      await toggleMarkdownCheckbox(markdownLineIdx);
+    } else {
+      const updatedTodos = todos.map((todo, idx) =>
+        idx === index ? { ...todo, completed: !todo.completed } : todo
+      );
+      setTodos(updatedTodos);
+      try {
+        await onSave({
+          id: note.id,
+          todo_list: updatedTodos,
+        });
+      } catch (e) {
+        console.error('Failed to auto-save todo state:', e);
+      }
+    }
+  };
+
+  const renderTodoList = () => {
+    return (
+      <div className={styles.todoListContainer}>
+        <div className={styles.todoList}>
+          {todos.map((todo, idx) => (
+            <label key={idx} className={styles.todoItemRow} style={{ cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                className={styles.todoCheckbox}
+                checked={todo.completed}
+                onChange={() => handleTodoToggle(idx)}
+              />
+              <span className={`${styles.todoText} ${todo.completed ? styles.todoCompleted : ''}`}>
+                {todo.text}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   const handleCopy = (text: string, section: string) => {
@@ -627,7 +822,22 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
           inList = true;
           listType = 'ul';
         }
-        output.push(`<li>${bulletMatch[2]}</li>`);
+        
+        const bulletText = bulletMatch[2].trim();
+        const checkboxMatch = bulletText.match(/^\[([ xX])\]\s+(.*)$/);
+        
+        if (checkboxMatch) {
+          const isChecked = checkboxMatch[1].toLowerCase() === 'x';
+          const taskText = checkboxMatch[2];
+          output.push(
+            `<li style="list-style: none; display: flex; align-items: flex-start; gap: 8px; margin: 4px 0;">` +
+              `<input type="checkbox" data-line-index="${i}" ${isChecked ? 'checked' : ''} style="margin-top: 4px; cursor: pointer; accent-color: var(--secondary);" />` +
+              `<span class="${isChecked ? styles.todoCompleted : ''}" style="cursor: pointer; word-break: break-word;">${taskText}</span>` +
+            `</li>`
+          );
+        } else {
+          output.push(`<li>${bulletMatch[2]}</li>`);
+        }
       } else if (numberMatch) {
         if (!inList || listType !== 'ol') {
           if (inList) output.push(`</${listType}>`);
@@ -802,20 +1012,24 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
             <FileText size={16} />
             <span>Konten</span>
           </button>
-          <button
-            className={`${styles.subTab} ${activeSubTab === 'summary' ? styles.activeSubTab : ''}`}
-            onClick={() => setActiveSubTab('summary')}
-          >
-            <Sparkles size={16} />
-            <span>Teks Asli</span>
-          </button>
-          <button
-            className={`${styles.subTab} ${activeSubTab === 'todos' ? styles.activeSubTab : ''}`}
-            onClick={() => setActiveSubTab('todos')}
-          >
-            <CheckSquare size={16} />
-            <span>Tugas</span>
-          </button>
+          {summary && (
+            <button
+              className={`${styles.subTab} ${activeSubTab === 'summary' ? styles.activeSubTab : ''}`}
+              onClick={() => setActiveSubTab('summary')}
+            >
+              <Sparkles size={16} />
+              <span>Teks Asli</span>
+            </button>
+          )}
+          {todos.length > 0 && (
+            <button
+              className={`${styles.subTab} ${activeSubTab === 'todos' ? styles.activeSubTab : ''}`}
+              onClick={() => setActiveSubTab('todos')}
+            >
+              <CheckSquare size={16} />
+              <span>Tugas</span>
+            </button>
+          )}
         </div>
       )}
 
@@ -992,34 +1206,41 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
           <div className={styles.mobileTabContent}>
             {activeSubTab === 'content' && (
               <div className={styles.mainContent}>
-                <button
-                  className={styles.copyBtn}
-                  onClick={() => handleCopy(content, 'content')}
-                  title="Salin Konten Catatan"
-                >
-                  {copiedSection === 'content' ? (
-                    <>
-                      <Check size={14} style={{ color: '#22c55e' }} />
-                      <span>Tersalin</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={14} />
-                      <span>Salin</span>
-                    </>
-                  )}
-                </button>
+                {!isEditing && (
+                  <button
+                    className={styles.copyBtn}
+                    onClick={() => handleCopy(content, 'content')}
+                    title="Salin Konten Catatan"
+                  >
+                    {copiedSection === 'content' ? (
+                      <>
+                        <Check size={14} style={{ color: '#22c55e' }} />
+                        <span>Tersalin</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={14} />
+                        <span>Salin</span>
+                      </>
+                    )}
+                  </button>
+                )}
                 {isEditing ? (
-                  <textarea
-                    className={styles.textarea}
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    placeholder="Tulis catatan Anda di sini (mendukung Markdown)..."
-                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                    {renderEditorToolbar()}
+                    <textarea
+                      ref={textareaRef}
+                      className={styles.textarea}
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      placeholder="Tulis catatan Anda di sini (mendukung Markdown)..."
+                    />
+                  </div>
                 ) : (
                   <div
                     className={`${styles.previewArea} markdown-body`}
                     dangerouslySetInnerHTML={renderMarkdown(content)}
+                    onClick={handlePreviewClick}
                   />
                 )}
               </div>
@@ -1063,7 +1284,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
 
             {activeSubTab === 'todos' && (
               <div className={styles.mobileTodosTab}>
-                {todos.length > 0 ? (
+                {todos.length > 0 && (
                   <div className={styles.panelCard}>
                     <button
                       className={styles.copyBtn}
@@ -1089,26 +1310,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
                       <CheckSquare size={16} style={{ color: 'var(--secondary)' }} />
                       Daftar Tugas (Action Items)
                     </h4>
-                    <div className={styles.todoList}>
-                      {todos.map((todo, idx) => (
-                        <label key={idx} className={styles.todoItem}>
-                          <input
-                            type="checkbox"
-                            className={styles.todoCheckbox}
-                            checked={todo.completed}
-                            onChange={() => handleTodoToggle(idx)}
-                          />
-                          <span className={todo.completed ? styles.todoCompleted : ''}>
-                            {todo.text}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className={styles.emptyTabState}>
-                    <CheckSquare size={32} style={{ color: 'var(--secondary)', opacity: 0.5 }} />
-                    <p>Tidak ada tugas tindakan terdeteksi.</p>
+                    {renderTodoList()}
                   </div>
                 )}
               </div>
@@ -1158,7 +1360,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
             )}
 
             {/* 2. Todos Collapsible Section */}
-            {todos.length > 0 && (
+            {(todos.length > 0 || isEditing) && (
               <div className={`${styles.collapsiblePanel} ${isTodosExpanded ? styles.expanded : ''}`}>
                 <button
                   type="button"
@@ -1173,41 +1375,29 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
                 </button>
                 {isTodosExpanded && (
                   <div className={styles.collapsibleContent}>
-                    <button
-                      className={styles.copyBtn}
-                      onClick={() => {
-                        const todosText = todos.map(t => `${t.completed ? '[x]' : '[ ]'} ${t.text}`).join('\n');
-                        handleCopy(todosText, 'todos');
-                      }}
-                      title="Salin Daftar Tugas"
-                    >
-                      {copiedSection === 'todos' ? (
-                        <>
-                          <Check size={14} style={{ color: '#22c55e' }} />
-                          <span>Tersalin</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={14} />
-                          <span>Salin</span>
-                        </>
-                      )}
-                    </button>
-                    <div className={styles.todoList}>
-                      {todos.map((todo, idx) => (
-                        <label key={idx} className={styles.todoItem}>
-                          <input
-                            type="checkbox"
-                            className={styles.todoCheckbox}
-                            checked={todo.completed}
-                            onChange={() => handleTodoToggle(idx)}
-                          />
-                          <span className={todo.completed ? styles.todoCompleted : ''}>
-                            {todo.text}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
+                    {todos.length > 0 && (
+                      <button
+                        className={styles.copyBtn}
+                        onClick={() => {
+                          const todosText = todos.map(t => `${t.completed ? '[x]' : '[ ]'} ${t.text}`).join('\n');
+                          handleCopy(todosText, 'todos');
+                        }}
+                        title="Salin Daftar Tugas"
+                      >
+                        {copiedSection === 'todos' ? (
+                          <>
+                            <Check size={14} style={{ color: '#22c55e' }} />
+                            <span>Tersalin</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={14} />
+                            <span>Salin</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                    {renderTodoList()}
                   </div>
                 )}
               </div>
@@ -1215,34 +1405,41 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
 
             {/* 3. Main Note Content (Editor or Preview) */}
             <div className={styles.mainContent}>
-              <button
-                className={styles.copyBtn}
-                onClick={() => handleCopy(content, 'content')}
-                title="Salin Konten Catatan"
-              >
-                {copiedSection === 'content' ? (
-                  <>
-                    <Check size={14} style={{ color: '#22c55e' }} />
-                    <span>Tersalin</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy size={14} />
-                    <span>Salin</span>
-                  </>
-                )}
-              </button>
+              {!isEditing && (
+                <button
+                  className={styles.copyBtn}
+                  onClick={() => handleCopy(content, 'content')}
+                  title="Salin Konten Catatan"
+                >
+                  {copiedSection === 'content' ? (
+                    <>
+                      <Check size={14} style={{ color: '#22c55e' }} />
+                      <span>Tersalin</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={14} />
+                      <span>Salin</span>
+                    </>
+                  )}
+                </button>
+              )}
               {isEditing ? (
-                <textarea
-                  className={styles.textarea}
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="Tulis catatan Anda di sini (mendukung Markdown)..."
-                />
+                <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                  {renderEditorToolbar()}
+                  <textarea
+                    ref={textareaRef}
+                    className={styles.textarea}
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    placeholder="Tulis catatan Anda di sini (mendukung Markdown)..."
+                  />
+                </div>
               ) : (
                 <div
                   className={`${styles.previewArea} markdown-body`}
                   dangerouslySetInnerHTML={renderMarkdown(content)}
+                  onClick={handlePreviewClick}
                 />
               )}
             </div>

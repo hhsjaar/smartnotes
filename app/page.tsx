@@ -194,7 +194,7 @@ const getGroupedNotes = (notesList: Note[]) => {
 const getSortedFolderTree = (foldersList: Folder[]) => {
   const rootFolders = foldersList.filter(f => !f.parentId);
   const result: (Folder & { depth: number; parentName?: string })[] = [];
-  
+
   rootFolders.forEach(root => {
     result.push({ ...root, depth: 0 });
     const children = foldersList.filter(f => f.parentId === root.id);
@@ -209,7 +209,7 @@ const getSortedFolderTree = (foldersList: Folder[]) => {
       result.push({ ...folder, depth: 1 });
     }
   });
-  
+
   return result;
 };
 
@@ -314,7 +314,7 @@ function DashboardContent() {
     const { scrollTop, scrollHeight, clientHeight } = adminChatAreaRef.current;
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
     const isNearBottom = distanceFromBottom <= 120;
-    
+
     adminIsAtBottomRef.current = isNearBottom;
     setAdminShowScrollBottomBtn(!isNearBottom);
     if (isNearBottom) {
@@ -382,6 +382,39 @@ function DashboardContent() {
 
   const [notes, setNotes] = useState<Note[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
+
+  // Employee Contacts and Jobdesk Reminders State
+  interface EmployeeContact {
+    id: string;
+    name: string;
+    number: string;
+  }
+  interface JobdeskReminder {
+    id: string;
+    title: string;
+    description: string | null;
+    intervalMinutes: number;
+    isActive: boolean;
+    lastRun: string;
+    whatsappNumber: string | null;
+    employeeNames: string | null;
+    created_at: string;
+  }
+
+  const [reminderActiveSubTab, setReminderActiveSubTab] = useState<'general' | 'jobdesk' | 'contacts'>('general');
+  const [employeeContacts, setEmployeeContacts] = useState<EmployeeContact[]>([]);
+  const [jobdeskReminders, setJobdeskReminders] = useState<JobdeskReminder[]>([]);
+
+  // Contact Form State
+  const [contactName, setContactName] = useState('');
+  const [contactNumber, setContactNumber] = useState('');
+
+  // Jobdesk Form State
+  const [jobdeskTitle, setJobdeskTitle] = useState('Isi Biji Kopi Espresso');
+  const [jobdeskDescription, setJobdeskDescription] = useState('Setiap 1 jam sekali harus dilakukan pengisian biji espresso agar tidak rusak.');
+  const [jobdeskInterval, setJobdeskInterval] = useState('60');
+  const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
+  const [manualJobdeskNumber, setManualJobdeskNumber] = useState('');
   const [isPushSubscribed, setIsPushSubscribed] = useState(false);
   const [pushPermissionStatus, setPushPermissionStatus] = useState<NotificationPermission>('default');
   const [reminderTitle, setReminderTitle] = useState('');
@@ -433,7 +466,7 @@ function DashboardContent() {
   const [editingFolderName, setEditingFolderName] = useState('');
   const [editingFolderParentId, setEditingFolderParentId] = useState<string>('');
   const [isFoldersListOpen, setIsFoldersListOpen] = useState(true);
-  
+
   const [isMobileCalendarOpen, setIsMobileCalendarOpen] = useState(false);
   const [isMobileFoldersOpen, setIsMobileFoldersOpen] = useState(false);
 
@@ -458,7 +491,7 @@ function DashboardContent() {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'id-ID';
-      
+
       const voices = window.speechSynthesis.getVoices();
       const idVoice = voices.find(v => v.lang.startsWith('id') || v.lang.includes('ID'));
       if (idVoice) {
@@ -478,7 +511,7 @@ function DashboardContent() {
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   const showConfirm = (title: string, message: string, onConfirm: () => void) => {
@@ -591,6 +624,145 @@ function DashboardContent() {
     }
   };
 
+  const loadContacts = async () => {
+    try {
+      const res = await fetch('/api/contacts');
+      if (res.ok) {
+        const data = await res.json();
+        setEmployeeContacts(data);
+      }
+    } catch (err) {
+      console.error('Failed to load contacts:', err);
+    }
+  };
+
+  const loadJobdeskReminders = async () => {
+    try {
+      const res = await fetch('/api/jobdesk-reminders');
+      if (res.ok) {
+        const data = await res.json();
+        setJobdeskReminders(data);
+      }
+    } catch (err) {
+      console.error('Failed to load jobdesk reminders:', err);
+    }
+  };
+
+  const handleCreateContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contactName.trim() || !contactNumber.trim()) {
+      alert('Nama dan nomor telepon wajib diisi!');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: contactName, number: contactNumber })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setEmployeeContacts(prev => [data, ...prev].sort((a, b) => a.name.localeCompare(b.name)));
+        setContactName('');
+        setContactNumber('');
+        alert('Kontak berhasil disimpan!');
+      } else {
+        const errorData = await res.json();
+        alert(errorData.error || 'Gagal menambahkan kontak.');
+      }
+    } catch (err) {
+      console.error('Failed to create contact:', err);
+      alert('Gagal membuat kontak.');
+    }
+  };
+
+  const handleDeleteContact = async (id: string) => {
+    if (confirm('Apakah Anda yakin ingin menghapus kontak ini?')) {
+      try {
+        const res = await fetch(`/api/contacts?id=${id}`, {
+          method: 'DELETE'
+        });
+        if (res.ok) {
+          setEmployeeContacts(prev => prev.filter(c => c.id !== id));
+        } else {
+          alert('Gagal menghapus kontak.');
+        }
+      } catch (err) {
+        console.error('Failed to delete contact:', err);
+      }
+    }
+  };
+
+  const handleCreateJobdeskReminder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!jobdeskTitle.trim() || !jobdeskInterval.trim()) {
+      alert('Judul dan interval wajib diisi!');
+      return;
+    }
+
+    // Get selected contacts details
+    const selectedContacts = employeeContacts.filter(c => selectedContactIds.includes(c.id));
+    const selectedNames = selectedContacts.map(c => c.name).join(', ');
+    const selectedNumbers = selectedContacts.map(c => c.number).join(', ');
+
+    // Combine with manual number if any
+    let finalNumbers = selectedNumbers;
+    if (manualJobdeskNumber.trim()) {
+      const cleanManual = manualJobdeskNumber.replace(/[^0-9]/g, '');
+      finalNumbers = finalNumbers ? `${finalNumbers},${cleanManual}` : cleanManual;
+    }
+
+    try {
+      const res = await fetch('/api/jobdesk-reminders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: jobdeskTitle,
+          description: jobdeskDescription,
+          intervalMinutes: jobdeskInterval,
+          whatsappNumber: finalNumbers || null,
+          employeeNames: selectedNames || (manualJobdeskNumber.trim() ? 'Nomor Manual' : 'Umum')
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setJobdeskReminders(prev => [data, ...prev]);
+        setJobdeskTitle('Isi Biji Kopi Espresso');
+        setJobdeskDescription('Setiap 1 jam sekali harus dilakukan pengisian biji espresso agar tidak rusak.');
+        setJobdeskInterval('60');
+        setSelectedContactIds([]);
+        setManualJobdeskNumber('');
+        alert('Pengingat Jobdesk berhasil dibuat!');
+        fetch('/api/cron').catch(console.error); // Trigger cron once to register and update
+      } else {
+        alert('Gagal membuat pengingat jobdesk.');
+      }
+    } catch (err) {
+      console.error('Failed to create jobdesk reminder:', err);
+      alert('Gagal membuat pengingat jobdesk.');
+    }
+  };
+
+  const handleDeleteJobdeskReminder = async (id: string) => {
+    if (confirm('Apakah Anda yakin ingin menghapus pengingat jobdesk ini?')) {
+      try {
+        const res = await fetch(`/api/jobdesk-reminders?id=${id}`, {
+          method: 'DELETE'
+        });
+        if (res.ok) {
+          setJobdeskReminders(prev => prev.filter(r => r.id !== id));
+        } else {
+          alert('Gagal menghapus pengingat jobdesk.');
+        }
+      } catch (err) {
+        console.error('Failed to delete jobdesk reminder:', err);
+      }
+    }
+  };
+
   const loadReminders = async () => {
     try {
       const res = await fetch('/api/reminders');
@@ -694,7 +866,7 @@ function DashboardContent() {
         const msgs = Array.isArray(data) ? data : (data.messages || []);
         setChatMessages(prev => {
           const pendingTempMsgs = prev.filter((m: any) => m.id && typeof m.id === 'string' && m.id.startsWith('temp-'));
-          
+
           const msgMap = new Map(prev.map((m: any) => [m.id, m]));
           msgs.forEach((m: any) => {
             msgMap.set(m.id, m);
@@ -704,7 +876,7 @@ function DashboardContent() {
               msgMap.set(t.id, t);
             }
           });
-          
+
           const sorted = Array.from(msgMap.values()).sort((a: any, b: any) => {
             const dateA = getValidDate(a.createdAt);
             const dateB = getValidDate(b.createdAt);
@@ -731,11 +903,11 @@ function DashboardContent() {
     if (chatMessages.length === 0 || adminLoadingOlder || !adminHasMoreOlder) return;
     setAdminLoadingOlder(true);
     adminIsLoadingOlderRef.current = true;
-    
+
     const chatArea = adminChatAreaRef.current;
     const oldScrollHeight = chatArea ? chatArea.scrollHeight : 0;
     const oldScrollTop = chatArea ? chatArea.scrollTop : 0;
-    
+
     try {
       const oldestMsg = chatMessages[0];
       const res = await fetch(`/api/chat?limit=150&before=${encodeURIComponent(oldestMsg.createdAt)}&_t=${Date.now()}`);
@@ -749,7 +921,7 @@ function DashboardContent() {
           const uniqueOlder = newOlderMsgs.filter((m: any) => !existingIds.has(m.id));
           return [...uniqueOlder, ...prev];
         });
-        
+
         if (chatArea) {
           setTimeout(() => {
             const newScrollHeight = chatArea.scrollHeight;
@@ -854,17 +1026,17 @@ function DashboardContent() {
 
   const handleDeleteAdminChatMessage = async (msgId: string) => {
     if (!confirm('Apakah Anda yakin ingin menghapus pesan ini?')) return;
-    
+
     try {
       const res = await fetch(`/api/chat?id=${msgId}&senderName=Admin&senderRole=admin`, {
         method: 'DELETE',
       });
-      
+
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || 'Gagal menghapus pesan');
       }
-      
+
       setChatMessages(prev => prev.filter(m => m.id !== msgId));
       if (editingChatMessage?.id === msgId) {
         handleCancelAdminChatEdit();
@@ -879,12 +1051,12 @@ function DashboardContent() {
     if (!file) return;
 
     // Check if Supabase credentials are placeholder or missing
-    const isPlaceholder = !process.env.NEXT_PUBLIC_SUPABASE_URL || 
-                          process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder') || 
-                          (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY && !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
-                          process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY === 'placeholder-key' || 
-                          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === 'placeholder-key';
-    
+    const isPlaceholder = !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder') ||
+      (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY && !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY === 'placeholder-key' ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === 'placeholder-key';
+
     if (isPlaceholder) {
       alert('PERINGATAN: Konfigurasi Supabase Storage belum diset di file .env atau .env.local Anda. Silakan tambahkan NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY agar pengunggahan gambar berfungsi.');
       e.target.value = '';
@@ -1016,20 +1188,20 @@ function DashboardContent() {
       const method = isEditing ? 'PUT' : 'POST';
       const bodyPayload = isEditing
         ? {
-            id: editingChatMessage.id,
-            message: newChatMessage.trim(),
-            attribute: selectedChatAttribute || null,
-            senderName: 'Admin',
-            senderRole: 'admin',
-            imageUrl: editingChatMessage.imageUrl
-          }
+          id: editingChatMessage.id,
+          message: newChatMessage.trim(),
+          attribute: selectedChatAttribute || null,
+          senderName: 'Admin',
+          senderRole: 'admin',
+          imageUrl: editingChatMessage.imageUrl
+        }
         : {
-            senderName: 'Admin',
-            senderRole: 'admin',
-            message: newChatMessage.trim(),
-            imageUrl: uploadedImageUrl,
-            attribute: selectedChatAttribute || null,
-          };
+          senderName: 'Admin',
+          senderRole: 'admin',
+          message: newChatMessage.trim(),
+          imageUrl: uploadedImageUrl,
+          attribute: selectedChatAttribute || null,
+        };
 
       const res = await fetch(url, {
         method: method,
@@ -1080,7 +1252,7 @@ function DashboardContent() {
       const res = await fetch('/api/chat/attributes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           name: newAttributeInput.trim(),
           isGroup: newAttributeIsGroup,
           groupAttributes: newAttributeGroupMembers
@@ -1193,7 +1365,7 @@ function DashboardContent() {
         alert('Fitur notifikasi push tidak didukung atau dibatasi oleh browser Anda (misalnya di iOS Safari, fitur notifikasi hanya aktif jika aplikasi ditambahkan ke layar utama / Home Screen terlebih dahulu).');
         return;
       }
-      
+
       const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!publicKey) {
         console.error('NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing');
@@ -1207,7 +1379,7 @@ function DashboardContent() {
       };
 
       const subscription = await registration.pushManager.subscribe(subscribeOptions);
-      
+
       const res = await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1282,12 +1454,12 @@ function DashboardContent() {
             method: 'DELETE',
           });
           if (!res.ok) throw new Error('Failed to delete folder');
-          
+
           setFolders((prev) => prev.filter((f) => f.id !== id));
           if (selectedFolderId === id) {
             setSelectedFolderId(null);
           }
-          
+
           loadNotes();
         } catch (err: any) {
           alert(err.message || 'Gagal menghapus folder.');
@@ -1301,7 +1473,7 @@ function DashboardContent() {
       const urlParams = new URLSearchParams(window.location.search);
       const isAdminParam = urlParams.get('admin') === 'true';
       const auth = localStorage.getItem('admin_authorized') === 'true';
-      
+
       if (auth) {
         setIsAdminAuthorized(true);
         setAuthChecking(false);
@@ -1321,6 +1493,8 @@ function DashboardContent() {
       loadNotes();
       loadFolders();
       loadReminders();
+      loadContacts();
+      loadJobdeskReminders();
 
       if (typeof window !== 'undefined') {
         const savedWaNum = localStorage.getItem('default_wa_reminder_number');
@@ -1332,7 +1506,7 @@ function DashboardContent() {
 
       if (typeof window !== 'undefined' && 'Notification' in window) {
         setPushPermissionStatus(Notification.permission);
-        
+
         if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
           navigator.serviceWorker.ready.then((registration) => {
             if (registration && registration.pushManager) {
@@ -1351,7 +1525,7 @@ function DashboardContent() {
   // Handle actions redirected from the standalone Voice Assistant page
   useEffect(() => {
     if (!isAdminAuthorized || isLoadingNotes) return;
-    
+
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const action = params.get('action');
@@ -1453,7 +1627,7 @@ function DashboardContent() {
             }
           }
         }
-        
+
         // Clean URL params to avoid repeating on page refresh
         const newUrl = window.location.pathname;
         window.history.replaceState({}, document.title, newUrl);
@@ -1521,7 +1695,7 @@ function DashboardContent() {
   // Background cron executor (polls /api/cron only when page is visible)
   useEffect(() => {
     if (typeof document !== 'undefined' && document.hidden) return;
-    
+
     // Run initial check
     fetch('/api/cron').catch(console.error);
 
@@ -1530,13 +1704,18 @@ function DashboardContent() {
       fetch('/api/cron')
         .then(res => res.json())
         .then(data => {
-          if (data.results && data.results.length > 0) {
+          const hasJobs = data.results && data.results.length > 0;
+          const hasReminders = data.reminders && data.reminders.length > 0;
+          const hasJobdesks = data.jobdeskReminders && data.jobdeskReminders.length > 0;
+          if (hasJobs || hasReminders || hasJobdesks) {
             console.log('Cron completed some jobs:', data);
-            loadNotes();
+            if (hasJobs) loadNotes();
+            if (hasReminders) loadReminders();
+            if (hasJobdesks) loadJobdeskReminders();
           }
         })
         .catch(console.error);
-    }, 120000); // Check every 2 minutes (120s) instead of 30s
+    }, 120000); // Check every 2 minutes (120s) to save resources
 
     return () => clearInterval(interval);
   }, []);
@@ -1689,7 +1868,7 @@ function DashboardContent() {
         // Move note to folder
         if (payload.noteId) {
           let targetFolderId = payload.folderId;
-          
+
           // If folderId is null, check if folderName matches an existing folder, or create it
           if (!targetFolderId && payload.folderName) {
             const existingFolder = folders.find(f => f.name.toLowerCase() === payload.folderName.toLowerCase());
@@ -1701,7 +1880,7 @@ function DashboardContent() {
               if (newF) targetFolderId = newF.id;
             }
           }
-          
+
           // Call API to update folder
           try {
             const res = await fetch('/api/notes', {
@@ -1857,7 +2036,7 @@ function DashboardContent() {
     targetFolderIds?: string[]
   ) => {
     if (!formattedData.notes || !Array.isArray(formattedData.notes)) return;
-    
+
     try {
       const savedNotesList: any[] = [];
       let lastSavedNote: any = null;
@@ -1867,9 +2046,9 @@ function DashboardContent() {
       // Pre-process notes to duplicate the "Utuh" Master note for each checked folder
       const notesToSave: any[] = [];
       for (const note of formattedData.notes) {
-        const isUtuh = note.folderName?.trim().toLowerCase() === 'utuh' || 
-                       note.title?.toLowerCase().includes('utuh') || 
-                       note.title?.toLowerCase().includes('master');
+        const isUtuh = note.folderName?.trim().toLowerCase() === 'utuh' ||
+          note.title?.toLowerCase().includes('utuh') ||
+          note.title?.toLowerCase().includes('master');
         if (isUtuh && targetFolderIds && targetFolderIds.length > 0) {
           for (const targetFolderId of targetFolderIds) {
             notesToSave.push({
@@ -1883,13 +2062,13 @@ function DashboardContent() {
           notesToSave.push(note);
         }
       }
- 
+
       for (const note of notesToSave) {
         let folderId = note.folderId;
         let finalFolderName = note.folderName || 'Tanpa Folder';
-        const isUtuh = note.folderName?.trim().toLowerCase() === 'utuh' || 
-                       note.title?.toLowerCase().includes('utuh') || 
-                       note.title?.toLowerCase().includes('master');
+        const isUtuh = note.folderName?.trim().toLowerCase() === 'utuh' ||
+          note.title?.toLowerCase().includes('utuh') ||
+          note.title?.toLowerCase().includes('master');
 
         // Override classification if user checked target folder(s) and this note is not classified in one of them or its subfolders.
         if (targetFolderIds && targetFolderIds.length > 0) {
@@ -1907,7 +2086,7 @@ function DashboardContent() {
               // matching the note's suggested folderName
               const matchedFolder = localFolders.find(
                 (f) => (targetFolderIds.includes(f.id) || (f.parentId && targetFolderIds.includes(f.parentId))) &&
-                (note.folderName && f.name.toLowerCase() === note.folderName.toLowerCase())
+                  (note.folderName && f.name.toLowerCase() === note.folderName.toLowerCase())
               );
               if (matchedFolder) {
                 folderId = matchedFolder.id;
@@ -1923,11 +2102,11 @@ function DashboardContent() {
             }
           }
         }
-        
+
         // Resolve folderId if folderName is suggested but folderId is null
         if (!folderId && note.folderName) {
           let parentFolderId: string | null = null;
-          
+
           if (isUtuh && note.parentFolderId) {
             parentFolderId = note.parentFolderId;
           } else if (note.parentFolderName) {
@@ -2001,10 +2180,10 @@ function DashboardContent() {
       if (savedNotesList.length > 0) {
         // Clear active date filter so new notes are visible
         setSelectedDate(null);
-        
+
         // Add new notes to local state
         setNotes((prev) => [...savedNotesList, ...prev]);
-        
+
         // Select the last saved note and focus it
         if (lastSavedNote) {
           setSelectedNote(lastSavedNote);
@@ -2021,8 +2200,8 @@ function DashboardContent() {
 
         // Show notification toast and trigger voice feedback
         setSaveResultNotification({ notes: notificationNotes });
-        
-        const speakText = `Berhasil membuat ${savedNotesList.length} catatan baru. ` + 
+
+        const speakText = `Berhasil membuat ${savedNotesList.length} catatan baru. ` +
           notificationNotes.map(n => `Catatan ${n.title} dimasukkan ke folder ${n.folderName}`).join('. ');
         speakFeedback(speakText);
       }
@@ -2066,7 +2245,7 @@ function DashboardContent() {
       setSelectedNote(data);
       setActiveTab('notes');
       setWorkspaceView('editor');
-      
+
       // Update selected folder filter if saved in one
       if (folderId) {
         setSelectedFolderId(folderId);
@@ -2145,13 +2324,13 @@ function DashboardContent() {
 
     try {
       // Clean up todo_list from original format (which is JSON)
-      const parsedTodos = originalNote.todo_list 
+      const parsedTodos = originalNote.todo_list
         ? (originalNote.todo_list as any[]).map((item) => {
-            if (typeof item === 'string') {
-              return { text: item, completed: false };
-            }
-            return { text: item.text || '', completed: !!item.completed };
-          })
+          if (typeof item === 'string') {
+            return { text: item, completed: false };
+          }
+          return { text: item.text || '', completed: !!item.completed };
+        })
         : [];
 
       const copyPayload = {
@@ -2390,9 +2569,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
         <div className={styles.remindersHeader}>
           <div>
             <h2>⏰ Pengingat & Alarm AI</h2>
-            <p className={styles.remindersSub}>Atur pengingat suara Anda melalui Asisten AI atau buat secara manual di bawah.</p>
+            <p className={styles.remindersSub}>Atur pengingat suara Anda melalui Asisten AI, buat pengingat umum, atau kelola jobdesk karyawan.</p>
           </div>
-          
+
           <div className={styles.pushPermissionWidget}>
             {pushPermissionStatus === 'granted' && isPushSubscribed ? (
               <span className={`${styles.statusBadge} ${styles.statusActive}`}>
@@ -2403,8 +2582,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 <span className={`${styles.statusBadge} ${styles.statusInactive}`}>
                   🔕 Notifikasi Belum Aktif
                 </span>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={handleSubscribePush}
                   className={styles.activatePushBtn}
                 >
@@ -2415,236 +2594,519 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           </div>
         </div>
 
-        <div className={styles.remindersContentGrid}>
-          <div className={`${styles.reminderFormCard} glass-panel`}>
-            <h3>Buat Pengingat Baru</h3>
-            <form onSubmit={handleSubmitReminder} className={styles.reminderForm}>
-              <div className={styles.formGroup}>
-                <label htmlFor="reminder-title">Judul Pengingat</label>
-                <input
-                  id="reminder-title"
-                  type="text"
-                  placeholder="Contoh: Rapat Evaluasi Proyek"
-                  value={reminderTitle}
-                  onChange={(e) => setReminderTitle(e.target.value)}
-                  required
-                />
-              </div>
+        {/* Sub-tab navigation */}
+        <div className={styles.reminderSubTabNav}>
+          <button
+            type="button"
+            className={`${styles.reminderSubTabBtn} ${reminderActiveSubTab === 'general' ? styles.reminderSubTabBtnActive : ''}`}
+            onClick={() => setReminderActiveSubTab('general')}
+          >
+            ⏰ Pengingat Umum
+          </button>
+          <button
+            type="button"
+            className={`${styles.reminderSubTabBtn} ${reminderActiveSubTab === 'jobdesk' ? styles.reminderSubTabBtnActive : ''}`}
+            onClick={() => setReminderActiveSubTab('jobdesk')}
+          >
+            📋 Jobdesk Karyawan
+          </button>
+          <button
+            type="button"
+            className={`${styles.reminderSubTabBtn} ${reminderActiveSubTab === 'contacts' ? styles.reminderSubTabBtnActive : ''}`}
+            onClick={() => setReminderActiveSubTab('contacts')}
+          >
+            👤 Daftar Kontak
+          </button>
+        </div>
 
-              <div className={styles.formGroup}>
-                <label htmlFor="reminder-desc">Keterangan (Opsional)</label>
-                <textarea
-                  id="reminder-desc"
-                  placeholder="Tambahkan detail pengingat di sini..."
-                  value={reminderDescription}
-                  onChange={(e) => setReminderDescription(e.target.value)}
-                  rows={3}
-                />
-              </div>
-
-              {/* Date and Time split inputs */}
-              <div className={styles.formRow}>
+        {reminderActiveSubTab === 'general' && (
+          <div className={styles.remindersContentGrid}>
+            <div className={`${styles.reminderFormCard} glass-panel`}>
+              <h3>Buat Pengingat Baru</h3>
+              <form onSubmit={handleSubmitReminder} className={styles.reminderForm}>
                 <div className={styles.formGroup}>
-                  <label htmlFor="reminder-date">📅 Tanggal Pelaksanaan</label>
+                  <label htmlFor="reminder-title">Judul Pengingat</label>
                   <input
-                    id="reminder-date"
-                    type="date"
-                    value={reminderDate}
-                    onChange={(e) => setReminderDate(e.target.value)}
-                    onClick={(e) => {
-                      try {
-                        e.currentTarget.showPicker();
-                      } catch (err) {}
-                    }}
-                    onFocus={(e) => {
-                      try {
-                        e.currentTarget.showPicker();
-                      } catch (err) {}
-                    }}
-                    required
-                  />
-                </div>
-
-                <div className={styles.formGroup}>
-                  <label htmlFor="reminder-time">⏰ Jam Pelaksanaan</label>
-                  <input
-                    id="reminder-time"
-                    type="time"
-                    value={reminderTime}
-                    onChange={(e) => setReminderTime(e.target.value)}
-                    onClick={(e) => {
-                      try {
-                        e.currentTarget.showPicker();
-                      } catch (err) {}
-                    }}
-                    onFocus={(e) => {
-                      try {
-                        e.currentTarget.showPicker();
-                      } catch (err) {}
-                    }}
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Toggle switch controls */}
-              <div className={styles.formGroup}>
-                <label style={{ marginBottom: '8px', display: 'block' }}>Pemberitahuan Alarm</label>
-                <div className={styles.togglesList}>
-                  <div className={styles.toggleItem}>
-                    <span>H-1 Hari Sebelum Acara</span>
-                    <label className={styles.switch}>
-                      <input
-                        type="checkbox"
-                        checked={opt1Day}
-                        onChange={(e) => setOpt1Day(e.target.checked)}
-                      />
-                      <span className={styles.slider}></span>
-                    </label>
-                  </div>
-
-                  <div className={styles.toggleItem}>
-                    <span>H-60 Menit Sebelum Acara</span>
-                    <label className={styles.switch}>
-                      <input
-                        type="checkbox"
-                        checked={opt1Hour}
-                        onChange={(e) => setOpt1Hour(e.target.checked)}
-                      />
-                      <span className={styles.slider}></span>
-                    </label>
-                  </div>
-
-                  <div className={styles.toggleItem}>
-                    <span>Tepat Waktu (D-Day)</span>
-                    <label className={styles.switch}>
-                      <input
-                        type="checkbox"
-                        checked={optExact}
-                        onChange={(e) => setOptExact(e.target.checked)}
-                      />
-                      <span className={styles.slider}></span>
-                    </label>
-                  </div>
-
-                  <div className={styles.toggleItem}>
-                    <span>Kirim Notifikasi via WhatsApp</span>
-                    <label className={styles.switch}>
-                      <input
-                        type="checkbox"
-                        checked={enableWaReminder}
-                        onChange={(e) => setEnableWaReminder(e.target.checked)}
-                      />
-                      <span className={styles.slider}></span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {enableWaReminder && (
-                <div className={styles.formGroup}>
-                  <label htmlFor="wa-reminder-number">📲 Nomor WhatsApp Penerima</label>
-                  <input
-                    id="wa-reminder-number"
+                    id="reminder-title"
                     type="text"
-                    placeholder="Contoh: 08123456789"
-                    value={waReminderNumber}
-                    onChange={(e) => setWaReminderNumber(e.target.value)}
-                    required={enableWaReminder}
+                    placeholder="Contoh: Rapat Evaluasi Proyek"
+                    value={reminderTitle}
+                    onChange={(e) => setReminderTitle(e.target.value)}
+                    required
                   />
-                  <small style={{ color: '#10b981', opacity: 0.9, fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
-                    ✓ Nomor disimpan otomatis sebagai default pengingat & asisten suara.
-                  </small>
                 </div>
-              )}
 
-              <GlowButton type="submit" variant="primary" style={{ width: '100%', marginTop: '8px' }}>
-                🔔 Simpan Pengingat
-              </GlowButton>
-            </form>
-          </div>
+                <div className={styles.formGroup}>
+                  <label htmlFor="reminder-desc">Keterangan (Opsional)</label>
+                  <textarea
+                    id="reminder-desc"
+                    placeholder="Tambahkan detail pengingat di sini..."
+                    value={reminderDescription}
+                    onChange={(e) => setReminderDescription(e.target.value)}
+                    rows={3}
+                  />
+                </div>
 
-          <div className={styles.reminderListArea}>
-            <h3>Daftar Pengingat Terjadwal</h3>
-            {reminders.length === 0 ? (
-              <div className={`${styles.emptyReminders} glass-panel`}>
-                <Clock size={48} className={styles.emptyIcon} />
-                <p>Belum ada pengingat terjadwal.</p>
-                <p className={styles.emptyHint}>Katakan "Ingatkan saya [tugas] besok jam 8 pagi" pada AI Voice Assistant untuk membuat pengingat secara otomatis!</p>
-              </div>
-            ) : (
-              <div className={styles.remindersScrollContainer}>
-                {reminders.map((reminder) => {
-                  const isPast = new Date(reminder.dateTime).getTime() < Date.now();
-                  return (
-                    <div key={reminder.id} className={`${styles.reminderCard} glass-panel ${isPast ? styles.pastReminder : ''}`}>
-                      <div className={reminder.notifyExact && !reminder.sentExact && !isPast ? styles.alarmGlowWrapper : undefined}>
-                        <div className={styles.reminderCardHeader}>
-                          <div>
-                            <h4>{reminder.title}</h4>
-                            {reminder.description && <p className={styles.reminderCardDesc}>{reminder.description}</p>}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteReminder(reminder.id)}
-                            className={styles.deleteReminderBtn}
-                            title="Hapus Pengingat"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
+                {/* Date and Time split inputs */}
+                <div className={styles.formRow}>
+                  <div className={styles.formGroup}>
+                    <label htmlFor="reminder-date">📅 Tanggal Pelaksanaan</label>
+                    <input
+                      id="reminder-date"
+                      type="date"
+                      value={reminderDate}
+                      onChange={(e) => setReminderDate(e.target.value)}
+                      onClick={(e) => {
+                        try {
+                          e.currentTarget.showPicker();
+                        } catch (err) { }
+                      }}
+                      onFocus={(e) => {
+                        try {
+                          e.currentTarget.showPicker();
+                        } catch (err) { }
+                      }}
+                      required
+                    />
+                  </div>
 
-                        <div className={styles.reminderCardTime}>
-                          <Clock size={14} />
-                          <span>{formatDateTime(reminder.dateTime)}</span>
-                          {isPast && <span className={styles.pastLabel}>Selesai</span>}
-                        </div>
+                  <div className={styles.formGroup}>
+                    <label htmlFor="reminder-time">⏰ Jam Pelaksanaan</label>
+                    <input
+                      id="reminder-time"
+                      type="time"
+                      value={reminderTime}
+                      onChange={(e) => setReminderTime(e.target.value)}
+                      onClick={(e) => {
+                        try {
+                          e.currentTarget.showPicker();
+                        } catch (err) { }
+                      }}
+                      onFocus={(e) => {
+                        try {
+                          e.currentTarget.showPicker();
+                        } catch (err) { }
+                      }}
+                      required
+                    />
+                  </div>
+                </div>
 
-                        {reminder.whatsappNumber && (
-                          <div className={styles.reminderWaInfo}>
-                            <span>📲 WhatsApp: <strong>{reminder.whatsappNumber}</strong></span>
-                          </div>
+                {/* Toggle switch controls */}
+                <div className={styles.formGroup}>
+                  <label style={{ marginBottom: '8px', display: 'block' }}>Pemberitahuan Alarm</label>
+                  <div className={styles.togglesList}>
+                    <div className={styles.toggleItem}>
+                      <span>H-1 Hari Sebelum Acara</span>
+                      <label className={styles.switch}>
+                        <input
+                          type="checkbox"
+                          checked={opt1Day}
+                          onChange={(e) => setOpt1Day(e.target.checked)}
+                        />
+                        <span className={styles.slider}></span>
+                      </label>
+                    </div>
+
+                    <div className={styles.toggleItem}>
+                      <span>H-60 Menit Sebelum Acara</span>
+                      <label className={styles.switch}>
+                        <input
+                          type="checkbox"
+                          checked={opt1Hour}
+                          onChange={(e) => setOpt1Hour(e.target.checked)}
+                        />
+                        <span className={styles.slider}></span>
+                      </label>
+                    </div>
+
+                    <div className={styles.toggleItem}>
+                      <span>Tepat Waktu (D-Day)</span>
+                      <label className={styles.switch}>
+                        <input
+                          type="checkbox"
+                          checked={optExact}
+                          onChange={(e) => setOptExact(e.target.checked)}
+                        />
+                        <span className={styles.slider}></span>
+                      </label>
+                    </div>
+
+                    <div className={styles.toggleItem}>
+                      <span>Kirim Notifikasi via WhatsApp</span>
+                      <label className={styles.switch}>
+                        <input
+                          type="checkbox"
+                          checked={enableWaReminder}
+                          onChange={(e) => setEnableWaReminder(e.target.checked)}
+                        />
+                        <span className={styles.slider}></span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {enableWaReminder && (
+                  <div className={styles.formGroup}>
+                    <label htmlFor="wa-reminder-number">📲 Nomor WhatsApp Penerima</label>
+                    {employeeContacts.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <select
+                          className={styles.contactSelectDropdown}
+                          value={employeeContacts.some(c => c.number === waReminderNumber) ? employeeContacts.find(c => c.number === waReminderNumber)?.id : 'manual'}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'manual') {
+                              setWaReminderNumber('');
+                            } else {
+                              const contact = employeeContacts.find(c => c.id === val);
+                              if (contact) {
+                                setWaReminderNumber(contact.number);
+                              }
+                            }
+                          }}
+                        >
+                          <option value="manual">-- Ketik Nomor Manual --</option>
+                          {employeeContacts.map(c => (
+                            <option key={c.id} value={c.id}>{c.name} ({c.number})</option>
+                          ))}
+                        </select>
+
+                        {(!employeeContacts.some(c => c.number === waReminderNumber) || waReminderNumber === '') && (
+                          <input
+                            id="wa-reminder-number"
+                            type="text"
+                            placeholder="Contoh: 08123456789"
+                            value={waReminderNumber}
+                            onChange={(e) => setWaReminderNumber(e.target.value)}
+                            required={enableWaReminder}
+                          />
                         )}
+                      </div>
+                    ) : (
+                      <input
+                        id="wa-reminder-number"
+                        type="text"
+                        placeholder="Contoh: 08123456789"
+                        value={waReminderNumber}
+                        onChange={(e) => setWaReminderNumber(e.target.value)}
+                        required={enableWaReminder}
+                      />
+                    )}
+                    <small style={{ color: '#10b981', opacity: 0.9, fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+                      ✓ Nomor disimpan otomatis sebagai default pengingat & asisten suara.
+                    </small>
+                  </div>
+                )}
 
-                        <div className={styles.reminderStages}>
-                          {reminder.notify1Day ? (
-                            <span className={`${styles.stageBadge} ${reminder.sent1Day ? styles.stageSent : styles.stagePending}`}>
-                              {reminder.sent1Day ? '✓ 1 Hari' : '⏳ 1 Hari'}
-                            </span>
-                          ) : (
-                            <span className={`${styles.stageBadge} ${styles.stageDisabled}`}>
-                              ✖ 1 Hari (Nonaktif)
-                            </span>
+                <GlowButton type="submit" variant="primary" style={{ width: '100%', marginTop: '8px' }}>
+                  🔔 Simpan Pengingat
+                </GlowButton>
+              </form>
+            </div>
+
+            <div className={styles.reminderListArea}>
+              <h3>Daftar Pengingat Terjadwal</h3>
+              {reminders.length === 0 ? (
+                <div className={`${styles.emptyReminders} glass-panel`}>
+                  <Clock size={48} className={styles.emptyIcon} />
+                  <p>Belum ada pengingat terjadwal.</p>
+                  <p className={styles.emptyHint}>Katakan "Ingatkan saya [tugas] besok jam 8 pagi" pada AI Voice Assistant untuk membuat pengingat secara otomatis!</p>
+                </div>
+              ) : (
+                <div className={styles.remindersScrollContainer}>
+                  {reminders.map((reminder) => {
+                    const isPast = new Date(reminder.dateTime).getTime() < Date.now();
+                    return (
+                      <div key={reminder.id} className={`${styles.reminderCard} glass-panel ${isPast ? styles.pastReminder : ''}`}>
+                        <div className={reminder.notifyExact && !reminder.sentExact && !isPast ? styles.alarmGlowWrapper : undefined}>
+                          <div className={styles.reminderCardHeader}>
+                            <div>
+                              <h4>{reminder.title}</h4>
+                              {reminder.description && <p className={styles.reminderCardDesc}>{reminder.description}</p>}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteReminder(reminder.id)}
+                              className={styles.deleteReminderBtn}
+                              title="Hapus Pengingat"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+
+                          <div className={styles.reminderCardTime}>
+                            <Clock size={14} />
+                            <span>{formatDateTime(reminder.dateTime)}</span>
+                            {isPast && <span className={styles.pastLabel}>Selesai</span>}
+                          </div>
+
+                          {reminder.whatsappNumber && (
+                            <div className={styles.reminderWaInfo}>
+                              <span>📲 WhatsApp: <strong>{reminder.whatsappNumber}</strong></span>
+                            </div>
                           )}
 
-                          {reminder.notify1Hour ? (
-                            <span className={`${styles.stageBadge} ${reminder.sent1Hour ? styles.stageSent : styles.stagePending}`}>
-                              {reminder.sent1Hour ? '✓ 1 Jam' : '⏳ 1 Jam'}
-                            </span>
-                          ) : (
-                            <span className={`${styles.stageBadge} ${styles.stageDisabled}`}>
-                              ✖ 1 Jam (Nonaktif)
-                            </span>
-                          )}
+                          <div className={styles.reminderStages}>
+                            {reminder.notify1Day ? (
+                              <span className={`${styles.stageBadge} ${reminder.sent1Day ? styles.stageSent : styles.stagePending}`}>
+                                {reminder.sent1Day ? '✓ 1 Hari' : '⏳ 1 Hari'}
+                              </span>
+                            ) : (
+                              <span className={`${styles.stageBadge} ${styles.stageDisabled}`}>
+                                ✖ 1 Hari (Nonaktif)
+                              </span>
+                            )}
 
-                          {reminder.notifyExact ? (
-                            <span className={`${styles.stageBadge} ${reminder.sentExact ? styles.stageSent : styles.stagePending}`}>
-                              {reminder.sentExact ? '✓ Tepat Waktu' : '⏳ Tepat Waktu'}
-                            </span>
-                          ) : (
-                            <span className={`${styles.stageBadge} ${styles.stageDisabled}`}>
-                              ✖ Tepat Waktu (Nonaktif)
-                            </span>
-                          )}
+                            {reminder.notify1Hour ? (
+                              <span className={`${styles.stageBadge} ${reminder.sent1Hour ? styles.stageSent : styles.stagePending}`}>
+                                {reminder.sent1Hour ? '✓ 1 Jam' : '⏳ 1 Jam'}
+                              </span>
+                            ) : (
+                              <span className={`${styles.stageBadge} ${styles.stageDisabled}`}>
+                                ✖ 1 Jam (Nonaktif)
+                              </span>
+                            )}
+
+                            {reminder.notifyExact ? (
+                              <span className={`${styles.stageBadge} ${reminder.sentExact ? styles.stageSent : styles.stagePending}`}>
+                                {reminder.sentExact ? '✓ Tepat Waktu' : '⏳ Tepat Waktu'}
+                              </span>
+                            ) : (
+                              <span className={`${styles.stageBadge} ${styles.stageDisabled}`}>
+                                ✖ Tepat Waktu (Nonaktif)
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {reminderActiveSubTab === 'jobdesk' && (
+          <div className={styles.remindersContentGrid}>
+            <div className={`${styles.reminderFormCard} glass-panel`}>
+              <h3>Buat Pengingat Jobdesk Baru</h3>
+              <form onSubmit={handleCreateJobdeskReminder} className={styles.reminderForm}>
+                <div className={styles.formGroup}>
+                  <label htmlFor="jobdesk-title">Tugas / Jobdesk</label>
+                  <input
+                    id="jobdesk-title"
+                    type="text"
+                    placeholder="Contoh: Isi Biji Kopi Espresso"
+                    value={jobdeskTitle}
+                    onChange={(e) => setJobdeskTitle(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="jobdesk-desc">Keterangan / SOP Kerja</label>
+                  <textarea
+                    id="jobdesk-desc"
+                    placeholder="Contoh: Setiap 1 jam sekali harus dilakukan pengisian biji espresso agar tidak rusak."
+                    value={jobdeskDescription}
+                    onChange={(e) => setJobdeskDescription(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="jobdesk-interval">⏰ Ulangi Setiap (Interval Waktu)</label>
+                  <select
+                    id="jobdesk-interval"
+                    className={styles.contactSelectDropdown}
+                    value={jobdeskInterval}
+                    onChange={(e) => setJobdeskInterval(e.target.value)}
+                    required
+                  >
+                    <option value="1">Setiap 1 Menit</option>
+                    <option value="60">Setiap 1 Jam</option>
+                    <option value="120">Setiap 2 Jam</option>
+                    <option value="240">Setiap 4 Jam</option>
+                    <option value="480">Setiap 8 Jam</option>
+                    <option value="720">Setiap 12 Jam</option>
+                    <option value="1440">Setiap 24 Jam (Harian)</option>
+                  </select>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label style={{ marginBottom: '8px', display: 'block' }}>👥 Tugaskan Karyawan (Kontak WhatsApp)</label>
+                  {employeeContacts.length > 0 ? (
+                    <div className={styles.contactsCheckboxGrid}>
+                      {employeeContacts.map(c => (
+                        <label key={c.id} className={styles.contactCheckboxLabel}>
+                          <input
+                            type="checkbox"
+                            checked={selectedContactIds.includes(c.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedContactIds(prev => [...prev, c.id]);
+                              } else {
+                                setSelectedContactIds(prev => prev.filter(id => id !== c.id));
+                              }
+                            }}
+                          />
+                          <span>{c.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                      Belum ada kontak tersimpan. Silakan tambahkan di tab "Daftar Kontak".
+                    </p>
+                  )}
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="jobdesk-manual-phone">📲 Nomor WhatsApp Tambahan (Manual)</label>
+                  <input
+                    id="jobdesk-manual-phone"
+                    type="text"
+                    placeholder="Contoh: 08123456789"
+                    value={manualJobdeskNumber}
+                    onChange={(e) => setManualJobdeskNumber(e.target.value)}
+                  />
+                  <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+                    Opsional jika ingin mengirim ke nomor luar daftar kontak karyawan.
+                  </small>
+                </div>
+
+                <GlowButton type="submit" variant="primary" style={{ width: '100%', marginTop: '8px' }}>
+                  🔔 Simpan Pengingat Jobdesk
+                </GlowButton>
+              </form>
+            </div>
+
+            <div className={styles.reminderListArea}>
+              <h3>Daftar Pengingat Jobdesk Karyawan</h3>
+              {jobdeskReminders.length === 0 ? (
+                <div className={`${styles.emptyReminders} glass-panel`}>
+                  <Clock size={48} className={styles.emptyIcon} />
+                  <p>Belum ada pengingat jobdesk karyawan berulang.</p>
+                </div>
+              ) : (
+                <div className={styles.remindersScrollContainer}>
+                  {jobdeskReminders.map((reminder) => {
+                    return (
+                      <div key={reminder.id} className={`${styles.reminderCard} glass-panel`}>
+                        <div>
+                          <div className={styles.reminderCardHeader}>
+                            <div>
+                              <h4>{reminder.title}</h4>
+                              {reminder.description && <p className={styles.reminderCardDesc}>{reminder.description}</p>}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteJobdeskReminder(reminder.id)}
+                              className={styles.deleteReminderBtn}
+                              title="Hapus Jobdesk"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+
+                          <div className={styles.reminderCardTime} style={{ marginTop: '8px' }}>
+                            <Clock size={14} style={{ color: 'var(--secondary)' }} />
+                            <span>Interval: <strong>Setiap {reminder.intervalMinutes < 60 ? `${reminder.intervalMinutes} Menit` : `${reminder.intervalMinutes / 60} Jam`}</strong></span>
+                          </div>
+
+                          <div className={styles.reminderCardTime} style={{ marginTop: '4px' }}>
+                            <Users size={14} style={{ color: 'var(--primary)' }} />
+                            <span>Penerima: <strong>{reminder.employeeNames || '-'}</strong></span>
+                          </div>
+
+                          {reminder.whatsappNumber && (
+                            <div className={styles.reminderWaInfo} style={{ marginTop: '4px', background: 'rgba(255, 255, 255, 0.02)' }}>
+                              <span style={{ fontSize: '0.8rem' }}>📲 WhatsApp: <strong>{reminder.whatsappNumber}</strong></span>
+                            </div>
+                          )}
+
+                          <div className={styles.reminderStages} style={{ marginTop: '12px' }}>
+                            <span className={`${styles.stageBadge} ${styles.stageSent}`} style={{ fontSize: '0.75rem' }}>
+                              Terakhir Terkirim: {new Date(reminder.lastRun).toLocaleString('id-ID', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {reminderActiveSubTab === 'contacts' && (
+          <div className={styles.remindersContentGrid}>
+            <div className={`${styles.reminderFormCard} glass-panel`}>
+              <h3>Tambah Kontak Baru</h3>
+              <form onSubmit={handleCreateContact} className={styles.reminderForm}>
+                <div className={styles.formGroup}>
+                  <label htmlFor="contact-name">Nama Karyawan</label>
+                  <input
+                    id="contact-name"
+                    type="text"
+                    placeholder="Contoh: Yogi"
+                    value={contactName}
+                    onChange={(e) => setContactName(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="contact-number">Nomor WhatsApp</label>
+                  <input
+                    id="contact-number"
+                    type="text"
+                    placeholder="Contoh: 08123456789"
+                    value={contactNumber}
+                    onChange={(e) => setContactNumber(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <GlowButton type="submit" variant="primary" style={{ width: '100%', marginTop: '8px' }}>
+                  👤 Simpan Kontak
+                </GlowButton>
+              </form>
+            </div>
+
+            <div className={styles.reminderListArea}>
+              <h3>Daftar Kontak Tersimpan</h3>
+              {employeeContacts.length === 0 ? (
+                <div className={styles.emptyContacts}>
+                  <Users size={48} style={{ opacity: 0.3, marginBottom: '8px' }} />
+                  <p>Belum ada kontak tersimpan.</p>
+                </div>
+              ) : (
+                <div className={styles.contactsGrid}>
+                  {employeeContacts.map((contact) => (
+                    <div key={contact.id} className={styles.contactCard}>
+                      <div className={styles.contactInfo}>
+                        <h4>{contact.name}</h4>
+                        <p>{contact.number}</p>
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.contactDeleteBtn}
+                        onClick={() => handleDeleteContact(contact.id)}
+                        title="Hapus Kontak"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -2807,7 +3269,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     >
                       📂 Semua
                     </button>
-                    
+
                     {/* Render Root/Parent Folders */}
                     {folders.filter(f => !f.parentId).map((parentFolder) => {
                       const isParentActive = activeParentId === parentFolder.id;
@@ -2924,8 +3386,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     <div className={styles.mobileBottomSheet} onClick={(e) => e.stopPropagation()}>
                       <div className={styles.mobileBottomSheetHeader}>
                         <h3>Pilih Tanggal</h3>
-                        <button 
-                          className={styles.mobileBottomSheetClose} 
+                        <button
+                          className={styles.mobileBottomSheetClose}
                           onClick={() => setIsMobileCalendarOpen(false)}
                         >
                           <X size={20} />
@@ -2963,8 +3425,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     <div className={styles.mobileBottomSheet} onClick={(e) => e.stopPropagation()}>
                       <div className={styles.mobileBottomSheetHeader}>
                         <h3>Kelola Folder</h3>
-                        <button 
-                          className={styles.mobileBottomSheetClose} 
+                        <button
+                          className={styles.mobileBottomSheetClose}
                           onClick={() => setIsMobileFoldersOpen(false)}
                         >
                           <X size={20} />
@@ -3024,7 +3486,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                       {folder.depth > 0 ? `↳ ${folder.name}` : folder.name}
                                     </span>
                                   )}
-                                  
+
                                   {editingFolderId !== folder.id && (
                                     <div className={styles.folderActions}>
                                       <button
@@ -3049,7 +3511,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                               ))}
                             </div>
                           )}
-                          
+
                           <div className={styles.mobileAddFolderForm} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                               <input
@@ -3128,7 +3590,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                 // Check note type
                                 const isVoiceNote = !!note.summary && (note.tags?.some(tag => tag.toLowerCase().includes('voice') || tag.toLowerCase().includes('suara')) || note.content.toLowerCase().includes('transkrip'));
                                 const isNewsNote = note.tags?.some(tag => tag.toLowerCase().includes('berita') || tag.toLowerCase().includes('news'));
-                                
+
                                 return (
                                   <button
                                     key={note.id}
@@ -3146,7 +3608,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                         {formatDateShort(note.created_at)}
                                       </span>
                                     </div>
-                                    
+
                                     {note.summary && (
                                       <div className={styles.mobileNoteSummary}>
                                         {note.summary}
@@ -3186,7 +3648,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                           else if (t.includes('tugas') || t.includes('todo') || t.includes('kerja')) tagClass = 'tugas';
                                           else if (t.includes('uang') || t.includes('keuangan') || t.includes('finansial')) tagClass = 'keuangan';
                                           else if (t.includes('pribadi') || t.includes('personal')) tagClass = 'pribadi';
-                                          
+
                                           return (
                                             <span key={idx} className={`tag-badge ${tagClass}`} style={{ fontSize: '0.62rem', padding: '2px 8px' }}>
                                               {tag}
@@ -3252,10 +3714,10 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
           {activeTab === 'recorder' && (
             <div className={styles.mobileRecorderContainer}>
-              <VoiceRecorder 
+              <VoiceRecorder
                 folders={folders}
                 initialCheckedFolderIds={assistantSelectedFolderIds}
-                onFormatted={handleFormattedNote} 
+                onFormatted={handleFormattedNote}
                 autoStart={autoStartRecorder}
                 onAutoStartTriggered={() => setAutoStartRecorder(false)}
               />
@@ -3358,7 +3820,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             <div className={`${styles.modalContent} glass-panel`}>
               <h3>Simpan Catatan ke Folder</h3>
               <p>Silakan pilih folder penyimpanan untuk catatan cerdas baru Anda:</p>
-              
+
               <div className={styles.modalForm}>
                 <select
                   className={styles.folderSelectDropdown}
@@ -3372,7 +3834,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     </option>
                   ))}
                 </select>
-                
+
                 <div className={styles.modalInlineAddFolder}>
                   <input
                     type="text"
@@ -3422,7 +3884,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   </button>
                 </div>
               </div>
-              
+
               <div className={styles.modalActions}>
                 <GlowButton
                   variant="outline"
@@ -3454,15 +3916,15 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               <h3 className={styles.confirmTitle}>{confirmDialog.title}</h3>
               <p className={styles.confirmMessage}>{confirmDialog.message}</p>
               <div className={styles.confirmActions}>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className={styles.confirmCancelBtn}
                   onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
                 >
                   Batal
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className={styles.confirmConfirmBtn}
                   onClick={() => {
                     confirmDialog.onConfirm();
@@ -3483,7 +3945,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 <Sparkles size={16} style={{ color: 'var(--secondary)', marginRight: '8px' }} />
                 Catatan Pintar Berhasil Dibuat
               </div>
-              <button 
+              <button
                 className={styles.notificationCloseBtn}
                 onClick={() => setSaveResultNotification(null)}
               >
@@ -3506,7 +3968,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           </div>
         )}
         {showReservationsModalAdmin && (
-          <div 
+          <div
             onClick={() => setShowReservationsModalAdmin(false)}
             style={{
               position: 'fixed',
@@ -3523,13 +3985,13 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               padding: '16px'
             }}
           >
-            <div 
-              onClick={(e) => e.stopPropagation()} 
-              style={{ 
-                maxWidth: '650px', 
-                width: '100%', 
-                maxHeight: '85vh', 
-                display: 'flex', 
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                maxWidth: '650px',
+                width: '100%',
+                maxHeight: '85vh',
+                display: 'flex',
                 flexDirection: 'column',
                 backgroundColor: 'rgba(10, 10, 22, 0.95)',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -3545,7 +4007,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   <CalendarIcon size={20} style={{ color: '#6366f1' }} />
                   <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600, color: '#fff' }}>Daftar Reservasi Pelanggan</h3>
                 </div>
-                <button 
+                <button
                   onClick={() => setShowReservationsModalAdmin(false)}
                   style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
@@ -3648,8 +4110,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                         };
 
                         return (
-                          <div 
-                            key={res.id} 
+                          <div
+                            key={res.id}
                             style={{
                               background: 'rgba(255, 255, 255, 0.02)',
                               border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -3665,7 +4127,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                 <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#fff' }}>{res.name}</h4>
                                 <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{formattedDate}</span>
                               </div>
-                              <span 
+                              <span
                                 style={{
                                   fontSize: '0.7rem',
                                   padding: '3px 8px',
@@ -3709,7 +4171,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 })()}
               </div>
               <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '12px', marginTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                <button 
+                <button
                   onClick={() => fetchAdminReservations()}
                   style={{
                     padding: '8px 14px',
@@ -3723,7 +4185,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 >
                   Segarkan 🔄
                 </button>
-                <button 
+                <button
                   onClick={() => setShowReservationsModalAdmin(false)}
                   style={{
                     padding: '8px 14px',
@@ -3774,7 +4236,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <button 
+                <button
                   onClick={() => {
                     fetchAdminReservations();
                     setShowReservationsModalAdmin(true);
@@ -3798,7 +4260,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   <CalendarIcon size={14} />
                   <span className={styles.adminChatResBtnText}>Reservasi</span>
                 </button>
-                <button 
+                <button
                   onClick={() => setShowMobileAttributesModal(true)}
                   style={{
                     display: 'flex',
@@ -3819,7 +4281,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   <Tag size={14} />
                   <span className={styles.adminChatAttrBtnText}>Kelola Atribut</span>
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     fetchAttributeHistory();
                     setShowAttributeCalendarModal(true);
@@ -3855,10 +4317,10 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               <span className={styles.filterLabel}>
                 <Filter size={12} style={{ marginRight: '4px' }} /> Filter:
               </span>
-              
+
               {!showFilterSearch ? (
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setShowFilterSearch(true)}
                   className={styles.filterSearchToggleBtn}
                   title="Cari filter"
@@ -3876,9 +4338,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     onChange={(e) => setFilterAttrSearchQuery(e.target.value)}
                     autoFocus
                   />
-                  <button 
-                    type="button" 
-                    className={styles.attrSearchClearBtn} 
+                  <button
+                    type="button"
+                    className={styles.attrSearchClearBtn}
                     onClick={() => {
                       setFilterAttrSearchQuery('');
                       setShowFilterSearch(false);
@@ -3927,7 +4389,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       Error: {chatError}
                     </p>
                   )}
-                  <button 
+                  <button
                     onClick={() => loadChatMessages(false)}
                     style={{
                       marginTop: '12px',
@@ -3985,27 +4447,27 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     const isMe = msg.senderRole === 'admin';
                     const date = getValidDate(msg.createdAt) || new Date();
                     const timeStr = formatTime(msg.createdAt);
-                    
+
                     let showDivider = false;
                     let dividerText = '';
-                    
+
                     const currentDateKey = date.toDateString();
                     const prevMsg = index > 0 ? filteredChatMessages[index - 1] : null;
                     const prevDate = prevMsg ? getValidDate(prevMsg.createdAt) : null;
                     const prevDateKey = prevDate ? prevDate.toDateString() : null;
-                    
+
                     if (currentDateKey !== prevDateKey) {
                       showDivider = true;
-                      
+
                       const today = new Date();
                       today.setHours(0, 0, 0, 0);
-                      
+
                       const yesterday = new Date(today);
                       yesterday.setDate(yesterday.getDate() - 1);
-                      
+
                       const compareDate = new Date(date);
                       compareDate.setHours(0, 0, 0, 0);
-                      
+
                       if (compareDate.getTime() === today.getTime()) {
                         dividerText = 'Hari Ini';
                       } else if (compareDate.getTime() === yesterday.getTime()) {
@@ -4023,7 +4485,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                           </div>
                         )}
                         <div className={`${styles.chatRow} ${isMe ? styles.chatMyRow : styles.chatOtherRow}`}>
-                          <div 
+                          <div
                             className={`${styles.chatBubble} ${isMe ? styles.chatMyBubble : styles.chatOtherBubble} ${adminCopiedMessageId === msg.id ? styles.bubbleCopied : ''}`}
                             onTouchStart={(e) => handleAdminTouchStart(e, msg)}
                             onTouchEnd={handleAdminTouchEnd}
@@ -4039,8 +4501,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                               </div>
                               <div className={styles.messageActions}>
                                 {isMe && (
-                                  <button 
-                                    onClick={() => handleEditAdminChatClick(msg)} 
+                                  <button
+                                    onClick={() => handleEditAdminChatClick(msg)}
                                     className={styles.actionBtn}
                                     title="Edit Pesan"
                                     type="button"
@@ -4048,8 +4510,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                     <Pencil size={11} />
                                   </button>
                                 )}
-                                <button 
-                                  onClick={() => handleDeleteAdminChatMessage(msg.id)} 
+                                <button
+                                  onClick={() => handleDeleteAdminChatMessage(msg.id)}
                                   className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
                                   title="Hapus Pesan"
                                   type="button"
@@ -4057,8 +4519,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                   <Trash2 size={11} />
                                 </button>
                                 {msg.message && (
-                                  <button 
-                                    onClick={() => handleAdminCopyMessage(msg.id, msg.message)} 
+                                  <button
+                                    onClick={() => handleAdminCopyMessage(msg.id, msg.message)}
                                     className={styles.actionBtn}
                                     title="Salin Pesan"
                                     type="button"
@@ -4072,13 +4534,13 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                             {msg.attribute && (
                               <span className={styles.chatBubbleAttribute} style={{
                                 borderColor: msg.attribute.toLowerCase() === 'sales' ? '#10b981' :
-                                             msg.attribute.toLowerCase() === 'progres' ? '#06b6d4' :
-                                             msg.attribute.toLowerCase() === 'urgent' ? '#ef4444' :
-                                             msg.attribute.toLowerCase() === 'umum' ? '#6366f1' : '#d946ef',
+                                  msg.attribute.toLowerCase() === 'progres' ? '#06b6d4' :
+                                    msg.attribute.toLowerCase() === 'urgent' ? '#ef4444' :
+                                      msg.attribute.toLowerCase() === 'umum' ? '#6366f1' : '#d946ef',
                                 color: msg.attribute.toLowerCase() === 'sales' ? '#10b981' :
-                                       msg.attribute.toLowerCase() === 'progres' ? '#06b6d4' :
-                                       msg.attribute.toLowerCase() === 'urgent' ? '#ef4444' :
-                                       msg.attribute.toLowerCase() === 'umum' ? '#6366f1' : '#d946ef'
+                                  msg.attribute.toLowerCase() === 'progres' ? '#06b6d4' :
+                                    msg.attribute.toLowerCase() === 'urgent' ? '#ef4444' :
+                                      msg.attribute.toLowerCase() === 'umum' ? '#6366f1' : '#d946ef'
                               }}>
                                 <Tag size={10} style={{ marginRight: '4px' }} />
                                 {msg.attribute}
@@ -4086,8 +4548,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                             )}
 
                             {msg.imageUrl && (
-                              <div 
-                                className={styles.adminMessageImageWrapper} 
+                              <div
+                                className={styles.adminMessageImageWrapper}
                                 onClick={() => setAdminActiveLightboxImage(msg.imageUrl || null)}
                               >
                                 <img src={msg.imageUrl} alt="Lampiran foto" className={styles.adminMessageImage} />
@@ -4126,9 +4588,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   <span className={styles.editText}>
                     <Pencil size={12} style={{ marginRight: '6px' }} /> Sedang mengedit pesan...
                   </span>
-                  <button 
-                    type="button" 
-                    onClick={handleCancelAdminChatEdit} 
+                  <button
+                    type="button"
+                    onClick={handleCancelAdminChatEdit}
                     className={styles.editCancelBtn}
                   >
                     Batal
@@ -4138,8 +4600,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
               <div className={styles.attributeSelectRow}>
                 {!showSelectSearch ? (
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setShowSelectSearch(true)}
                     className={styles.attributeSearchToggleBtn}
                     title="Cari kategori"
@@ -4157,9 +4619,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       onChange={(e) => setSelectAttrSearchQuery(e.target.value)}
                       autoFocus
                     />
-                    <button 
-                      type="button" 
-                      className={styles.attrSearchClearBtn} 
+                    <button
+                      type="button"
+                      className={styles.attrSearchClearBtn}
                       onClick={() => {
                         setSelectAttrSearchQuery('');
                         setShowSelectSearch(false);
@@ -4218,7 +4680,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 const taskOptions = allOptions.filter(o => o.hasTimeframe);
 
                 return (
-                  <div 
+                  <div
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
@@ -4237,7 +4699,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                           const isSelected = newChatMessage
                             ? newChatMessage.split('\n').map(item => item.trim().toLowerCase()).includes(opt.text.toLowerCase())
                             : false;
-                          
+
                           return (
                             <button
                               key={opt.id}
@@ -4248,11 +4710,11 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                 borderRadius: '16px',
                                 fontSize: '0.75rem',
                                 fontWeight: 500,
-                                border: isSelected 
-                                  ? '1px solid rgba(99, 102, 241, 0.5)' 
+                                border: isSelected
+                                  ? '1px solid rgba(99, 102, 241, 0.5)'
                                   : '1px solid rgba(255,255,255,0.06)',
-                                background: isSelected 
-                                  ? 'rgba(99, 102, 241, 0.2)' 
+                                background: isSelected
+                                  ? 'rgba(99, 102, 241, 0.2)'
                                   : 'rgba(255, 255, 255, 0.03)',
                                 color: isSelected ? '#fff' : '#cbd5e1',
                                 cursor: 'pointer',
@@ -4298,7 +4760,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                   {isTaken ? `Diambil: ${task.assignedTo} (${expiryStr})` : `Durasi: ${task.duration}`}
                                 </span>
                               </div>
-                              <span 
+                              <span
                                 style={{
                                   fontSize: '0.65rem',
                                   padding: '2px 6px',
@@ -4323,9 +4785,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               {adminImagePreview && (
                 <div className={styles.adminImagePreviewContainer}>
                   <img src={adminImagePreview} alt="Upload preview" className={styles.adminImagePreview} />
-                  <button 
-                    type="button" 
-                    onClick={handleAdminRemovePreview} 
+                  <button
+                    type="button"
+                    onClick={handleAdminRemovePreview}
                     className={styles.adminRemovePreviewBtn}
                     title="Hapus gambar"
                   >
@@ -4341,7 +4803,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
               <form onSubmit={handleSendAdminChatMessage} className={styles.adminChatInputForm}>
                 {/* Attachment Button */}
-                <label 
+                <label
                   className={`${styles.adminAttachBtn} ${chatSubmitting ? styles.disabledAttachBtn : ''}`}
                   style={{ cursor: chatSubmitting ? 'not-allowed' : 'pointer' }}
                   title="Lampirkan foto"
@@ -4369,8 +4831,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   style={{ resize: 'none', fontFamily: 'inherit' }}
                 />
 
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className={styles.adminChatSendBtn}
                   disabled={(!newChatMessage.trim() && !adminSelectedFile) || chatSubmitting}
                 >
@@ -4386,7 +4848,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               <Tag size={18} style={{ color: 'var(--primary)' }} />
               <h4>Kelola Atribut Klasifikasi</h4>
             </div>
-            
+
             <p className={styles.attrPanelHelp}>
               Atribut klasifikasi laporan koordinasi karyawan (e.g. Sales, Progres, dll).
             </p>
@@ -4470,9 +4932,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   onChange={(e) => setManageAttrSearchQuery(e.target.value)}
                 />
                 {manageAttrSearchQuery && (
-                  <button 
-                    type="button" 
-                    className={styles.attrSearchClearBtn} 
+                  <button
+                    type="button"
+                    className={styles.attrSearchClearBtn}
                     onClick={() => setManageAttrSearchQuery('')}
                   >
                     <X size={10} />
@@ -4485,109 +4947,109 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               {chatAttributes
                 .filter(attr => attr.name.toLowerCase().includes(manageAttrSearchQuery.toLowerCase()))
                 .map((attr) => (
-                <div 
-                  key={attr.id} 
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '6px',
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                    borderRadius: '8px',
-                    padding: '10px',
-                    marginBottom: '8px'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className={styles.attrItemName} style={{ fontWeight: 600, color: '#fff', fontSize: '0.9rem' }}>
-                      {attr.isGroup ? '📁' : '🏷️'} {attr.name}
-                    </span>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingAttributeForOptions(attr);
-                          if (attr.isGroup) {
-                            setManagedGroupMembers(Array.isArray(attr.groupAttributes) ? attr.groupAttributes : []);
-                          } else {
-                            const parsedOpts = Array.isArray(attr.options)
-                              ? attr.options.map((opt: any, idx: number) => {
-                                  return typeof opt === 'string' ? { id: 'opt_' + idx, text: opt, hasTimeframe: false } : opt;
-                                })
-                              : [];
-                            setManagedOptions(sortOptions(parsedOpts));
-                            setManagedChatbotEnabled(attr.chatbotEnabled || false);
-                            setManagedQuickText(attr.quickText || '');
-                            setNewOptionInput('');
-                            setNewOptionHasTimeframe(false);
-                            setEditingOptionId(null);
-                          }
-                        }}
-                        style={{
-                          background: 'rgba(99, 102, 241, 0.15)',
-                          border: '1px solid rgba(99, 102, 241, 0.3)',
-                          color: '#818cf8',
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                          fontSize: '0.72rem',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Kelola
-                      </button>
-                      {attr.name !== 'Umum' && (
+                  <div
+                    key={attr.id}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px',
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: '8px',
+                      padding: '10px',
+                      marginBottom: '8px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className={styles.attrItemName} style={{ fontWeight: 600, color: '#fff', fontSize: '0.9rem' }}>
+                        {attr.isGroup ? '📁' : '🏷️'} {attr.name}
+                      </span>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <button
                           type="button"
-                          onClick={() => handleRenameChatAttribute(attr.id, attr.name)}
+                          onClick={() => {
+                            setEditingAttributeForOptions(attr);
+                            if (attr.isGroup) {
+                              setManagedGroupMembers(Array.isArray(attr.groupAttributes) ? attr.groupAttributes : []);
+                            } else {
+                              const parsedOpts = Array.isArray(attr.options)
+                                ? attr.options.map((opt: any, idx: number) => {
+                                  return typeof opt === 'string' ? { id: 'opt_' + idx, text: opt, hasTimeframe: false } : opt;
+                                })
+                                : [];
+                              setManagedOptions(sortOptions(parsedOpts));
+                              setManagedChatbotEnabled(attr.chatbotEnabled || false);
+                              setManagedQuickText(attr.quickText || '');
+                              setNewOptionInput('');
+                              setNewOptionHasTimeframe(false);
+                              setEditingOptionId(null);
+                            }
+                          }}
                           style={{
-                            background: 'rgba(234, 179, 8, 0.15)',
-                            border: '1px solid rgba(234, 179, 8, 0.3)',
-                            color: '#facc15',
+                            background: 'rgba(99, 102, 241, 0.15)',
+                            border: '1px solid rgba(99, 102, 241, 0.3)',
+                            color: '#818cf8',
                             padding: '2px 8px',
                             borderRadius: '4px',
                             fontSize: '0.72rem',
                             cursor: 'pointer',
                           }}
-                          title="Ubah Nama Atribut"
                         >
-                          Ubah Nama
+                          Kelola
                         </button>
-                      )}
-                      {attr.name !== 'Umum' && (
-                        <button 
-                          type="button" 
-                          onClick={() => handleDeleteChatAttribute(attr.id, attr.name)}
-                          className={styles.attrDeleteBtn}
-                          title="Hapus Atribut"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      )}
+                        {attr.name !== 'Umum' && (
+                          <button
+                            type="button"
+                            onClick={() => handleRenameChatAttribute(attr.id, attr.name)}
+                            style={{
+                              background: 'rgba(234, 179, 8, 0.15)',
+                              border: '1px solid rgba(234, 179, 8, 0.3)',
+                              color: '#facc15',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.72rem',
+                              cursor: 'pointer',
+                            }}
+                            title="Ubah Nama Atribut"
+                          >
+                            Ubah Nama
+                          </button>
+                        )}
+                        {attr.name !== 'Umum' && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteChatAttribute(attr.id, attr.name)}
+                            className={styles.attrDeleteBtn}
+                            title="Hapus Atribut"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {attr.isGroup ? (
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                      Kumpulan: <strong style={{ color: '#818cf8' }}>
-                        {Array.isArray(attr.groupAttributes) && attr.groupAttributes.length > 0 
-                          ? attr.groupAttributes.join(', ') 
-                          : 'Kosong'}
-                      </strong>
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                      <span>Pilihan Ganda: <strong>{Array.isArray(attr.options) ? attr.options.length : 0} opsi</strong></span>
-                      <span>AI Chatbot: <strong style={{ color: attr.chatbotEnabled ? '#10b981' : '#ef4444' }}>{attr.chatbotEnabled ? 'Aktif' : 'Nonaktif'}</strong></span>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    {attr.isGroup ? (
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                        Kumpulan: <strong style={{ color: '#818cf8' }}>
+                          {Array.isArray(attr.groupAttributes) && attr.groupAttributes.length > 0
+                            ? attr.groupAttributes.join(', ')
+                            : 'Kosong'}
+                        </strong>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        <span>Pilihan Ganda: <strong>{Array.isArray(attr.options) ? attr.options.length : 0} opsi</strong></span>
+                        <span>AI Chatbot: <strong style={{ color: attr.chatbotEnabled ? '#10b981' : '#ef4444' }}>{attr.chatbotEnabled ? 'Aktif' : 'Nonaktif'}</strong></span>
+                      </div>
+                    )}
+                  </div>
+                ))}
             </div>
           </div>
 
           {/* Modal Kelola Atribut (Pilihan Ganda & Chatbot) */}
           {editingAttributeForOptions && (
-            <div 
+            <div
               onClick={() => setEditingAttributeForOptions(null)}
               style={{
                 position: 'fixed',
@@ -4604,11 +5066,11 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 padding: '16px'
               }}
             >
-              <div 
-                onClick={(e) => e.stopPropagation()} 
-                style={{ 
-                  maxWidth: '500px', 
-                  width: '100%', 
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  maxWidth: '500px',
+                  width: '100%',
                   backgroundColor: 'rgba(10, 10, 22, 0.95)',
                   border: '1px solid rgba(255, 255, 255, 0.08)',
                   borderRadius: '16px',
@@ -4625,7 +5087,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       {editingAttributeForOptions.isGroup ? 'Kelola Kumpulan:' : 'Kelola Atribut:'} {editingAttributeForOptions.name}
                     </h3>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setEditingAttributeForOptions(null)}
                     style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
@@ -4637,16 +5099,16 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   <form onSubmit={handleSaveAttributeConfig} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Anggota Atribut</label>
-                      <div style={{ 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        gap: '8px', 
-                        background: 'rgba(255,255,255,0.02)', 
-                        border: '1px solid rgba(255,255,255,0.05)', 
-                        padding: '12px', 
-                        borderRadius: '8px', 
-                        maxHeight: '200px', 
-                        overflowY: 'auto' 
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        maxHeight: '200px',
+                        overflowY: 'auto'
                       }}>
                         {chatAttributes.filter(a => !a.isGroup && a.name !== 'Umum' && a.name !== editingAttributeForOptions.name).map(a => (
                           <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer', color: '#f1f5f9' }}>
@@ -4752,7 +5214,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     {/* Quick Options configuration */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pesan Cepat / Opsi Pilihan Ganda</label>
-                      
+
                       {/* Options List */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '150px', overflowY: 'auto', marginBottom: '8px', scrollbarWidth: 'none' }}>
                         {managedOptions.length === 0 ? (
@@ -4873,7 +5335,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                             Aktifkan Jangka Waktu (Tugas Progres)
                           </label>
                         </div>
-                        
+
                         {newOptionHasTimeframe && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Pilih Durasi Jangka Waktu:</label>
@@ -4998,7 +5460,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
           {/* Mobile attributes modal */}
           {showMobileAttributesModal && (
-            <div 
+            <div
               onClick={() => setShowMobileAttributesModal(false)}
               style={{
                 position: 'fixed',
@@ -5015,11 +5477,11 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 padding: '16px'
               }}
             >
-              <div 
-                onClick={(e) => e.stopPropagation()} 
-                style={{ 
-                  maxWidth: '500px', 
-                  width: '100%', 
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  maxWidth: '500px',
+                  width: '100%',
                   backgroundColor: 'rgba(10, 10, 22, 0.95)',
                   border: '1px solid rgba(255, 255, 255, 0.08)',
                   borderRadius: '16px',
@@ -5032,7 +5494,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   overflowY: 'auto'
                 }}
               >
-                <button 
+                <button
                   onClick={() => setShowMobileAttributesModal(false)}
                   style={{
                     position: 'absolute',
@@ -5047,22 +5509,22 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 >
                   <X size={20} />
                 </button>
-                
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '8px' }}>
                   <Tag size={18} style={{ color: 'var(--primary)' }} />
                   <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#fff' }}>Kelola Atribut Klasifikasi</h4>
                 </div>
-                
+
                 <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
                   Atribut klasifikasi laporan koordinasi karyawan (e.g. Sales, Progres, dll).
                 </p>
 
-                <form 
+                <form
                   onSubmit={(e) => {
                     e.preventDefault();
                     handleAddChatAttribute(e);
-                  }} 
-                  className={styles.addAttrForm} 
+                  }}
+                  className={styles.addAttrForm}
                   style={{ marginBottom: '20px' }}
                 >
                   <input
@@ -5092,9 +5554,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       onChange={(e) => setManageAttrSearchQuery(e.target.value)}
                     />
                     {manageAttrSearchQuery && (
-                      <button 
-                        type="button" 
-                        className={styles.attrSearchClearBtn} 
+                      <button
+                        type="button"
+                        className={styles.attrSearchClearBtn}
                         onClick={() => setManageAttrSearchQuery('')}
                       >
                         <X size={10} />
@@ -5107,87 +5569,87 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   {chatAttributes
                     .filter(attr => attr.name.toLowerCase().includes(manageAttrSearchQuery.toLowerCase()))
                     .map((attr) => (
-                    <div 
-                      key={attr.id} 
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '6px',
-                        background: 'rgba(255,255,255,0.02)',
-                        border: '1px solid rgba(255,255,255,0.06)',
-                        borderRadius: '8px',
-                        padding: '10px',
-                        marginBottom: '8px'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span className={styles.attrItemName} style={{ fontWeight: 600, color: '#fff', fontSize: '0.9rem' }}>🏷️ {attr.name}</span>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingAttributeForOptions(attr);
-                              const parsedOpts = Array.isArray(attr.options)
-                                ? attr.options.map((opt: any, idx: number) => {
-                                    return typeof opt === 'string' ? { id: 'opt_' + idx, text: opt, hasTimeframe: false } : opt;
-                                  })
-                                : [];
-                              setManagedOptions(sortOptions(parsedOpts));
-                              setManagedChatbotEnabled(attr.chatbotEnabled || false);
-                              setManagedQuickText(attr.quickText || '');
-                              setNewOptionInput('');
-                              setNewOptionHasTimeframe(false);
-                              setEditingOptionId(null);
-                            }}
-                            style={{
-                              background: 'rgba(99, 102, 241, 0.15)',
-                              border: '1px solid rgba(99, 102, 241, 0.3)',
-                              color: '#818cf8',
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              fontSize: '0.72rem',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Kelola
-                          </button>
-                          {attr.name !== 'Umum' && (
+                      <div
+                        key={attr.id}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px',
+                          background: 'rgba(255,255,255,0.02)',
+                          border: '1px solid rgba(255,255,255,0.06)',
+                          borderRadius: '8px',
+                          padding: '10px',
+                          marginBottom: '8px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span className={styles.attrItemName} style={{ fontWeight: 600, color: '#fff', fontSize: '0.9rem' }}>🏷️ {attr.name}</span>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                             <button
                               type="button"
-                              onClick={() => handleRenameChatAttribute(attr.id, attr.name)}
+                              onClick={() => {
+                                setEditingAttributeForOptions(attr);
+                                const parsedOpts = Array.isArray(attr.options)
+                                  ? attr.options.map((opt: any, idx: number) => {
+                                    return typeof opt === 'string' ? { id: 'opt_' + idx, text: opt, hasTimeframe: false } : opt;
+                                  })
+                                  : [];
+                                setManagedOptions(sortOptions(parsedOpts));
+                                setManagedChatbotEnabled(attr.chatbotEnabled || false);
+                                setManagedQuickText(attr.quickText || '');
+                                setNewOptionInput('');
+                                setNewOptionHasTimeframe(false);
+                                setEditingOptionId(null);
+                              }}
                               style={{
-                                background: 'rgba(234, 179, 8, 0.15)',
-                                border: '1px solid rgba(234, 179, 8, 0.3)',
-                                color: '#facc15',
+                                background: 'rgba(99, 102, 241, 0.15)',
+                                border: '1px solid rgba(99, 102, 241, 0.3)',
+                                color: '#818cf8',
                                 padding: '2px 8px',
                                 borderRadius: '4px',
                                 fontSize: '0.72rem',
                                 cursor: 'pointer',
                               }}
-                              title="Ubah Nama Atribut"
                             >
-                              Ubah Nama
+                              Kelola
                             </button>
-                          )}
-                          {attr.name !== 'Umum' && (
-                            <button 
-                              type="button" 
-                              onClick={() => handleDeleteChatAttribute(attr.id, attr.name)}
-                              className={styles.attrDeleteBtn}
-                              title="Hapus Atribut"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          )}
+                            {attr.name !== 'Umum' && (
+                              <button
+                                type="button"
+                                onClick={() => handleRenameChatAttribute(attr.id, attr.name)}
+                                style={{
+                                  background: 'rgba(234, 179, 8, 0.15)',
+                                  border: '1px solid rgba(234, 179, 8, 0.3)',
+                                  color: '#facc15',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '0.72rem',
+                                  cursor: 'pointer',
+                                }}
+                                title="Ubah Nama Atribut"
+                              >
+                                Ubah Nama
+                              </button>
+                            )}
+                            {attr.name !== 'Umum' && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteChatAttribute(attr.id, attr.name)}
+                                className={styles.attrDeleteBtn}
+                                title="Hapus Atribut"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          <span>Pilihan Ganda: <strong>{Array.isArray(attr.options) ? attr.options.length : 0} opsi</strong></span>
+                          <span>AI Chatbot: <strong style={{ color: attr.chatbotEnabled ? '#10b981' : '#ef4444' }}>{attr.chatbotEnabled ? 'Aktif' : 'Nonaktif'}</strong></span>
                         </div>
                       </div>
-                      
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                        <span>Pilihan Ganda: <strong>{Array.isArray(attr.options) ? attr.options.length : 0} opsi</strong></span>
-                        <span>AI Chatbot: <strong style={{ color: attr.chatbotEnabled ? '#10b981' : '#ef4444' }}>{attr.chatbotEnabled ? 'Aktif' : 'Nonaktif'}</strong></span>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </div>
             </div>
@@ -5199,11 +5661,11 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
         {/* Admin Lightbox Modal */}
         {adminActiveLightboxImage && (
-          <div 
-            className={styles.adminLightbox} 
+          <div
+            className={styles.adminLightbox}
             onClick={() => setAdminActiveLightboxImage(null)}
           >
-            <button 
+            <button
               className={styles.adminLightboxCloseBtn}
               onClick={() => setAdminActiveLightboxImage(null)}
               type="button"
@@ -5247,7 +5709,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${attrCalYear}-${String(attrCalMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      
+
       const dayLogs = attributeHistory.filter((log) => {
         const logDate = new Date(log.recordedAt);
         const y = logDate.getFullYear();
@@ -5321,16 +5783,16 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
     const selectedLogs = selectedAttrCalDate
       ? attributeHistory.filter((log) => {
-          const logDate = new Date(log.recordedAt);
-          const y = logDate.getFullYear();
-          const m = String(logDate.getMonth() + 1).padStart(2, '0');
-          const d = String(logDate.getDate()).padStart(2, '0');
-          return `${y}-${m}-${d}` === selectedAttrCalDate;
-        })
+        const logDate = new Date(log.recordedAt);
+        const y = logDate.getFullYear();
+        const m = String(logDate.getMonth() + 1).padStart(2, '0');
+        const d = String(logDate.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}` === selectedAttrCalDate;
+      })
       : [];
 
     return (
-      <div 
+      <div
         onClick={() => setShowAttributeCalendarModal(false)}
         style={{
           position: 'fixed',
@@ -5347,11 +5809,11 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           padding: '16px'
         }}
       >
-        <div 
-          onClick={(e) => e.stopPropagation()} 
-          style={{ 
-            maxWidth: '650px', 
-            width: '100%', 
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            maxWidth: '650px',
+            width: '100%',
             backgroundColor: 'rgba(10, 10, 22, 0.96)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
             borderRadius: '16px',
@@ -5365,7 +5827,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             flexDirection: 'column'
           }}
         >
-          <button 
+          <button
             onClick={() => setShowAttributeCalendarModal(false)}
             style={{
               position: 'absolute',
@@ -5380,14 +5842,14 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           >
             <X size={20} />
           </button>
-          
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '8px' }}>
             <CalendarIcon size={18} style={{ color: '#34d399' }} />
             <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: '#fff' }}>Kalender Monitoring Atribut</h3>
           </div>
 
           <div style={{ display: 'flex', gap: '20px', flexDirection: 'column', overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
-            
+
             {/* Calendar Widget */}
             <div className={styles.attrCalendarWidget}>
               <div className={styles.attrCalHeader}>
@@ -5420,7 +5882,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       const logTime = formatTime(log.recordedAt);
                       const sDate = formatDateShort(log.startDate);
                       const eDate = formatDateShort(log.expiryDate);
-                      
+
                       let statusText = 'Hangus/Tidak Diambil';
                       let statusClass = styles.attrCalLogStatusExpired;
                       if (log.status === 'check-in') {
@@ -5534,12 +5996,12 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
       ];
       const daysInMonth = getDaysInMonth(calMonth, calYear);
       const firstDayIndex = getFirstDayOfMonth(calMonth, calYear);
-      
+
       const days = [];
       for (let i = 0; i < firstDayIndex; i++) {
         days.push(<div key={`empty-${i}`} className={styles.calDayEmpty} />);
       }
-      
+
       for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const dayBookings = adminReservations.filter((r) => {
@@ -5571,11 +6033,10 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           >
             <span className={styles.calDayNum}>{day}</span>
             {dayBookings.length > 0 && (
-              <span 
-                className={`${styles.calDayDot} ${
-                  dayBookings.some(b => b.status === 'pending') ? styles.calDotPending : 
-                  dayBookings.some(b => b.status === 'confirmed') ? styles.calDotConfirmed : styles.calDotDone
-                }`}
+              <span
+                className={`${styles.calDayDot} ${dayBookings.some(b => b.status === 'pending') ? styles.calDotPending :
+                    dayBookings.some(b => b.status === 'confirmed') ? styles.calDotConfirmed : styles.calDotDone
+                  }`}
               >
                 {dayBookings.length}
               </span>
@@ -5618,8 +6079,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             {days}
           </div>
           {adminSelectedDate && (
-            <button 
-              type="button" 
+            <button
+              type="button"
               className={styles.clearCalFilterBtn}
               onClick={() => setAdminSelectedDate(null)}
             >
@@ -5639,16 +6100,16 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               🔄 Segarkan
             </button>
           </div>
-          
+
           <div className={styles.adminMobileFilterSection}>
-            <button 
-              type="button" 
+            <button
+              type="button"
               className={`${styles.adminMobileCalBtn} ${adminSelectedDate ? styles.adminMobileCalBtnActive : ''}`}
               onClick={() => setIsAdminCalOpenMobile(true)}
             >
               📅 {adminSelectedDate ? formatDateLong(adminSelectedDate) : 'Semua Tanggal'}
             </button>
-            
+
             <div className={styles.adminMobileStatusRow}>
               {['all', 'pending', 'confirmed', 'cancelled', 'completed'].map((statusOption) => (
                 <button
@@ -5658,9 +6119,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   className={`${styles.adminMobileStatusPill} ${adminResFilter === statusOption ? styles.adminMobileStatusPillActive : ''}`}
                 >
                   {statusOption === 'all' ? 'Semua' :
-                   statusOption === 'pending' ? 'Menunggu' :
-                   statusOption === 'confirmed' ? 'Dikonfirmasi' :
-                   statusOption === 'cancelled' ? 'Dibatalkan' : 'Selesai'}
+                    statusOption === 'pending' ? 'Menunggu' :
+                      statusOption === 'confirmed' ? 'Dikonfirmasi' :
+                        statusOption === 'cancelled' ? 'Dibatalkan' : 'Selesai'}
                 </button>
               ))}
             </div>
@@ -5698,11 +6159,11 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       </div>
                       <span className={`${styles.statusBadge} ${styles['status_' + r.status]}`}>
                         {r.status === 'pending' ? 'Menunggu' :
-                         r.status === 'confirmed' ? 'Dikonfirmasi' :
-                         r.status === 'cancelled' ? 'Dibatalkan' : 'Selesai'}
+                          r.status === 'confirmed' ? 'Dikonfirmasi' :
+                            r.status === 'cancelled' ? 'Dibatalkan' : 'Selesai'}
                       </span>
                     </div>
-                    
+
                     <div className={styles.resMobileCardBody}>
                       <div className={styles.resMobileMetaGrid}>
                         <div>
@@ -5718,7 +6179,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                           <strong style={{ color: '#10b981' }}>Rp {r.dpAmount.toLocaleString('id-ID')}</strong>
                         </div>
                       </div>
-                      
+
                       {r.menuList && (
                         <div className={styles.resMobileMenuSection}>
                           <span className={styles.resMobileLabel}>Menu:</span>
@@ -5726,7 +6187,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                         </div>
                       )}
                     </div>
-                    
+
                     <div className={styles.resMobileCardActions}>
                       {r.status === 'pending' && (
                         <button
@@ -5822,9 +6283,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   className={`${styles.filterTab} ${adminResFilter === statusOption ? styles.filterTabActive : ''}`}
                 >
                   {statusOption === 'all' ? 'Semua' :
-                   statusOption === 'pending' ? 'Menunggu' :
-                   statusOption === 'confirmed' ? 'Dikonfirmasi' :
-                   statusOption === 'cancelled' ? 'Dibatalkan' : 'Selesai'}
+                    statusOption === 'pending' ? 'Menunggu' :
+                      statusOption === 'confirmed' ? 'Dikonfirmasi' :
+                        statusOption === 'cancelled' ? 'Dibatalkan' : 'Selesai'}
                 </button>
               ))}
               <button type="button" onClick={fetchAdminReservations} className={styles.refreshBtn}>
@@ -5884,8 +6345,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                           <td>
                             <span className={`${styles.statusBadge} ${styles['status_' + r.status]}`}>
                               {r.status === 'pending' ? 'Menunggu' :
-                               r.status === 'confirmed' ? 'Dikonfirmasi' :
-                               r.status === 'cancelled' ? 'Dibatalkan' : 'Selesai'}
+                                r.status === 'confirmed' ? 'Dikonfirmasi' :
+                                  r.status === 'cancelled' ? 'Dibatalkan' : 'Selesai'}
                             </span>
                           </td>
                           <td>
@@ -5920,22 +6381,22 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                   ★
                                 </button>
                               )}
-                               <button
-                                 type="button"
-                                 onClick={() => handleStartEdit(r)}
-                                 className={`${styles.actionBtn} ${styles.actionBtnEdit}`}
-                                 title="Edit Reservasi"
-                               >
-                                 <Pencil size={14} />
-                               </button>
-                               <button
-                                 type="button"
-                                 onClick={() => handleDeleteRes(r.id)}
-                                 className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
-                                 title="Hapus"
-                               >
-                                 Hapus
-                               </button>
+                              <button
+                                type="button"
+                                onClick={() => handleStartEdit(r)}
+                                className={`${styles.actionBtn} ${styles.actionBtnEdit}`}
+                                title="Edit Reservasi"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteRes(r.id)}
+                                className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
+                                title="Hapus"
+                              >
+                                Hapus
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -6005,7 +6466,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               <ArrowRight className={styles.btnIcon} />
             </button>
           </form>
-          
+
           <div style={{ textAlign: 'center', marginTop: '10px' }}>
             <a href="/chat" style={{ fontSize: '0.85rem', color: 'var(--secondary)', textDecoration: 'underline' }}>
               Buka Halaman Chat Room Karyawan &rarr;
@@ -6122,12 +6583,12 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   <FolderIcon size={14} />
                   <span>Semua Catatan</span>
                 </button>
-                
+
                 {/* Render folders in tree structure */}
                 {folders.filter(f => !f.parentId).map((parentFolder) => {
                   const subfolders = folders.filter(f => f.parentId === parentFolder.id);
                   const isParentSelected = selectedFolderId === parentFolder.id;
-                  
+
                   return (
                     <div key={parentFolder.id} className={styles.folderGroup}>
                       <div className={`${styles.folderItemContainer} ${isParentSelected ? styles.activeFolderItemContainer : ''}`}>
@@ -6215,7 +6676,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                           </>
                         )}
                       </div>
-                      
+
                       {/* Render Subfolders */}
                       {subfolders.length > 0 && (
                         <div className={styles.subfoldersList}>
@@ -6302,7 +6763,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     </div>
                   );
                 })}
-                
+
                 <div className={styles.addFolderWrapper}>
                   <div className={styles.addFolderContainer}>
                     <input
@@ -6554,7 +7015,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                       else if (t.includes('tugas') || t.includes('todo') || t.includes('kerja')) tagClass = 'tugas';
                                       else if (t.includes('uang') || t.includes('keuangan') || t.includes('finansial')) tagClass = 'keuangan';
                                       else if (t.includes('pribadi') || t.includes('personal')) tagClass = 'pribadi';
-                                      
+
                                       return (
                                         <span key={idx} className={`tag-badge ${tagClass}`} style={{ fontSize: '0.62rem', padding: '2px 8px' }}>
                                           {tag}
@@ -6602,10 +7063,10 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     ← Kembali ke Catatan
                   </button>
                 </div>
-                <VoiceRecorder 
+                <VoiceRecorder
                   folders={folders}
                   initialCheckedFolderIds={assistantSelectedFolderIds}
-                  onFormatted={handleFormattedNote} 
+                  onFormatted={handleFormattedNote}
                   autoStart={autoStartRecorder}
                   onAutoStartTriggered={() => setAutoStartRecorder(false)}
                 />
@@ -6772,7 +7233,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           <div className={`${styles.modalContent} glass-panel`}>
             <h3>Simpan Catatan ke Folder</h3>
             <p>Silakan pilih folder penyimpanan untuk catatan cerdas baru Anda:</p>
-            
+
             <div className={styles.modalForm}>
               <select
                 className={styles.folderSelectDropdown}
@@ -6786,7 +7247,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   </option>
                 ))}
               </select>
-              
+
               <div className={styles.modalInlineAddFolder}>
                 <input
                   type="text"
@@ -6836,7 +7297,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 </button>
               </div>
             </div>
-            
+
             <div className={styles.modalActions}>
               <GlowButton
                 variant="outline"
@@ -6868,15 +7329,15 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             <h3 className={styles.confirmTitle}>{confirmDialog.title}</h3>
             <p className={styles.confirmMessage}>{confirmDialog.message}</p>
             <div className={styles.confirmActions}>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className={styles.confirmCancelBtn}
                 onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
               >
                 Batal
               </button>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className={styles.confirmConfirmBtn}
                 onClick={() => {
                   confirmDialog.onConfirm();
@@ -6891,21 +7352,21 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
       )}
 
       {adminActiveContextMenu && (
-        <div 
-          className={styles.contextMenuOverlay} 
+        <div
+          className={styles.contextMenuOverlay}
           onClick={() => setAdminActiveContextMenu(null)}
           onTouchStart={() => setAdminActiveContextMenu(null)}
         >
-          <div 
+          <div
             className={`${styles.contextMenu} glass-panel`}
-            style={{ 
-              top: `${Math.min(adminActiveContextMenu.y, typeof window !== 'undefined' ? window.innerHeight - 80 : 300)}px`, 
-              left: `${Math.min(adminActiveContextMenu.x, typeof window !== 'undefined' ? window.innerWidth - 150 : 150)}px` 
+            style={{
+              top: `${Math.min(adminActiveContextMenu.y, typeof window !== 'undefined' ? window.innerHeight - 80 : 300)}px`,
+              left: `${Math.min(adminActiveContextMenu.x, typeof window !== 'undefined' ? window.innerWidth - 150 : 150)}px`
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button 
-              type="button" 
+            <button
+              type="button"
               className={styles.contextMenuItem}
               onClick={() => {
                 handleAdminCopyMessage(adminActiveContextMenu.messageId, adminActiveContextMenu.text);
@@ -6924,15 +7385,15 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           <div className={`${styles.modalContent} glass-panel`} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <h3 style={{ margin: 0 }}>Edit Reservasi</h3>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setEditingReservation(null)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px' }}
               >
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={handleSaveEdit} className={styles.modalForm}>
               <div className={styles.custInputGroup}>
                 <label htmlFor="edit-res-name">Nama Pelanggan</label>
@@ -7054,7 +7515,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               <Sparkles size={16} style={{ color: 'var(--secondary)', marginRight: '8px' }} />
               Catatan Pintar Berhasil Dibuat
             </div>
-            <button 
+            <button
               className={styles.notificationCloseBtn}
               onClick={() => setSaveResultNotification(null)}
             >
@@ -7184,7 +7645,7 @@ function CustomerReservation() {
               <div className={styles.successIconWrapper}>✓</div>
               <h3>Reservasi Berhasil Diajukan!</h3>
               <p className={styles.successSubtitle}>Manajemen kami sedang meninjau reservasi Anda. Berikut ringkasan detail boking Anda:</p>
-              
+
               <div className={styles.summaryDetails}>
                 <div className={styles.summaryItem}>
                   <span className={styles.summaryLabel}>Atas Nama:</span>
@@ -7215,7 +7676,7 @@ function CustomerReservation() {
               </div>
 
               <div className={styles.successActions}>
-                <button 
+                <button
                   type="button"
                   onClick={() => {
                     setResStatus('idle');
@@ -7230,7 +7691,7 @@ function CustomerReservation() {
           ) : (
             <form onSubmit={handleSubmitReservation} className={styles.custForm}>
               <h3>Formulir Boking Meja</h3>
-              
+
               {resStatus === 'error' && (
                 <div className={styles.formErrorBanner}>
                   <AlertCircle size={16} />
@@ -7339,8 +7800,8 @@ function CustomerReservation() {
                 </label>
               </div>
 
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className={styles.custSubmitBtn}
                 disabled={resStatus === 'submitting' || !agreeTerms}
               >
@@ -7428,9 +7889,9 @@ function CustomerReservation() {
               </ul>
             </div>
             <div className={styles.termsModalFooter}>
-              <button 
+              <button
                 type="button"
-                className={styles.termsModalAgreeBtn} 
+                className={styles.termsModalAgreeBtn}
                 onClick={() => {
                   setAgreeTerms(true);
                   setShowTermsModal(false);

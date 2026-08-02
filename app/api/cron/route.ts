@@ -267,12 +267,93 @@ async function processReminders(now: Date) {
   return reminderResults;
 }
 
+async function processJobdeskReminders(now: Date) {
+  const jobdeskResults = [];
+  try {
+    const reminders = await prisma.jobdeskReminder.findMany({
+      where: { isActive: true }
+    });
+
+    if (reminders.length === 0) return [];
+
+    const token = process.env.FONNTE_API_TOKEN;
+
+    for (const reminder of reminders) {
+      const lastRunTime = new Date(reminder.lastRun).getTime();
+      const nowTime = now.getTime();
+      const intervalMs = reminder.intervalMinutes * 60 * 1000;
+      const diffMs = nowTime - lastRunTime;
+
+      // Trigger if time elapsed is greater or equal to interval (with 5 seconds grace margin)
+      if (diffMs >= (intervalMs - 5000)) {
+        let sentCount = 0;
+        let numbers: string[] = [];
+        
+        if (reminder.whatsappNumber) {
+          numbers = reminder.whatsappNumber.split(',').map(n => n.trim()).filter(Boolean);
+        }
+
+        if (numbers.length > 0 && token) {
+          const waMessage = `*Pengingat Tugas Karyawan (Jobdesk) ⏰*\n\nTugas: *${reminder.title}*\n${reminder.description ? `Detail: _${reminder.description}_\n` : ''}Penerima: ${reminder.employeeNames || '-'}\n\n_Mohon segera diselesaikan sesuai prosedur._`.trim();
+
+          for (const number of numbers) {
+            try {
+              const cleanedTarget = cleanTargetNumber(number);
+              const waRes = await fetch('https://api.fonnte.com/send', {
+                method: 'POST',
+                headers: {
+                  'Authorization': token,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  target: cleanedTarget,
+                  message: waMessage,
+                  countryCode: '62',
+                }),
+              });
+
+              const waData = await waRes.json();
+              if (waRes.ok && waData.status) {
+                sentCount++;
+                console.log(`Jobdesk WhatsApp sent successfully to ${cleanedTarget} for job ${reminder.title}`);
+              } else {
+                console.error(`Failed to send Jobdesk WhatsApp to ${cleanedTarget}:`, waData.reason || 'Unknown error');
+              }
+            } catch (waErr: any) {
+              console.error(`Error sending WhatsApp to ${number} in jobdesk cron:`, waErr.message);
+            }
+          }
+        }
+
+        // Update lastRun to current time
+        await prisma.jobdeskReminder.update({
+          where: { id: reminder.id },
+          data: { lastRun: now }
+        });
+
+        jobdeskResults.push({
+          id: reminder.id,
+          title: reminder.title,
+          sentTo: numbers.length,
+          successCount: sentCount
+        });
+      }
+    }
+  } catch (err: any) {
+    console.error('Error processing jobdesk reminders in cron:', err);
+  }
+  return jobdeskResults;
+}
+
 export async function GET(request: Request) {
   try {
     const now = new Date();
 
     // Process Reminders first
     const reminderResults = await processReminders(now);
+
+    // Process Jobdesk Reminders
+    const jobdeskResults = await processJobdeskReminders(now);
 
     // Process Daily Reservation Report at 9 AM (Asia/Jakarta)
     let dailyReportSent = false;
@@ -482,6 +563,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       message: `Cron selesai diproses.`,
       reminders: reminderResults,
+      jobdeskReminders: jobdeskResults,
       results: executionResults,
       jobs: {
         executed: pendingJobs.length,

@@ -128,3 +128,26 @@ model ChatAttributeHistory {
 
   @@map("chat_attribute_histories")
 }
+
+model EmployeeContact {
+  id         String   @id @default(uuid())
+  name       String
+  number     String   @unique
+  created_at DateTime @default(now())
+
+  @@map("employee_contacts")
+}
+
+model JobdeskReminder {
+  id             String   @id @default(uuid())
+  title          String
+  description    String?
+  intervalMinutes Int      @default(60)
+  isActive       Boolean  @default(true)
+  lastRun        DateTime @default(now())
+  whatsappNumber String?  // comma-separated list of numbers
+  employeeNames  String?  // comma-separated names of employees
+  created_at     DateTime @default(now())
+
+  @@map("jobdesk_reminders")
+}

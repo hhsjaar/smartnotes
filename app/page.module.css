@@ -5864,5 +5864,144 @@
   display: none; /* Chrome/Safari/Opera */
 }
 
+/* Sub-tab navigation inside Reminders */
+.reminderSubTabNav {
+  display: flex;
+  gap: 12px;
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.reminderSubTabBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: var(--border-radius-sm);
+  transition: all 0.2s ease;
+}
+
+.reminderSubTabBtn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.reminderSubTabBtnActive {
+  color: #fff;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+/* Dropdown */
+.contactSelectDropdown {
+  width: 100%;
+  background: rgba(13, 20, 38, 0.5);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-sm);
+  color: #fff;
+  padding: 10px 12px;
+  outline: none;
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease;
+}
+
+.contactSelectDropdown:focus {
+  border-color: var(--primary);
+}
+
+/* Checklist box grid */
+.contactsCheckboxGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+  max-height: 150px;
+  overflow-y: auto;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-sm);
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.contactCheckboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.contactCheckboxLabel input {
+  cursor: pointer;
+  accent-color: var(--secondary);
+}
+
+/* Contacts Layout Grid */
+.contactsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+.contactCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-md);
+  transition: all 0.2s ease;
+}
+
+.contactCard:hover {
+  background: var(--glass-bg-hover);
+  border-color: rgba(99, 102, 241, 0.25);
+  transform: translateY(-2px);
+}
+
+.contactInfo h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.contactInfo p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.contactDeleteBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-dark);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--border-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.contactDeleteBtn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.emptyContacts {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+  width: 100%;
+}
+
 
 
