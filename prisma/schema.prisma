@@ -1,14 +1,11 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+generator client {
+  provider = "prisma-client-js"
+}
 
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
-}
-
-generator client {
-  provider = "prisma-client-js"
 }
 
 model Note {
@@ -20,7 +17,7 @@ model Note {
   todo_list  Json     @default("[]")
   created_at DateTime @default(now())
   folder_id  String?
-  folder     Folder?  @relation(fields: [folder_id], references: [id], onDelete: SetNull)
+  folder     Folder?  @relation(fields: [folder_id], references: [id])
 
   @@map("notes")
 }
@@ -40,10 +37,10 @@ model Folder {
 model ScheduledJob {
   id         String   @id @default(uuid())
   command    String
-  actionType String   // "whatsapp", "news_summary", "create_note"
+  actionType String
   payload    Json
   runAt      DateTime
-  status     String   @default("pending") // pending, completed, failed
+  status     String   @default("pending")
   created_at DateTime @default(now())
 
   @@map("scheduled_jobs")
@@ -69,7 +66,7 @@ model Reminder {
 model PushSubscription {
   id        String   @id @default(uuid())
   endpoint  String   @unique
-  keys      Json     // format: { auth: string, p256dh: string }
+  keys      Json
   createdAt DateTime @default(now())
 
   @@map("push_subscriptions")
@@ -78,53 +75,57 @@ model PushSubscription {
 model ChatMessage {
   id         String   @id @default(uuid())
   senderName String
-  senderRole String   // "admin" or "employee"
+  senderRole String
   message    String
-  imageUrl   String?  // url of the uploaded image
-  attribute  String?  // classification (e.g., "Sales", "Progres")
+  imageUrl   String?
+  attribute  String?
+  latitude   Float?
+  longitude  Float?
   createdAt  DateTime @default(now())
 
   @@map("chat_messages")
 }
 
 model ChatAttribute {
-  id             String   @id @default(uuid())
-  name           String   @unique
-  options        Json     @default("[]")
-  chatbotEnabled Boolean  @default(false)
-  isGroup        Boolean  @default(false)
-  groupAttributes Json    @default("[]")
-  quickText      String?
-  createdAt      DateTime @default(now())
+  id              String   @id @default(uuid())
+  name            String   @unique
+  options         Json     @default("[]")
+  chatbotEnabled  Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  groupAttributes Json     @default("[]")
+  isGroup         Boolean  @default(false)
+  quickText       String?
 
   @@map("chat_attributes")
 }
 
 model Reservation {
   id        String   @id @default(uuid())
-  name      String   // Atas nama Reservasi
-  dateTime  DateTime // Tanggal & Jam Boking
-  tableInfo String   // Tempat / Meja
-  partySize Int      // Jumlah orang
-  dpAmount  Float    @default(0) // DP
-  menuList  String   // Menu
-  status    String   @default("pending") // pending, confirmed, cancelled, completed
+  name      String
+  dateTime  DateTime
+  tableInfo String
+  partySize Int
+  dpAmount  Float    @default(0)
+  menuList  String
+  status    String   @default("pending")
   createdAt DateTime @default(now())
 
   @@map("reservations")
 }
 
 model ChatAttributeHistory {
-  id             String   @id @default(uuid())
-  attributeId    String
-  attributeName  String
-  optionId       String
-  optionText     String
-  status         String   // "taken" or "expired"
-  assignedTo     String?  // Who took it
-  startDate      DateTime
-  expiryDate     DateTime
-  recordedAt     DateTime @default(now())
+  id            String   @id @default(uuid())
+  attributeId   String
+  attributeName String
+  optionId      String
+  optionText    String
+  status        String
+  assignedTo    String?
+  startDate     DateTime
+  expiryDate    DateTime
+  recordedAt    DateTime @default(now())
+  isLate        Boolean  @default(false)
+  lateByMinutes Int      @default(0)
 
   @@map("chat_attribute_histories")
 }
@@ -139,15 +140,15 @@ model EmployeeContact {
 }
 
 model JobdeskReminder {
-  id             String   @id @default(uuid())
-  title          String
-  description    String?
+  id              String   @id @default(uuid())
+  title           String
+  description     String?
+  isActive        Boolean  @default(true)
+  lastRun         DateTime @default(now())
+  whatsappNumber  String?
+  employeeNames   String?
+  created_at      DateTime @default(now())
   intervalMinutes Int      @default(60)
-  isActive       Boolean  @default(true)
-  lastRun        DateTime @default(now())
-  whatsappNumber String?  // comma-separated list of numbers
-  employeeNames  String?  // comma-separated names of employees
-  created_at     DateTime @default(now())
 
   @@map("jobdesk_reminders")
 }

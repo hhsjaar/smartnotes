@@ -159,8 +159,19 @@ export async function POST(request: Request) {
     // Fetch and format Chat Attribute Histories
     const formattedAttributeHistoriesText = chatAttributeHistories.map(h => {
       const timeStr = new Date(h.recordedAt).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
-      const statusLabel = h.status === 'taken' ? `Diambil/Selesai oleh ${h.assignedTo || '-'}` : 'Hangus (Tidak Diambil)';
-      return `[${timeStr}] Atribut: "${h.attributeName}" | Tugas: "${h.optionText}" | Hasil/Status: ${statusLabel} | Periode: ${new Date(h.startDate).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} s/d ${new Date(h.expiryDate).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`;
+      
+      let statusLabel = '';
+      if (h.status === 'check-in') {
+        statusLabel = `Absen Masuk/Check-In oleh ${h.assignedTo || '-'}${h.isLate ? ` (TERLAMBAT ${h.lateByMinutes} menit)` : ' (Tepat Waktu)'}`;
+      } else if (h.status === 'check-out') {
+        statusLabel = `Absen Keluar/Check-Out oleh ${h.assignedTo || '-'}`;
+      } else if (h.status === 'taken') {
+        statusLabel = `Diambil/Selesai oleh ${h.assignedTo || '-'}`;
+      } else {
+        statusLabel = 'Hangus (Tidak Diambil)';
+      }
+
+      return `[${timeStr}] Atribut: "${h.attributeName}" | Opsi/Shift: "${h.optionText}" | Hasil/Status: ${statusLabel} | Periode: ${new Date(h.startDate).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} s/d ${new Date(h.expiryDate).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`;
     }).join('\n') || 'Belum ada riwayat aktivitas tugas atribut.';
 
     // Fetch and format customer reservations

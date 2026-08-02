@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { senderName, senderRole, message, attribute, imageUrl } = await request.json();
+    const { senderName, senderRole, message, attribute, imageUrl, latitude, longitude } = await request.json();
 
     if (!senderName || !senderName.trim()) {
       return NextResponse.json({ error: 'Nama pengirim tidak boleh kosong' }, { status: 400 });
@@ -52,6 +52,8 @@ export async function POST(request: Request) {
         message: message ? message.trim() : '',
         imageUrl: imageUrl || null,
         attribute: attribute || null,
+        latitude: latitude !== undefined ? parseFloat(latitude) : null,
+        longitude: longitude !== undefined ? parseFloat(longitude) : null,
       },
     });
 

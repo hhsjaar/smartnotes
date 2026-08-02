@@ -13,6 +13,8 @@ interface ChatMessage {
   message: string;
   imageUrl?: string | null;
   attribute: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   createdAt: string;
 }
 
@@ -583,17 +585,14 @@ export default function EmployeeChatPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check if Supabase credentials are placeholder or missing
     const isPlaceholder = !process.env.NEXT_PUBLIC_SUPABASE_URL || 
                           process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder') || 
                           (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY && !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
                           process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY === 'placeholder-key' || 
                           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === 'placeholder-key';
-    
+
     if (isPlaceholder) {
-      alert('PERINGATAN: Konfigurasi Supabase Storage belum diset di file .env atau .env.local Anda. Silakan tambahkan NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY agar pengunggahan gambar berfungsi.');
-      e.target.value = '';
-      return;
+      console.warn('PERINGATAN: Konfigurasi Supabase Storage belum diset. Fallback Base64 akan digunakan untuk lokal testing.');
     }
 
     // Validate type with file extension fallback
@@ -671,132 +670,260 @@ export default function EmployeeChatPage() {
     const textToSend = newMessageText.trim();
     if ((!textToSend && !selectedFile) || isSubmitting) return;
 
-    setIsSubmitting(true);
-    setIsUploading(!!selectedFile);
-    setErrorMsg('');
+    const isAbsen = selectedAttribute.toLowerCase().includes('absen');
 
-    const isEditing = !!editingMessage;
-    let tempId: string | null = null;
+    // 1. Enforce photo for Absen
+    if (isAbsen && !selectedFile) {
+      alert('Untuk melakukan absensi, silakan lampirkan foto selfie terlebih dahulu menggunakan tombol kamera/gambar di samping kolom teks.');
+      return;
+    }
 
-    try {
-      let uploadedImageUrl = null;
+    // 2. Identify shift option for Absen
+    let matchedOption: any = null;
+    let absenAttr: any = null;
+    if (isAbsen) {
+      absenAttr = attributes.find(a => a.name.toLowerCase().includes('absen'));
+      if (absenAttr) {
+        const opts = Array.isArray(absenAttr.options) ? absenAttr.options : [];
+        matchedOption = opts.find((o: any) => 
+          textToSend.toLowerCase().includes((o.text || o).toLowerCase())
+        );
+      }
+      
+      if (!matchedOption) {
+        alert('Tentukan shift absensi Anda di kolom pesan (contoh: tulis "Pagi", "Siang", "Malam") atau klik tombol shift di bawah.');
+        return;
+      }
+    }
 
-      // Compress and upload file to Supabase Storage if selected
-      if (selectedFile) {
-        try {
-          const compressedBlob = await compressImageToBlob(selectedFile);
-          const fileExt = selectedFile.name.split('.').pop() || 'jpg';
-          const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-          const filePath = `${fileName}`;
+    const proceedWithSendMessage = async (lat: number | null = null, lon: number | null = null) => {
+      setIsSubmitting(true);
+      setIsUploading(!!selectedFile);
+      setErrorMsg('');
 
-          const { data, error } = await supabase.storage
-            .from('chat-attachments')
-            .upload(filePath, compressedBlob, {
-              contentType: 'image/jpeg',
-              cacheControl: '3600',
-              upsert: false
+      const isEditing = !!editingMessage;
+      let tempId: string | null = null;
+
+      try {
+        let uploadedImageUrl = null;
+
+        // Compress and upload file to Supabase Storage if selected
+        if (selectedFile) {
+          const isPlaceholder = !process.env.NEXT_PUBLIC_SUPABASE_URL || 
+                                process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder') || 
+                                (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY && !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
+                                process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY === 'placeholder-key' || 
+                                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === 'placeholder-key';
+
+          if (isPlaceholder) {
+            // Mock upload by converting to Base64 data URL for local testing
+            uploadedImageUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = () => reject(new Error('Gagal membaca file gambar'));
+              reader.readAsDataURL(selectedFile);
             });
+          } else {
+            try {
+              const compressedBlob = await compressImageToBlob(selectedFile);
+              const fileExt = selectedFile.name.split('.').pop() || 'jpg';
+              const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+              const filePath = `${fileName}`;
 
-          if (error) {
-            throw new Error(`Gagal mengunggah gambar ke storage: ${error.message}`);
+              const { data, error } = await supabase.storage
+                .from('chat-attachments')
+                .upload(filePath, compressedBlob, {
+                  contentType: 'image/jpeg',
+                  cacheControl: '3600',
+                  upsert: false
+                });
+
+              if (error) {
+                throw new Error(`Gagal mengunggah gambar ke storage: ${error.message}`);
+              }
+
+              const { data: urlData } = supabase.storage
+                .from('chat-attachments')
+                .getPublicUrl(filePath);
+
+              uploadedImageUrl = urlData.publicUrl;
+            } catch (err: any) {
+              throw new Error(err.message || 'Gagal memproses gambar');
+            }
           }
-
-          const { data: urlData } = supabase.storage
-            .from('chat-attachments')
-            .getPublicUrl(filePath);
-
-          uploadedImageUrl = urlData.publicUrl;
-        } catch (err: any) {
-          throw new Error(err.message || 'Gagal memproses gambar');
         }
-      }
 
-      // Optimistic update for new messages
-      if (!isEditing) {
-        tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
-        const optimisticMsg: ChatMessage = {
-          id: tempId,
-          senderName: name,
-          senderRole: 'employee',
-          message: textToSend,
-          imageUrl: uploadedImageUrl,
-          attribute: selectedAttribute || null,
-          createdAt: new Date().toISOString()
-        };
-        setMessages(prev => [...prev, optimisticMsg]);
-
-        // Instantly reset input form state for seamless UX
-        setNewMessageText('');
-        setSelectedFile(null);
-        setImagePreview(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-      }
-
-      const url = '/api/chat';
-      const method = isEditing ? 'PUT' : 'POST';
-      const bodyPayload = isEditing 
-        ? {
-            id: editingMessage.id,
-            message: textToSend,
-            attribute: selectedAttribute || null,
-            senderName: name,
-            senderRole: 'employee',
-            imageUrl: editingMessage.imageUrl
-          }
-        : {
+        // Optimistic update for new messages
+        if (!isEditing) {
+          tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
+          const optimisticMsg: ChatMessage = {
+            id: tempId,
             senderName: name,
             senderRole: 'employee',
             message: textToSend,
             imageUrl: uploadedImageUrl,
             attribute: selectedAttribute || null,
+            latitude: lat,
+            longitude: lon,
+            createdAt: new Date().toISOString()
           };
+          setMessages(prev => [...prev, optimisticMsg]);
 
-      const res = await fetch(url, {
-        method: method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(bodyPayload),
-      });
-
-      if (!res.ok) {
-        let errorMessage = `Gagal ${isEditing ? 'mengedit' : 'mengirim'} pesan`;
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch (e) {
-          if (res.status === 413) {
-            errorMessage = 'Ukuran gambar terlalu besar untuk diunggah ke Vercel (Maksimal 3MB).';
-          } else {
-            errorMessage = `Terjadi kesalahan server (Kode status: ${res.status})`;
+          // Instantly reset input form state for seamless UX
+          setNewMessageText('');
+          setSelectedFile(null);
+          setImagePreview(null);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
           }
         }
-        throw new Error(errorMessage);
+
+        const url = '/api/chat';
+        const method = isEditing ? 'PUT' : 'POST';
+        const bodyPayload = isEditing 
+          ? {
+              id: editingMessage.id,
+              message: textToSend,
+              attribute: selectedAttribute || null,
+              senderName: name,
+              senderRole: 'employee',
+              imageUrl: editingMessage.imageUrl
+            }
+          : {
+              senderName: name,
+              senderRole: 'employee',
+              message: textToSend,
+              imageUrl: uploadedImageUrl,
+              attribute: selectedAttribute || null,
+              latitude: lat,
+              longitude: lon
+            };
+
+        const res = await fetch(url, {
+          method: method,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(bodyPayload),
+        });
+
+        if (!res.ok) {
+          let errorMessage = `Gagal ${isEditing ? 'mengedit' : 'mengirim'} pesan`;
+          try {
+            const errorData = await res.json();
+            errorMessage = errorData.error || errorMessage;
+          } catch (e) {
+            if (res.status === 413) {
+              errorMessage = 'Ukuran gambar terlalu besar untuk diunggah ke Vercel (Maksimal 3MB).';
+            } else {
+              errorMessage = `Terjadi kesalahan server (Kode status: ${res.status})`;
+            }
+          }
+          throw new Error(errorMessage);
+        }
+
+        const resultMsg = await res.json();
+        
+        if (isEditing) {
+          setMessages(prev => prev.map(m => m.id === resultMsg.id ? resultMsg : m));
+          setEditingMessage(null);
+          setNewMessageText('');
+        } else if (tempId) {
+          // Replace temp optimistic message with actual message from server
+          setMessages(prev => prev.map(m => m.id === tempId ? resultMsg : m));
+        }
+
+        // Register check-in in the database history if it's Absen
+        if (isAbsen && absenAttr && matchedOption && !isEditing) {
+          const checkInRes = await fetch('/api/chat/attributes', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: absenAttr.id,
+              action: 'take',
+              optionId: matchedOption.id,
+              assignedTo: name
+            })
+          });
+          
+          if (checkInRes.ok) {
+            await fetchAttributes(true);
+          }
+        }
+      } catch (err: any) {
+        // Revert optimistic message on error
+        if (tempId) {
+          setMessages(prev => prev.filter(m => m.id !== tempId));
+          // Restore failed text
+          setNewMessageText(textToSend);
+        }
+        setErrorMsg(err.message || 'Terjadi kesalahan.');
+      } finally {
+        setIsSubmitting(false);
+        setIsUploading(false);
+      }
+    };
+
+    if (isAbsen) {
+      if (!navigator.geolocation) {
+        alert('Browser Anda tidak mendukung deteksi lokasi (Geolocation).');
+        return;
       }
 
-      const resultMsg = await res.json();
-      
-      if (isEditing) {
-        setMessages(prev => prev.map(m => m.id === resultMsg.id ? resultMsg : m));
-        setEditingMessage(null);
-        setNewMessageText('');
-      } else if (tempId) {
-        // Replace temp optimistic message with actual message from server
-        setMessages(prev => prev.map(m => m.id === tempId ? resultMsg : m));
-      }
-    } catch (err: any) {
-      // Revert optimistic message on error
-      if (tempId) {
-        setMessages(prev => prev.filter(m => m.id !== tempId));
-        // Restore failed text
-        setNewMessageText(textToSend);
-      }
-      setErrorMsg(err.message || 'Terjadi kesalahan.');
-    } finally {
-      setIsSubmitting(false);
-      setIsUploading(false);
+      setIsSubmitting(true);
+      setIsUploading(true);
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          
+          // Haversine distance to Burjo Level Up (-7.1538944, 110.4047934)
+          const R = 6371e3; // metres
+          const phi1 = lat * Math.PI/180;
+          const phi2 = -7.1538944 * Math.PI/180;
+          const deltaPhi = (-7.1538944 - lat) * Math.PI/180;
+          const deltaLambda = (110.4047934 - lon) * Math.PI/180;
+
+          const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
+                    Math.cos(phi1) * Math.cos(phi2) *
+                    Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          const distance = R * c;
+
+          if (distance > 100) {
+            alert(`Absen gagal! Anda berada di luar radius toko. Jarak Anda saat ini: ${Math.round(distance)} meter dari toko (Maksimal radius 100 meter).`);
+            setIsSubmitting(false);
+            setIsUploading(false);
+            return;
+          }
+          
+          await proceedWithSendMessage(lat, lon);
+        },
+        async (error) => {
+          let errorMessage = 'Gagal mendeteksi lokasi perangkat. ';
+          switch(error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage += 'Izin akses lokasi ditolak. Harap izinkan akses lokasi (GPS) pada pengaturan browser Anda.';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage += 'Informasi lokasi tidak dapat ditemukan.';
+              break;
+            case error.TIMEOUT:
+              errorMessage += 'Waktu tunggu deteksi lokasi habis.';
+              break;
+            default:
+              errorMessage += 'Terjadi kesalahan jaringan atau sensor GPS.';
+              break;
+          }
+          alert(errorMessage);
+          setIsSubmitting(false);
+          setIsUploading(false);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } else {
+      await proceedWithSendMessage();
     }
   };
 
@@ -1120,6 +1247,33 @@ export default function EmployeeChatPage() {
                         {/* Content */}
                         {msg.message && (
                           <p className={styles.messageText}>{formatBoldText(msg.message)}</p>
+                        )}
+
+                        {/* Location Link if present */}
+                        {msg.latitude && msg.longitude && (
+                          <div style={{ marginTop: '6px', marginBottom: '4px' }}>
+                            <a 
+                              href={`https://www.google.com/maps/search/?api=1&query=${msg.latitude},${msg.longitude}`}
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                background: 'rgba(255, 255, 255, 0.1)',
+                                border: '1px solid rgba(255, 255, 255, 0.15)',
+                                color: '#60a5fa',
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                fontSize: '0.72rem',
+                                fontWeight: 500,
+                                textDecoration: 'none',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              📍 Lihat Lokasi (GMaps)
+                            </a>
+                          </div>
                         )}
                         
                         {/* Time */}

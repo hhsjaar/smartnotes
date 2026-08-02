@@ -3524,29 +3524,43 @@
   }
 
   .adminChatRoomPanel {
-    border-radius: var(--border-radius-md);
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--glass-border);
     height: auto;
   }
   
   .adminChatArea {
-    padding: 16px;
+    padding: 12px 8px;
   }
   
   .adminChatHeader {
-    padding: 12px 16px;
+    padding: 8px 10px;
   }
   
+  .adminChatHeaderTitle {
+    gap: 6px;
+  }
+
+  .adminChatHeaderIcon {
+    width: 18px;
+    height: 18px;
+  }
+
   .adminChatHeaderTitle h3 {
-    font-size: 0.92rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
   }
 
   .adminChatHeaderTitle p {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
   }
   
   .adminLogoutBtn span {
@@ -3555,6 +3569,10 @@
   
   .adminLogoutBtn {
     padding: 6px;
+  }
+
+  .adminLogoutBtn svg {
+    margin-right: 0 !important;
   }
 
   .adminChatResBtnText {
@@ -3569,12 +3587,25 @@
     display: none;
   }
 
+  .adminHeaderBtn {
+    padding: 6px !important;
+    gap: 0 !important;
+  }
+
   .adminAttributeManagementPanel {
     display: none;
   }
 
+  .adminChatFooter {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
   .adminChatTextInput {
-    font-size: 16px;
+    font-size: 14px;
+    padding: 8px 12px;
+    height: 38px;
+    line-height: 1.4;
   }
 }
 
@@ -6001,6 +6032,52 @@
   padding: 40px;
   color: var(--text-muted);
   width: 100%;
+}
+
+.fullWidthChatArea {
+  flex: 1;
+  height: 100%;
+  padding: 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 768px) {
+  .fullWidthChatArea {
+    padding: 0;
+  }
+}
+
+.adminHeaderBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.adminHeaderBtnReservasi {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #818cf8;
+}
+
+.adminHeaderBtnAtribut {
+  background: rgba(236, 72, 153, 0.15);
+  border-color: rgba(236, 72, 153, 0.3);
+  color: #f472b6;
+}
+
+.adminHeaderBtnKalender {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #34d399;
 }
 
 

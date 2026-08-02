@@ -359,6 +359,40 @@ export async function PUT(request: Request) {
           targetOption.expiryDate = expiryDate.toISOString();
         }
 
+        let isLate = false;
+        let lateByMinutes = 0;
+
+        if (targetOption.hasLateLimit && targetOption.maxArrivalTime) {
+          try {
+            const checkInTime = new Date();
+            const formatter = new Intl.DateTimeFormat('en-US', {
+              timeZone: 'Asia/Jakarta',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+            });
+            const parts = formatter.formatToParts(checkInTime);
+            const hourPart = parts.find(p => p.type === 'hour')?.value;
+            const minPart = parts.find(p => p.type === 'minute')?.value;
+            
+            if (hourPart && minPart) {
+              const localHour = parseInt(hourPart, 10);
+              const localMin = parseInt(minPart, 10);
+              
+              const [maxHour, maxMin] = targetOption.maxArrivalTime.split(':').map(Number);
+              const currentMinutes = localHour * 60 + localMin;
+              const maxMinutes = maxHour * 60 + maxMin;
+              
+              if (currentMinutes > maxMinutes) {
+                isLate = true;
+                lateByMinutes = currentMinutes - maxMinutes;
+              }
+            }
+          } catch (err) {
+            console.error('Error calculating late arrival:', err);
+          }
+        }
+
         // Record Check In / Ambil to history
         await prisma.chatAttributeHistory.create({
           data: {
@@ -370,6 +404,8 @@ export async function PUT(request: Request) {
             assignedTo: targetOption.assignedTo,
             startDate: new Date(targetOption.startDate),
             expiryDate: new Date(targetOption.expiryDate),
+            isLate,
+            lateByMinutes,
           }
         });
       } else if (action === 'end') {

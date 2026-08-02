@@ -355,9 +355,15 @@ function DashboardContent() {
   const [newOptionInput, setNewOptionInput] = useState('');
   const [newOptionHasTimeframe, setNewOptionHasTimeframe] = useState(false);
   const [newOptionDuration, setNewOptionDuration] = useState('1 hari');
+  const [newOptionHasLateLimit, setNewOptionHasLateLimit] = useState(false);
+  const [newOptionMaxArrivalTime, setNewOptionMaxArrivalTime] = useState('09:00');
   const [managedChatbotEnabled, setManagedChatbotEnabled] = useState(false);
   const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
   const [editingOptionText, setEditingOptionText] = useState('');
+  const [editingOptionHasLateLimit, setEditingOptionHasLateLimit] = useState(false);
+  const [editingOptionMaxArrivalTime, setEditingOptionMaxArrivalTime] = useState('09:00');
+  const [editingOptionHasTimeframe, setEditingOptionHasTimeframe] = useState(false);
+  const [editingOptionDuration, setEditingOptionDuration] = useState('1 hari');
   const [showMobileAttributesModal, setShowMobileAttributesModal] = useState(false);
 
   // Attribute Calendar State
@@ -972,7 +978,41 @@ function DashboardContent() {
     if (!editingOptionText.trim()) return;
     setManagedOptions(prev =>
       sortOptions(
-        prev.map(o => o.id === id ? { ...o, text: editingOptionText.trim() } : o)
+        prev.map(o => {
+          if (o.id === id) {
+            const now = new Date();
+            let expiry = o.expiryDate;
+            if (editingOptionHasTimeframe && !o.hasTimeframe) {
+              const expiryDate = new Date(now);
+              const dur = (editingOptionDuration || '1 hari').toLowerCase();
+              if (dur.includes('1 hari')) {
+                expiryDate.setDate(expiryDate.getDate() + 1);
+              } else if (dur.includes('3 hari')) {
+                expiryDate.setDate(expiryDate.getDate() + 3);
+              } else if (dur.includes('7 hari')) {
+                expiryDate.setDate(expiryDate.getDate() + 7);
+              } else if (dur.includes('2 minggu')) {
+                expiryDate.setDate(expiryDate.getDate() + 14);
+              } else if (dur.includes('1 bulan')) {
+                expiryDate.setMonth(expiryDate.getMonth() + 1);
+              } else {
+                expiryDate.setDate(expiryDate.getDate() + 1);
+              }
+              expiry = expiryDate.toISOString();
+            }
+            return {
+              ...o,
+              text: editingOptionText.trim(),
+              hasLateLimit: editingOptionHasLateLimit,
+              maxArrivalTime: editingOptionHasLateLimit ? editingOptionMaxArrivalTime : null,
+              hasTimeframe: editingOptionHasTimeframe,
+              duration: editingOptionHasTimeframe ? editingOptionDuration : null,
+              expiryDate: editingOptionHasTimeframe ? expiry : null,
+              startDate: editingOptionHasTimeframe ? (o.startDate || now.toISOString()) : null
+            };
+          }
+          return o;
+        })
       )
     );
     setEditingOptionId(null);
@@ -1147,101 +1187,230 @@ function DashboardContent() {
 
   const handleSendAdminChatMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!newChatMessage.trim() && !adminSelectedFile) || chatSubmitting) return;
-    setChatSubmitting(true);
-    setAdminIsUploading(!!adminSelectedFile);
-    try {
-      let uploadedImageUrl = null;
+    const textToSend = newChatMessage.trim();
+    if ((!textToSend && !adminSelectedFile) || chatSubmitting) return;
 
-      // Compress and upload file to Supabase Storage if selected
-      if (adminSelectedFile) {
-        try {
-          const compressedBlob = await compressImageToBlob(adminSelectedFile);
-          const fileExt = adminSelectedFile.name.split('.').pop() || 'jpg';
-          const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-          const filePath = `${fileName}`;
+    const isAbsen = selectedChatAttribute.toLowerCase().includes('absen');
 
-          const { data, error } = await supabase.storage
-            .from('chat-attachments')
-            .upload(filePath, compressedBlob, {
-              contentType: 'image/jpeg',
-              cacheControl: '3600',
-              upsert: false
+    // 1. Enforce photo for Absen
+    if (isAbsen && !adminSelectedFile) {
+      alert('Untuk melakukan absensi, silakan lampirkan foto selfie terlebih dahulu menggunakan tombol kamera/gambar di samping kolom teks.');
+      return;
+    }
+
+    // 2. Identify shift option for Absen
+    let matchedOption: any = null;
+    let absenAttr: any = null;
+    if (isAbsen) {
+      absenAttr = chatAttributes.find((a: any) => a.name.toLowerCase().includes('absen'));
+      if (absenAttr) {
+        const opts = Array.isArray(absenAttr.options) ? absenAttr.options : [];
+        matchedOption = opts.find((o: any) => 
+          textToSend.toLowerCase().includes((o.text || o).toLowerCase())
+        );
+      }
+      
+      if (!matchedOption) {
+        alert('Tentukan shift absensi Anda di kolom pesan (contoh: tulis "Pagi", "Siang", "Malam") atau klik tombol shift di bawah.');
+        return;
+      }
+    }
+
+    const proceedWithSendAdminChatMessage = async (lat: number | null = null, lon: number | null = null) => {
+      setChatSubmitting(true);
+      setAdminIsUploading(!!adminSelectedFile);
+
+      try {
+        let uploadedImageUrl = null;
+
+        // Compress and upload file to Supabase Storage if selected
+        if (adminSelectedFile) {
+          const isPlaceholder = !process.env.NEXT_PUBLIC_SUPABASE_URL || 
+                                process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder') || 
+                                (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY && !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
+                                process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY === 'placeholder-key' || 
+                                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === 'placeholder-key';
+
+          if (isPlaceholder) {
+            // Mock upload by converting to Base64 data URL for local testing
+            uploadedImageUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = () => reject(new Error('Gagal membaca file gambar'));
+              reader.readAsDataURL(adminSelectedFile);
             });
-
-          if (error) {
-            throw new Error(`Gagal mengunggah gambar ke storage: ${error.message}`);
-          }
-
-          const { data: urlData } = supabase.storage
-            .from('chat-attachments')
-            .getPublicUrl(filePath);
-
-          uploadedImageUrl = urlData.publicUrl;
-        } catch (err: any) {
-          throw new Error(err.message || 'Gagal memproses gambar');
-        }
-      }
-
-      const isEditing = !!editingChatMessage;
-      const url = '/api/chat';
-      const method = isEditing ? 'PUT' : 'POST';
-      const bodyPayload = isEditing
-        ? {
-          id: editingChatMessage.id,
-          message: newChatMessage.trim(),
-          attribute: selectedChatAttribute || null,
-          senderName: 'Admin',
-          senderRole: 'admin',
-          imageUrl: editingChatMessage.imageUrl
-        }
-        : {
-          senderName: 'Admin',
-          senderRole: 'admin',
-          message: newChatMessage.trim(),
-          imageUrl: uploadedImageUrl,
-          attribute: selectedChatAttribute || null,
-        };
-
-      const res = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bodyPayload),
-      });
-
-      if (res.ok) {
-        const resultMsg = await res.json();
-        if (isEditing) {
-          setChatMessages(prev => prev.map(m => m.id === resultMsg.id ? resultMsg : m));
-          setEditingChatMessage(null);
-        } else {
-          setChatMessages(prev => [...prev, resultMsg]);
-        }
-        setNewChatMessage('');
-        setAdminSelectedFile(null);
-        setAdminImagePreview(null);
-        if (adminFileInputRef.current) {
-          adminFileInputRef.current.value = '';
-        }
-      } else {
-        let errorMessage = `Gagal ${isEditing ? 'mengedit' : 'mengirim'} pesan`;
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch (e) {
-          if (res.status === 413) {
-            errorMessage = 'Ukuran gambar terlalu besar untuk diunggah ke Vercel (Maksimal 3MB).';
           } else {
-            errorMessage = `Terjadi kesalahan server (Kode status: ${res.status})`;
+            try {
+              const compressedBlob = await compressImageToBlob(adminSelectedFile);
+              const fileExt = adminSelectedFile.name.split('.').pop() || 'jpg';
+              const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+              const filePath = `${fileName}`;
+
+              const { data, error } = await supabase.storage
+                .from('chat-attachments')
+                .upload(filePath, compressedBlob, {
+                  contentType: 'image/jpeg',
+                  cacheControl: '3600',
+                  upsert: false
+                });
+
+              if (error) {
+                throw new Error(`Gagal mengunggah gambar ke storage: ${error.message}`);
+              }
+
+              const { data: urlData } = supabase.storage
+                .from('chat-attachments')
+                .getPublicUrl(filePath);
+
+              uploadedImageUrl = urlData.publicUrl;
+            } catch (err: any) {
+              throw new Error(err.message || 'Gagal memproses gambar');
+            }
           }
         }
-        throw new Error(errorMessage);
+
+        const isEditing = !!editingChatMessage;
+        const url = '/api/chat';
+        const method = isEditing ? 'PUT' : 'POST';
+        const bodyPayload = isEditing 
+          ? {
+              id: editingChatMessage.id,
+              message: textToSend,
+              attribute: selectedChatAttribute || null,
+              senderName: 'Admin',
+              senderRole: 'admin',
+              imageUrl: editingChatMessage.imageUrl
+            }
+          : {
+              senderName: 'Admin',
+              senderRole: 'admin',
+              message: textToSend,
+              imageUrl: uploadedImageUrl,
+              attribute: selectedChatAttribute || null,
+              latitude: lat,
+              longitude: lon
+            };
+
+        const res = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bodyPayload),
+        });
+
+        if (res.ok) {
+          const resultMsg = await res.json();
+          if (isEditing) {
+            setChatMessages(prev => prev.map(m => m.id === resultMsg.id ? resultMsg : m));
+            setEditingChatMessage(null);
+          } else {
+            setChatMessages(prev => [...prev, resultMsg]);
+          }
+          setNewChatMessage('');
+          setAdminSelectedFile(null);
+          setAdminImagePreview(null);
+          if (adminFileInputRef.current) {
+            adminFileInputRef.current.value = '';
+          }
+
+          // Register check-in in the database history if it's Absen
+          if (isAbsen && absenAttr && matchedOption && !isEditing) {
+            const checkInRes = await fetch('/api/chat/attributes', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: absenAttr.id,
+                action: 'take',
+                optionId: matchedOption.id,
+                assignedTo: 'Admin'
+              })
+            });
+            
+            if (checkInRes.ok) {
+              loadChatAttributes(true);
+            }
+          }
+        } else {
+          let errorMessage = `Gagal ${isEditing ? 'mengedit' : 'mengirim'} pesan`;
+          try {
+            const errorData = await res.json();
+            errorMessage = errorData.error || errorMessage;
+          } catch (e) {
+            if (res.status === 413) {
+              errorMessage = 'Ukuran gambar terlalu besar untuk diunggah ke Vercel (Maksimal 3MB).';
+            } else {
+              errorMessage = `Terjadi kesalahan server (Kode status: ${res.status})`;
+            }
+          }
+          throw new Error(errorMessage);
+        }
+      } catch (err: any) {
+        alert(err.message || 'Terjadi kesalahan saat memproses pesan');
+      } finally {
+        setChatSubmitting(false);
+        setAdminIsUploading(false);
       }
-    } catch (err: any) {
-      alert(err.message || 'Terjadi kesalahan saat memproses pesan');
-    } finally {
-      setChatSubmitting(false);
-      setAdminIsUploading(false);
+    };
+
+    if (isAbsen) {
+      if (!navigator.geolocation) {
+        alert('Browser Anda tidak mendukung deteksi lokasi (Geolocation).');
+        return;
+      }
+
+      setChatSubmitting(true);
+      setAdminIsUploading(true);
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          
+          // Haversine distance to Burjo Level Up (-7.1538944, 110.4047934)
+          const R = 6371e3; // metres
+          const phi1 = lat * Math.PI/180;
+          const phi2 = -7.1538944 * Math.PI/180;
+          const deltaPhi = (-7.1538944 - lat) * Math.PI/180;
+          const deltaLambda = (110.4047934 - lon) * Math.PI/180;
+
+          const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
+                    Math.cos(phi1) * Math.cos(phi2) *
+                    Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          const distance = R * c;
+
+          if (distance > 100) {
+            alert(`Absen gagal! Anda berada di luar radius toko. Jarak Anda saat ini: ${Math.round(distance)} meter dari toko (Maksimal radius 100 meter).`);
+            setChatSubmitting(false);
+            setAdminIsUploading(false);
+            return;
+          }
+          
+          await proceedWithSendAdminChatMessage(lat, lon);
+        },
+        async (error) => {
+          let errorMessage = 'Gagal mendeteksi lokasi perangkat. ';
+          switch(error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage += 'Izin akses lokasi ditolak. Harap izinkan akses lokasi (GPS) pada pengaturan browser Anda.';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage += 'Informasi lokasi tidak dapat ditemukan.';
+              break;
+            case error.TIMEOUT:
+              errorMessage += 'Waktu tunggu deteksi lokasi habis.';
+              break;
+            default:
+              errorMessage += 'Terjadi kesalahan jaringan atau sensor GPS.';
+              break;
+          }
+          alert(errorMessage);
+          setChatSubmitting(false);
+          setAdminIsUploading(false);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } else {
+      await proceedWithSendAdminChatMessage();
     }
   };
 
@@ -4241,20 +4410,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     fetchAdminReservations();
                     setShowReservationsModalAdmin(true);
                   }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '6px 12px',
-                    borderRadius: '8px',
-                    background: 'rgba(99, 102, 241, 0.15)',
-                    border: '1px solid rgba(99, 102, 241, 0.3)',
-                    color: '#818cf8',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    transition: 'all 0.2s'
-                  }}
+                  className={`${styles.adminHeaderBtn} ${styles.adminHeaderBtnReservasi}`}
                   title="Daftar Reservasi"
                 >
                   <CalendarIcon size={14} />
@@ -4262,20 +4418,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 </button>
                 <button
                   onClick={() => setShowMobileAttributesModal(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '6px 12px',
-                    borderRadius: '8px',
-                    background: 'rgba(236, 72, 153, 0.15)',
-                    border: '1px solid rgba(236, 72, 153, 0.3)',
-                    color: '#f472b6',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    transition: 'all 0.2s'
-                  }}
+                  className={`${styles.adminHeaderBtn} ${styles.adminHeaderBtnAtribut}`}
                   title="Kelola Atribut"
                 >
                   <Tag size={14} />
@@ -4286,27 +4429,14 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     fetchAttributeHistory();
                     setShowAttributeCalendarModal(true);
                   }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '6px 12px',
-                    borderRadius: '8px',
-                    background: 'rgba(16, 185, 129, 0.15)',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                    color: '#34d399',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    transition: 'all 0.2s'
-                  }}
+                  className={`${styles.adminHeaderBtn} ${styles.adminHeaderBtnKalender}`}
                   title="Kalender Atribut"
                 >
                   <CalendarIcon size={14} />
                   <span className={styles.adminChatAttrCalBtnText}>Kalender Atribut</span>
                 </button>
                 <button onClick={handleAdminLogout} className={styles.adminLogoutBtn}>
-                  <LogOut size={16} style={{ marginRight: '6px' }} />
+                  <LogOut size={16} />
                   <span>Keluar Admin</span>
                 </button>
               </div>
@@ -4558,6 +4688,33 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
                             {msg.message && (
                               <p className={styles.chatMessageText}>{formatBoldText(msg.message)}</p>
+                            )}
+
+                            {/* Location Link if present */}
+                            {msg.latitude && msg.longitude && (
+                              <div style={{ marginTop: '6px', marginBottom: '4px' }}>
+                                <a 
+                                  href={`https://www.google.com/maps/search/?api=1&query=${msg.latitude},${msg.longitude}`}
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    background: 'rgba(255, 255, 255, 0.1)',
+                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                    color: '#60a5fa',
+                                    padding: '3px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 500,
+                                    textDecoration: 'none',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  📍 Lihat Lokasi (GMaps)
+                                </a>
+                              </div>
                             )}
                             <span className={styles.chatTimeText}>{timeStr}</span>
                           </div>
@@ -4821,7 +4978,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
                 <textarea
                   ref={adminChatInputRef}
-                  placeholder="Tulis balasan atau pengumuman dari Admin..."
+                  placeholder="Tulis balasan..."
                   value={newChatMessage}
                   onChange={(e) => setNewChatMessage(e.target.value)}
                   className={styles.adminChatTextInput}
@@ -5225,47 +5382,116 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                             return (
                               <div key={opt.id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', padding: '6px 10px', borderRadius: '6px' }}>
                                 {isEditing ? (
-                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
-                                    <input
-                                      type="text"
-                                      value={editingOptionText}
-                                      onChange={(e) => setEditingOptionText(e.target.value)}
-                                      style={{
-                                        background: 'rgba(0, 0, 0, 0.4)',
-                                        border: '1px solid rgba(99, 102, 241, 0.4)',
-                                        color: '#ffffff',
-                                        fontSize: '0.8rem',
-                                        padding: '4px 8px',
-                                        borderRadius: '4px',
-                                        outline: 'none',
-                                        flex: 1
-                                      }}
-                                      autoFocus
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                          e.preventDefault();
-                                          handleSaveOptionRename(opt.id);
-                                        } else if (e.key === 'Escape') {
-                                          setEditingOptionId(null);
-                                        }
-                                      }}
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => handleSaveOptionRename(opt.id)}
-                                      style={{ background: 'transparent', border: 'none', color: '#10b981', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
-                                      title="Simpan"
-                                    >
-                                      <Check size={14} />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setEditingOptionId(null)}
-                                      style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
-                                      title="Batal"
-                                    >
-                                      <X size={14} />
-                                    </button>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', padding: '4px' }}>
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
+                                      <input
+                                        type="text"
+                                        value={editingOptionText}
+                                        onChange={(e) => setEditingOptionText(e.target.value)}
+                                        style={{
+                                          background: 'rgba(0, 0, 0, 0.4)',
+                                          border: '1px solid rgba(99, 102, 241, 0.4)',
+                                          color: '#ffffff',
+                                          fontSize: '0.8rem',
+                                          padding: '4px 8px',
+                                          borderRadius: '4px',
+                                          outline: 'none',
+                                          flex: 1
+                                        }}
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleSaveOptionRename(opt.id);
+                                          } else if (e.key === 'Escape') {
+                                            setEditingOptionId(null);
+                                          }
+                                        }}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSaveOptionRename(opt.id)}
+                                        style={{ background: 'transparent', border: 'none', color: '#10b981', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
+                                        title="Simpan"
+                                      >
+                                        <Check size={14} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditingOptionId(null)}
+                                        style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
+                                        title="Batal"
+                                      >
+                                        <X size={14} />
+                                      </button>
+                                    </div>
+                                    
+                                    {/* Inline Lateness Limits editing */}
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', paddingLeft: '4px' }}>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                                        <input
+                                          type="checkbox"
+                                          checked={editingOptionHasLateLimit}
+                                          onChange={(e) => setEditingOptionHasLateLimit(e.target.checked)}
+                                          style={{ cursor: 'pointer', width: '12px', height: '12px' }}
+                                        />
+                                        Batasi Jam Kedatangan
+                                      </label>
+                                      
+                                      {editingOptionHasLateLimit && (
+                                        <input
+                                          type="time"
+                                          value={editingOptionMaxArrivalTime}
+                                          onChange={(e) => setEditingOptionMaxArrivalTime(e.target.value)}
+                                          style={{
+                                            background: 'rgba(0, 0, 0, 0.4)',
+                                            border: '1px solid rgba(255,255,255,0.1)',
+                                            color: '#ffffff',
+                                            fontSize: '0.72rem',
+                                            padding: '2px 4px',
+                                            borderRadius: '4px',
+                                            outline: 'none',
+                                            cursor: 'pointer'
+                                          }}
+                                        />
+                                      )}
+                                    </div>
+
+                                    {/* Inline Timeframe editing */}
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', paddingLeft: '4px', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '6px' }}>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                                        <input
+                                          type="checkbox"
+                                          checked={editingOptionHasTimeframe}
+                                          onChange={(e) => setEditingOptionHasTimeframe(e.target.checked)}
+                                          style={{ cursor: 'pointer', width: '12px', height: '12px' }}
+                                        />
+                                        Aktifkan Jangka Waktu
+                                      </label>
+                                      
+                                      {editingOptionHasTimeframe && (
+                                        <select
+                                          value={editingOptionDuration}
+                                          onChange={(e) => setEditingOptionDuration(e.target.value)}
+                                          style={{
+                                            background: 'rgba(0, 0, 0, 0.4)',
+                                            border: '1px solid rgba(255,255,255,0.1)',
+                                            color: '#ffffff',
+                                            fontSize: '0.72rem',
+                                            padding: '2px 4px',
+                                            borderRadius: '4px',
+                                            outline: 'none',
+                                            cursor: 'pointer'
+                                          }}
+                                        >
+                                          <option value="1 hari">1 Hari</option>
+                                          <option value="3 hari">3 Hari</option>
+                                          <option value="7 hari">7 Hari</option>
+                                          <option value="2 minggu">2 Minggu</option>
+                                          <option value="1 bulan">1 Bulan</option>
+                                        </select>
+                                      )}
+                                    </div>
                                   </div>
                                 ) : (
                                   <>
@@ -5276,6 +5502,11 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                           ⏱️ Jangka Waktu: {opt.duration} ({opt.status === 'taken' ? `Diambil: ${opt.assignedTo}` : 'Tersedia'})
                                         </span>
                                       )}
+                                      {opt.hasLateLimit && (
+                                        <span style={{ fontSize: '0.65rem', color: '#f59e0b' }}>
+                                          ⏰ Batas Kedatangan: {opt.maxArrivalTime} WIB
+                                        </span>
+                                      )}
                                     </div>
                                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                       <button
@@ -5283,6 +5514,10 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                         onClick={() => {
                                           setEditingOptionId(opt.id);
                                           setEditingOptionText(opt.text || opt);
+                                          setEditingOptionHasLateLimit(!!opt.hasLateLimit);
+                                          setEditingOptionMaxArrivalTime(opt.maxArrivalTime || '09:00');
+                                          setEditingOptionHasTimeframe(!!opt.hasTimeframe);
+                                          setEditingOptionDuration(opt.duration || '1 hari');
                                         }}
                                         style={{ background: 'transparent', border: 'none', color: '#38bdf8', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
                                         title="Ubah Nama"
@@ -5362,6 +5597,40 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                           </div>
                         )}
 
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                          <input
+                            type="checkbox"
+                            id="enable-option-latelimit"
+                            checked={newOptionHasLateLimit}
+                            onChange={(e) => setNewOptionHasLateLimit(e.target.checked)}
+                            style={{ cursor: 'pointer', width: '14px', height: '14px' }}
+                          />
+                          <label htmlFor="enable-option-latelimit" style={{ fontSize: '0.78rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                            Batasi Jam Kedatangan (Deteksi Terlambat)
+                          </label>
+                        </div>
+
+                        {newOptionHasLateLimit && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Maksimal Jam Kedatangan:</label>
+                            <input
+                              type="time"
+                              value={newOptionMaxArrivalTime}
+                              onChange={(e) => setNewOptionMaxArrivalTime(e.target.value)}
+                              style={{
+                                background: 'rgba(0, 0, 0, 0.3)',
+                                border: '1px solid var(--glass-border)',
+                                color: '#ffffff',
+                                fontSize: '0.85rem',
+                                padding: '8px',
+                                borderRadius: '6px',
+                                outline: 'none',
+                                cursor: 'pointer'
+                              }}
+                            />
+                          </div>
+                        )}
+
                         <button
                           type="button"
                           onClick={() => {
@@ -5395,11 +5664,14 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                 status: 'ready',
                                 assignedTo: null,
                                 startDate: newOptionHasTimeframe ? now.toISOString() : null,
-                                expiryDate: expiry
+                                expiryDate: expiry,
+                                hasLateLimit: newOptionHasLateLimit,
+                                maxArrivalTime: newOptionHasLateLimit ? newOptionMaxArrivalTime : null
                               };
                               setManagedOptions(prev => sortOptions([...prev, newOptObj]));
                               setNewOptionInput('');
                               setNewOptionHasTimeframe(false);
+                              setNewOptionHasLateLimit(false);
                             }
                           }}
                           style={{
@@ -7211,7 +7483,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           {renderRemindersTab()}
         </div>
       ) : activeTab === 'chat' ? (
-        <div className={styles.fullWidthNewsArea}>
+        <div className={styles.fullWidthChatArea}>
           {renderAdminChatRoom()}
         </div>
       ) : activeTab === 'reservations' ? (
