@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<voice-interaction-service 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="com.smartnotes.assistant.AssistantSessionService"
+    android:recognitionService="com.smartnotes.assistant.AssistantRecognitionService"
+    android:supportsAssist="true"
+    android:supportsLaunchVoiceAssistFromKeyguard="true"
+    android:supportsLocalInteraction="true" />
