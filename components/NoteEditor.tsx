@@ -876,35 +876,33 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
   return (
     <div className={`${styles.editorContainer} glass-panel`}>
       <div className={styles.header}>
-        {onBack && (
-          <button className={styles.backBtn} onClick={onBack} title="Kembali ke Daftar">
-            <ArrowLeft size={20} />
-          </button>
-        )}
-        <div className={styles.titleArea}>
-          {isEditing ? (
-            <input
-              type="text"
-              className={styles.titleInput}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Judul Catatan..."
-            />
-          ) : (
-            <h2 className={styles.title}>{title || 'Catatan Tanpa Judul'}</h2>
+        <div className={styles.headerMainRow}>
+          {onBack && (
+            <button className={styles.backBtn} onClick={onBack} title="Kembali ke Daftar">
+              <ArrowLeft size={20} />
+            </button>
           )}
-          <div className={styles.metadata}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Calendar size={14} />
-              {formatDate(note.created_at)}
-            </span>
+          <div className={styles.titleArea}>
             {isEditing ? (
-              <div className={styles.folderSelectContainer}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Folder:</span>
+              <input
+                type="text"
+                className={styles.titleInput}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Judul Catatan..."
+              />
+            ) : (
+              <h2 className={styles.title}>{title || 'Catatan Tanpa Judul'}</h2>
+            )}
+          </div>
+
+          <div className={styles.actions}>
+            {isMoving ? (
+              <div className={styles.moveActionsWrapper}>
                 <select
-                  className={styles.folderSelect}
-                  value={folderId || ''}
-                  onChange={(e) => setFolderId(e.target.value || null)}
+                  className={styles.moveFolderSelect}
+                  value={targetMoveFolderId || ''}
+                  onChange={(e) => setTargetMoveFolderId(e.target.value || null)}
                 >
                   <option value="">Tanpa Folder (Umum)</option>
                   {getSortedFolderTree(folders).map((f) => (
@@ -913,42 +911,63 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
                     </option>
                   ))}
                 </select>
-                {onCreateFolder && (
-                  <button
-                    type="button"
-                    className={styles.newFolderBtn}
-                    onClick={async () => {
-                      const name = prompt('Masukkan nama folder baru:');
-                      if (name && name.trim()) {
-                        const newFolder = await onCreateFolder(name.trim());
-                        if (newFolder) {
-                          setFolderId(newFolder.id);
-                        }
-                      }
-                    }}
-                    title="Tambah Folder Baru"
-                  >
-                    <Plus size={14} />
-                  </button>
-                )}
+                <button className={`${styles.actionIconBtn} ${styles.saveBtn}`} onClick={handleConfirmMove}>
+                  <Check size={16} />
+                  <span>Pindahkan</span>
+                </button>
+                <button className={`${styles.actionIconBtn} ${styles.deleteBtn}`} onClick={() => setIsMoving(false)}>
+                  <X size={16} />
+                  <span>Batal</span>
+                </button>
               </div>
+            ) : isEditing ? (
+              <>
+                <button className={`${styles.actionIconBtn} ${styles.saveBtn}`} onClick={handleSave} disabled={isSaving}>
+                  <Check size={16} />
+                  {!isMobile && <span style={{ marginLeft: '6px' }}>Simpan</span>}
+                </button>
+                <button className={`${styles.actionIconBtn} ${styles.deleteBtn}`} onClick={() => onDelete(note.id)} title="Hapus Catatan">
+                  <Trash2 size={16} />
+                  {!isMobile && <span style={{ marginLeft: '6px' }}>Hapus</span>}
+                </button>
+              </>
             ) : (
-              note.folder_id && folders.find(f => f.id === note.folder_id) && (
-                <span className={styles.folderBadge}>
-                  📂 {folders.find(f => f.id === note.folder_id)?.name}
-                </span>
-              )
+              <>
+                <button className={`${styles.actionIconBtn} ${styles.recorderShortcutBtn} ${showInlineRecorder ? styles.recorderShortcutBtnActive : ''}`} onClick={() => setShowInlineRecorder(!showInlineRecorder)} title="Input Suara AI ke Catatan Ini">
+                  <Mic size={16} style={{ color: 'var(--secondary)', marginRight: !isMobile ? '6px' : '0' }} />
+                  {!isMobile && <span>Input Suara AI</span>}
+                </button>
+                <button className={`${styles.actionIconBtn} ${styles.editBtn}`} onClick={() => setIsEditing(true)} title="Edit Catatan">
+                  <Edit3 size={16} />
+                  {!isMobile && <span style={{ marginLeft: '6px' }}>Edit</span>}
+                </button>
+                <button className={`${styles.actionIconBtn} ${styles.moveBtn}`} onClick={() => setIsMoving(true)} title="Pindahkan Catatan ke Folder Lain">
+                  <FolderInput size={16} />
+                  {!isMobile && <span style={{ marginLeft: '6px' }}>Pindahkan</span>}
+                </button>
+              </>
+            )}
+            {!isMoving && !isEditing && (
+              <button className={`${styles.actionIconBtn} ${styles.deleteBtn}`} onClick={() => onDelete(note.id)}>
+                <Trash2 size={16} />
+                {!isMobile && <span style={{ marginLeft: '6px' }}>Hapus</span>}
+              </button>
             )}
           </div>
         </div>
 
-        <div className={styles.actions}>
-          {isMoving ? (
-            <div className={styles.moveActionsWrapper}>
+        <div className={styles.metadata}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Calendar size={14} />
+            {formatDate(note.created_at)}
+          </span>
+          {isEditing ? (
+            <div className={styles.folderSelectContainer}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Folder:</span>
               <select
-                className={styles.moveFolderSelect}
-                value={targetMoveFolderId || ''}
-                onChange={(e) => setTargetMoveFolderId(e.target.value || null)}
+                className={styles.folderSelect}
+                value={folderId || ''}
+                onChange={(e) => setFolderId(e.target.value || null)}
               >
                 <option value="">Tanpa Folder (Umum)</option>
                 {getSortedFolderTree(folders).map((f) => (
@@ -957,47 +976,31 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
                   </option>
                 ))}
               </select>
-              <button className={`${styles.actionIconBtn} ${styles.saveBtn}`} onClick={handleConfirmMove}>
-                <Check size={16} />
-                <span>Pindahkan</span>
-              </button>
-              <button className={`${styles.actionIconBtn} ${styles.deleteBtn}`} onClick={() => setIsMoving(false)}>
-                <X size={16} />
-                <span>Batal</span>
-              </button>
-            </div>
-          ) : isEditing ? (
-            <button className={`${styles.actionIconBtn} ${styles.saveBtn}`} onClick={handleSave} disabled={isSaving}>
-              <Check size={18} />
-              {!isMobile && <span style={{ marginLeft: '6px' }}>Simpan</span>}
-            </button>
-          ) : (
-            <>
-              <button className={`${styles.actionIconBtn} ${styles.recorderShortcutBtn} ${showInlineRecorder ? styles.recorderShortcutBtnActive : ''}`} onClick={() => setShowInlineRecorder(!showInlineRecorder)} title="Input Suara AI ke Catatan Ini">
-                <Mic size={16} style={{ color: 'var(--secondary)', marginRight: !isMobile ? '6px' : '0' }} />
-                {!isMobile && <span>Input Suara AI</span>}
-              </button>
-              <button className={`${styles.actionIconBtn} ${styles.editBtn}`} onClick={() => setIsEditing(true)} title="Edit Catatan">
-                <Edit3 size={16} />
-                {!isMobile && <span style={{ marginLeft: '6px' }}>Edit</span>}
-              </button>
-              {onCopy && (
-                <button className={`${styles.actionIconBtn} ${styles.copyBtn}`} onClick={() => onCopy(note.id)} title="Salin Catatan">
-                  <Copy size={16} />
-                  {!isMobile && <span style={{ marginLeft: '6px' }}>Salin</span>}
+              {onCreateFolder && (
+                <button
+                  type="button"
+                  className={styles.newFolderBtn}
+                  onClick={async () => {
+                    const name = prompt('Masukkan nama folder baru:');
+                    if (name && name.trim()) {
+                      const newFolder = await onCreateFolder(name.trim());
+                      if (newFolder) {
+                        setFolderId(newFolder.id);
+                      }
+                    }
+                  }}
+                  title="Tambah Folder Baru"
+                >
+                  <Plus size={14} />
                 </button>
               )}
-              <button className={`${styles.actionIconBtn} ${styles.moveBtn}`} onClick={() => setIsMoving(true)} title="Pindahkan Catatan ke Folder Lain">
-                <FolderInput size={16} />
-                {!isMobile && <span style={{ marginLeft: '6px' }}>Pindahkan</span>}
-              </button>
-            </>
-          )}
-          {!isMoving && (
-            <button className={`${styles.actionIconBtn} ${styles.deleteBtn}`} onClick={() => onDelete(note.id)}>
-              <Trash2 size={16} />
-              {!isMobile && <span style={{ marginLeft: '6px' }}>Hapus</span>}
-            </button>
+            </div>
+          ) : (
+            note.folder_id && folders.find(f => f.id === note.folder_id) && (
+              <span className={styles.folderBadge}>
+                📂 {folders.find(f => f.id === note.folder_id)?.name}
+              </span>
+            )
           )}
         </div>
       </div>

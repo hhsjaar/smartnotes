@@ -21,11 +21,19 @@
 
 .header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
   border-bottom: 1px solid var(--glass-border);
   padding-bottom: 16px;
   margin-bottom: 20px;
+  gap: 12px;
+}
+
+.headerMainRow {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .titleArea {
@@ -71,6 +79,7 @@
 .actions {
   display: flex;
   gap: 10px;
+  align-items: center;
 }
 
 .contentWrapper {
@@ -93,7 +102,7 @@
 .textarea {
   width: 100%;
   flex: 1;
-  min-height: 350px;
+  min-height: calc(100vh - 350px);
   background: rgba(0, 0, 0, 0.2);
   border: 1px solid var(--glass-border);
   border-radius: var(--border-radius-md);
@@ -112,7 +121,7 @@
 
 .previewArea {
   width: 100%;
-  min-height: 350px;
+  min-height: calc(100vh - 350px);
   flex: 1;
   overflow-y: auto;
   background: rgba(0, 0, 0, 0.1);
@@ -302,7 +311,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 14px;
+  height: 36px;
+  padding: 0 14px;
   border-radius: var(--border-radius-sm);
   border: 1px solid var(--glass-border);
   background: rgba(255, 255, 255, 0.05);
@@ -312,6 +322,7 @@
   cursor: pointer;
   transition: all 0.2s ease;
   outline: none;
+  line-height: 1;
 }
 
 .editBtn {
@@ -341,6 +352,17 @@
 .deleteBtn:hover {
   background: rgba(239, 68, 68, 0.25);
   border-color: rgba(239, 68, 68, 0.4);
+}
+
+.cancelBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--glass-border);
+  color: #cbd5e1;
+}
+.cancelBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
 }
 
 /* Sub Tab Navigation inside Editor */
@@ -423,16 +445,23 @@
   }
   
   .header {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+  }
+
+  .headerMainRow {
     display: grid;
     grid-template-areas: 
       "back actions"
       "title title";
     grid-template-columns: auto 1fr;
-    row-gap: 14px;
+    row-gap: 12px;
     column-gap: 8px;
     align-items: center;
-    margin-bottom: 16px;
-    padding-bottom: 16px;
+    width: 100%;
   }
 
   .backBtn {
@@ -472,7 +501,9 @@
   }
 
   .actionIconBtn {
-    padding: 8px;
+    padding: 0;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.08);
   }
@@ -1295,6 +1326,20 @@
 .toolbarBtn:hover {
   color: #fff;
   background: rgba(255, 255, 255, 0.08);
+}
+
+/* Tablet Media Query for action icon buttons */
+@media (max-width: 1024px) {
+  .actionIconBtn span {
+    display: none !important;
+  }
+  .actionIconBtn svg {
+    margin-right: 0 !important;
+    margin-left: 0 !important;
+  }
+  .actionIconBtn {
+    padding: 8px 10px;
+  }
 }
 
 

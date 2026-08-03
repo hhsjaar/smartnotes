@@ -612,7 +612,7 @@
   .sidebar {
     width: 220px;
   }
-  
+
   .notesListColumn {
     width: 280px;
   }
@@ -685,7 +685,8 @@
   flex-direction: column;
   overflow: hidden;
   padding: 16px;
-  padding-bottom: 80px; /* space for bottom nav */
+  padding-bottom: 80px;
+  /* space for bottom nav */
 }
 
 /* Bottom Navigation */
@@ -987,6 +988,7 @@
     transform: translateY(100px);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -1043,7 +1045,8 @@
 
 @media (max-width: 768px) {
   .installBanner {
-    bottom: 80px; /* Float above the bottom tab bar on mobile viewport */
+    bottom: 80px;
+    /* Float above the bottom tab bar on mobile viewport */
     left: 15px;
     right: 15px;
     max-width: calc(100% - 30px);
@@ -1394,13 +1397,25 @@
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes scale-up {
-  from { transform: scale(0.95); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .mobileFolderSection {
@@ -1682,7 +1697,8 @@
   overflow-y: hidden;
   padding: 10px 4px;
   flex: 1;
-  scrollbar-width: none; /* Firefox */
+  scrollbar-width: none;
+  /* Firefox */
   touch-action: pan-x;
   /* Mask/Fade gradient for premium smooth fading text on the right */
   -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
@@ -1691,7 +1707,8 @@
 }
 
 .mobileFolderScrollContainer::-webkit-scrollbar {
-  display: none; /* Safari and Chrome */
+  display: none;
+  /* Safari and Chrome */
 }
 
 .mobileFolderChip {
@@ -1781,7 +1798,8 @@
   -webkit-backdrop-filter: blur(8px);
   z-index: 2000;
   display: flex;
-  align-items: flex-end; /* Align to bottom for bottom-sheet feel */
+  align-items: flex-end;
+  /* Align to bottom for bottom-sheet feel */
   animation: fade-in 0.25s ease-out;
 }
 
@@ -1803,6 +1821,7 @@
   from {
     transform: translateY(100%);
   }
+
   to {
     transform: translateY(0);
   }
@@ -1974,13 +1993,25 @@
 }
 
 @keyframes confirm-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes confirm-scale-up {
-  from { transform: scale(0.95); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 /* Floating Notification Toast */
@@ -2008,6 +2039,7 @@
     transform: translateX(100%) translateY(0);
     opacity: 0;
   }
+
   to {
     transform: translateX(0) translateY(0);
     opacity: 1;
@@ -2032,6 +2064,7 @@
     transform: translateY(100%);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -2501,12 +2534,12 @@
   border-radius: 50%;
 }
 
-.switch input:checked + .slider {
+.switch input:checked+.slider {
   background-color: rgba(99, 102, 241, 0.2);
   border-color: rgba(99, 102, 241, 0.4);
 }
 
-.switch input:checked + .slider:before {
+.switch input:checked+.slider:before {
   transform: translateX(20px);
   background-color: var(--primary);
   box-shadow: 0 0 8px var(--primary-glow);
@@ -2792,7 +2825,8 @@
   margin-top: 4px;
 }
 
-.editSaveBtn, .editCancelBtn {
+.editSaveBtn,
+.editCancelBtn {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--glass-border);
   color: #fff;
@@ -2873,6 +2907,7 @@
     opacity: 0;
     transform: translateY(-5px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -2888,7 +2923,7 @@
   height: 100vh;
   padding: 20px;
   background-color: var(--bg-primary);
-  background-image: 
+  background-image:
     radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
     radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.08) 0%, transparent 40%);
 }
@@ -2997,7 +3032,7 @@
   box-shadow: 0 0 12px rgba(99, 102, 241, 0.15);
 }
 
-.textInput:focus + .fieldIcon {
+.textInput:focus+.fieldIcon {
   color: var(--primary);
 }
 
@@ -3461,7 +3496,7 @@
     grid-template-columns: 1fr;
     overflow: visible;
   }
-  
+
   .adminAttributeManagementPanel {
     height: auto;
   }
@@ -3512,7 +3547,7 @@
     flex-direction: column;
     height: auto;
   }
-  
+
   .adminChatLayout {
     grid-template-columns: 1fr;
     gap: 0;
@@ -3533,15 +3568,15 @@
     flex-direction: column;
     height: auto;
   }
-  
+
   .adminChatArea {
     padding: 12px 8px;
   }
-  
+
   .adminChatHeader {
     padding: 8px 10px;
   }
-  
+
   .adminChatHeaderTitle {
     gap: 6px;
   }
@@ -3562,11 +3597,11 @@
   .adminChatHeaderTitle p {
     font-size: 0.65rem;
   }
-  
+
   .adminLogoutBtn span {
     display: none;
   }
-  
+
   .adminLogoutBtn {
     padding: 6px;
   }
@@ -3914,8 +3949,15 @@
 }
 
 @keyframes pulse-glow-res {
-  0% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(168, 85, 247, 0.4)); }
-  100% { transform: scale(1.08); filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.8)); }
+  0% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 2px rgba(168, 85, 247, 0.4));
+  }
+
+  100% {
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.8));
+  }
 }
 
 .custHeader p {
@@ -4809,27 +4851,27 @@
     gap: 8px;
     margin-bottom: 16px;
   }
-  
+
   .termsModalContent {
     max-height: 90vh;
   }
-  
+
   .termsModalHeader {
     padding: 16px;
   }
-  
+
   .termsModalHeader h3 {
     font-size: 1.1rem;
   }
-  
+
   .termsModalBody {
     padding: 16px;
   }
-  
+
   .termsModalFooter {
     padding: 12px 16px;
   }
-  
+
   .termsModalAgreeBtn {
     width: 100%;
     padding: 12px;
@@ -4845,28 +4887,28 @@
     gap: 12px;
     height: auto;
   }
-  
+
   .adminResHeader h3 {
     font-size: 1.15rem;
     margin-bottom: 4px;
   }
-  
+
   .adminResHeader p {
     font-size: 0.78rem;
     margin: 0;
   }
-  
+
   .adminResFilterBar {
     flex-wrap: wrap;
     gap: 6px;
     padding: 8px;
   }
-  
+
   .filterTab {
     padding: 6px 10px;
     font-size: 0.75rem;
   }
-  
+
   .refreshBtn {
     padding: 6px 10px;
     font-size: 0.75rem;
@@ -4874,11 +4916,11 @@
     width: 100%;
     justify-content: center;
   }
-  
+
   .resTable {
     min-width: 650px;
   }
-  
+
   .resTable th,
   .resTable td {
     padding: 10px 12px;
@@ -5097,7 +5139,7 @@
     grid-template-columns: 1fr;
     gap: 20px;
   }
-  
+
   .adminResCalendarPanel {
     position: static;
   }
@@ -5193,6 +5235,7 @@
   .adminMobileStatusRow::-webkit-scrollbar {
     height: 4px;
   }
+
   .adminMobileStatusRow::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 2px;
@@ -5297,7 +5340,7 @@
     margin-bottom: 3px;
   }
 
-  .resMobileMetaGrid span, 
+  .resMobileMetaGrid span,
   .resMobileMetaGrid strong {
     font-size: 0.8rem;
   }
@@ -5738,6 +5781,7 @@
     transform: scale(0.9);
     opacity: 0;
   }
+
   to {
     transform: scale(1);
     opacity: 1;
@@ -5802,13 +5846,23 @@
 }
 
 @keyframes admin-fade-in-lightbox {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes admin-zoom-in-lightbox {
-  from { transform: scale(0.9); }
-  to { transform: scale(1); }
+  from {
+    transform: scale(0.9);
+  }
+
+  to {
+    transform: scale(1);
+  }
 }
 
 /* Mobile responsive styles overrides */
@@ -5816,7 +5870,7 @@
   .adminMessageImage {
     max-height: 180px;
   }
-  
+
   .adminLightboxCloseBtn {
     top: 16px;
     right: 16px;
@@ -5886,13 +5940,17 @@
   padding-bottom: 12px;
   margin-bottom: 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
-  -webkit-overflow-scrolling: touch; /* iOS Safari inertia */
+  scrollbar-width: none;
+  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE/Edge */
+  -webkit-overflow-scrolling: touch;
+  /* iOS Safari inertia */
 }
 
 .reservationFilterPillsRow::-webkit-scrollbar {
-  display: none; /* Chrome/Safari/Opera */
+  display: none;
+  /* Chrome/Safari/Opera */
 }
 
 /* Sub-tab navigation inside Reminders */
@@ -6079,6 +6137,3 @@
   border-color: rgba(16, 185, 129, 0.3);
   color: #34d399;
 }
-
-
-
