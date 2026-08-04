@@ -76,13 +76,35 @@ function robustJsonParse(text: string): any {
   try {
     return JSON.parse(text);
   } catch (err) {
-    console.warn("Standard JSON.parse failed, trying cleaned string...", err);
+    console.warn("Standard JSON.parse failed, trying custom response end cleanup...", err);
     try {
-      const cleaned = cleanJsonString(text);
+      let cleaned = text.trim();
+      const responseKeyIdx = cleaned.indexOf('"response":');
+      if (responseKeyIdx !== -1) {
+        const valStartIdx = cleaned.indexOf('"', responseKeyIdx + 11);
+        if (valStartIdx !== -1) {
+          let valEndIdx = -1;
+          for (let i = valStartIdx + 1; i < cleaned.length; i++) {
+            if (cleaned[i] === '"' && cleaned[i - 1] !== '\\') {
+              valEndIdx = i;
+              break;
+            }
+          }
+          if (valEndIdx !== -1) {
+            cleaned = cleaned.substring(0, valEndIdx + 1) + '\n}';
+          }
+        }
+      }
       return JSON.parse(cleaned);
     } catch (err2) {
-      console.error("Cleaned JSON.parse also failed:", err2);
-      throw err2;
+      console.warn("Custom trailing response cleaning failed, trying cleanJsonString...", err2);
+      try {
+        const cleaned = cleanJsonString(text);
+        return JSON.parse(cleaned);
+      } catch (err3) {
+        console.error("All JSON.parse strategies failed:", err3);
+        throw err3;
+      }
     }
   }
 }
@@ -100,6 +122,125 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'GEMINI_API_KEY tidak dikonfigurasi di server.' }, { status: 500 });
     }
 
+    // Parse date filter from user command to fetch historical data if requested
+    const indonesianMonths = [
+      { names: ['januari', 'january', 'jan'], index: 0 },
+      { names: ['februari', 'february', 'feb'], index: 1 },
+      { names: ['maret', 'march', 'mar'], index: 2 },
+      { names: ['april', 'apr'], index: 3 },
+      { names: ['mei', 'may'], index: 4 },
+      { names: ['juni', 'june', 'jun'], index: 5 },
+      { names: ['juli', 'july', 'jul'], index: 6 },
+      { names: ['agustus', 'august', 'agu', 'agt'], index: 7 },
+      { names: ['september', 'sep', 'sept'], index: 8 },
+      { names: ['oktober', 'october', 'okt', 'oct'], index: 9 },
+      { names: ['november', 'nov'], index: 10 },
+      { names: ['desember', 'december', 'des', 'dec'], index: 11 }
+    ];
+
+    const currentDateTime = new Date();
+    const currentYear = currentDateTime.getFullYear();
+    const currentMonth = currentDateTime.getMonth();
+    // Combine latest command with conversation history to parse context keywords
+    let lowerCmd = (command || '').toLowerCase();
+    if (history && Array.isArray(history)) {
+      for (const msg of history) {
+        const text = msg.text || (msg.parts && msg.parts[0]?.text);
+        if (text) {
+          lowerCmd += " " + text.toLowerCase();
+        }
+      }
+    }
+
+    let dateFilter: { gte: Date; lte: Date } | undefined = undefined;
+    let isSpeciallyFiltered = false;
+
+    // Check for month names in command
+    let targetMonthIndex: number | null = null;
+    for (const m of indonesianMonths) {
+      if (m.names.some(name => lowerCmd.includes(name))) {
+        targetMonthIndex = m.index;
+        break;
+      }
+    }
+
+    if (targetMonthIndex !== null) {
+      let year = currentYear;
+      if (targetMonthIndex > currentMonth) {
+        year = currentYear - 1; // Assume previous year if the requested month has not occurred yet this year
+      }
+      const gte = new Date(year, targetMonthIndex, 1);
+      const lte = new Date(year, targetMonthIndex + 1, 0, 23, 59, 59, 999);
+      dateFilter = { gte, lte };
+      isSpeciallyFiltered = true;
+    } else if (
+      lowerCmd.includes('bulan lalu') || 
+      lowerCmd.includes('bulan kemarin') || 
+      lowerCmd.includes('last month')
+    ) {
+      const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const year = currentMonth === 0 ? currentYear - 1 : currentYear;
+      const gte = new Date(year, prevMonth, 1);
+      const lte = new Date(year, prevMonth + 1, 0, 23, 59, 59, 999);
+      dateFilter = { gte, lte };
+      isSpeciallyFiltered = true;
+    } else if (
+      lowerCmd.includes('bulan ini') || 
+      lowerCmd.includes('this month')
+    ) {
+      const gte = new Date(currentYear, currentMonth, 1);
+      const lte = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59, 999);
+      dateFilter = { gte, lte };
+      isSpeciallyFiltered = true;
+    } else if (
+      lowerCmd.includes('absen') || 
+      lowerCmd.includes('masuk') || 
+      lowerCmd.includes('hadir') || 
+      lowerCmd.includes('rekap') || 
+      lowerCmd.includes('kehadiran') || 
+      lowerCmd.includes('shift') ||
+      lowerCmd.includes('berapa kali') ||
+      lowerCmd.includes('siapa')
+    ) {
+      // General attendance or recap query: default to last 60 days to catch current and previous month records
+      const gte = new Date(currentDateTime.getTime() - 60 * 24 * 60 * 60 * 1000);
+      const lte = currentDateTime;
+      dateFilter = { gte, lte };
+      isSpeciallyFiltered = true;
+    }
+
+    const chatMessagesPromise = isSpeciallyFiltered && dateFilter
+      ? prisma.chatMessage.findMany({
+          where: {
+            createdAt: {
+              gte: dateFilter.gte,
+              lte: dateFilter.lte
+            }
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true, senderName: true, senderRole: true, message: true, attribute: true, createdAt: true }
+        })
+      : prisma.chatMessage.findMany({ 
+          orderBy: { createdAt: 'desc' }, 
+          take: 30,
+          select: { id: true, senderName: true, senderRole: true, message: true, attribute: true, createdAt: true }
+        });
+
+    const chatAttributeHistoriesPromise = isSpeciallyFiltered && dateFilter
+      ? prisma.chatAttributeHistory.findMany({
+          where: {
+            recordedAt: {
+              gte: dateFilter.gte,
+              lte: dateFilter.lte
+            }
+          },
+          orderBy: { recordedAt: 'desc' }
+        })
+      : prisma.chatAttributeHistory.findMany({ 
+          orderBy: { recordedAt: 'desc' }, 
+          take: 50 
+        });
+
     // Fetch database context concurrently using Promise.all
     const [
       chatRoomMessages,
@@ -109,15 +250,11 @@ export async function POST(request: Request) {
       chatAttributeHistories,
       reservationsList
     ] = await Promise.all([
-      prisma.chatMessage.findMany({ 
-        orderBy: { createdAt: 'desc' }, 
-        take: 30,
-        select: { id: true, senderName: true, senderRole: true, message: true, attribute: true, createdAt: true }
-      }),
+      chatMessagesPromise,
       prisma.folder.findMany({ select: { id: true, name: true, parentId: true } }),
       prisma.note.findMany({ select: { id: true, title: true, created_at: true, folder_id: true, summary: true, tags: true } }),
       prisma.chatAttribute.findMany({ orderBy: { name: 'asc' } }),
-      prisma.chatAttributeHistory.findMany({ orderBy: { recordedAt: 'desc' }, take: 50 }),
+      chatAttributeHistoriesPromise,
       prisma.reservation.findMany({ orderBy: { dateTime: 'asc' } })
     ]);
 
@@ -188,7 +325,6 @@ export async function POST(request: Request) {
       return `- [Status: ${r.status}] Nama: ${r.name} | Tanggal & Jam: ${formattedDate} | Meja: ${r.tableInfo} | Jumlah Orang: ${r.partySize} orang | DP: Rp ${r.dpAmount.toLocaleString('id-ID')} | Menu Pesanan: ${r.menuList || '-'}`;
     }).join('\n');
 
-    const currentDateTime = new Date();
     const currentDateTimeStr = currentDateTime.toLocaleString('id-ID', {
       timeZone: 'Asia/Jakarta',
       weekday: 'long',
@@ -509,6 +645,7 @@ Rules for date parsing:
     };
     try {
       const classifierText = await callGemini(apiKey, formattedHistory, classifierPrompt, true);
+      console.log('RAW CLASSIFIER TEXT:', classifierText);
       let cleanedClassifierText = classifierText.trim();
       if (cleanedClassifierText.startsWith('```')) {
         cleanedClassifierText = cleanedClassifierText.replace(/^```(json)?\n?/, '');
@@ -988,14 +1125,14 @@ ${formattedAttributesListText}
 ${formattedAttributeHistoriesText}
 
 ATURAN PEMBUATAN CATATAN:
-- Jika pengguna meminta membuat catatan baru (misalnya berkata "buat catatan", "saya ingin membuat catatan", "rekam catatan", "rekaman", dsb.):
-  1. Periksa apakah pengguna telah menyebutkan satu atau beberapa target folder utama dari perintahnya (misalnya "buat catatan di folder Perusahaan dan Polsek") ATAU jika target folder utama sudah disebutkan dalam percakapan sebelumnya.
+- Jika pengguna meminta membuat catatan baru (misalnya berkata "buat catatan", "saya ingin membuat catatan", "rekam catatan", "rekaman", "catat", dsb.):
+  1. Periksa apakah perintah tersebut mengandung konten teks spesifik untuk dicatat (misalnya "catat: besok libur", "buat catatan rekap absensi", dsb.), atau ingin menyimpan hasil informasi/rekap. Jika YA, gunakan action "CREATE_NOTE_DIRECT" untuk menyimpan konten tersebut langsung ke database. Jika TIDAK (hanya minta membuat catatan kosong untuk mulai merekam suara secara manual), gunakan action "CREATE_NOTE".
   2. Jika folder target utama BELUM ditentukan/disebutkan oleh pengguna, Anda WAJIB membalas dengan menanyakan folder utama mana saja yang ingin digunakan. Berikan opsi folder utama yang ada secara jelas: ${folderNamesStr}. Kembalikan 'action': null dan jangan mengalihkan halaman dahulu (biarkan percakapan berlanjut).
   3. Jika folder target utama SUDAH ditentukan/disebutkan oleh pengguna (misalnya pengguna menjawab "Perusahaan", "Perusahaan dan Polsek", "Pribadi", atau "Tanpa Folder/Umum/Tidak usah"):
      - Cari satu atau beberapa folder utama yang cocok di Daftar Folder Utama. Jika pengguna menyebutkan kategori yang tidak ada, pilih yang paling mendekati atau pilih null (Tanpa Folder).
-     - Kembalikan 'action': 'CREATE_NOTE'.
-     - Isi payload dengan: { "title": "Catatan Baru", "content": "", "summary": "Membuat catatan baru", "tags": ["Asisten Suara"], "todo_list": [], "folderIds": ["Array berisi ID folder-folder utama yang terpilih (kosongkan [] jika Tanpa Folder)"], "folderNames": ["Array berisi Nama folder-folder utama yang terpilih (kosongkan [] jika Tanpa Folder)"] }
-     - Berikan respon verbal ramah bahwa Anda sedang membuka halaman perekam suara untuk folder-folder tersebut.
+     - Jika ini adalah CREATE_NOTE (hanya buka perekam suara kosong), kembalikan 'action': 'CREATE_NOTE' dan isi payload dengan: { "title": "Catatan Baru", "content": "", "summary": "Membuat catatan baru", "tags": ["Asisten Suara"], "todo_list": [], "folderIds": ["Array berisi ID folder-folder utama yang terpilih (kosongkan [] jika Tanpa Folder)"], "folderNames": ["Array berisi Nama folder-folder utama yang terpilih (kosongkan [] jika Tanpa Folder)"] }
+     - Jika ini adalah CREATE_NOTE_DIRECT (membuat catatan langsung berisi teks/rekap), kembalikan 'action': 'CREATE_NOTE_DIRECT' dan isi payload dengan: { "title": "Judul Catatan", "content": "Konten dalam format Markdown", "summary": "Ringkasan perintah suara asli", "tags": ["Asisten Suara"], "todo_list": [], "folderId": "ID folder tujuan terpilih atau null" } (PENTING: Untuk catatan rekap absensi, Anda WAJIB menghitung dan menyertakan total jumlah hari/kehadiran karyawan tersebut di bagian atas isi catatan, misalnya "Total Kehadiran: 17 Hari" sebelum tabel detailnya).
+     - Berikan respon verbal ramah tentang tindakan tersebut.
 
 ATURAN KHUSUS UNTUK KONTAK WHATSAPP:
 Jika perintah pengguna menyebutkan nama kontak (seperti "kirim WA ke Budi...", "wa ke Ibu...", "jadwalkan pesan untuk Toni..."), Anda WAJIB memeriksa Daftar Kontak WhatsApp di atas untuk mencari nama tersebut.
@@ -1003,30 +1140,32 @@ Jika perintah pengguna menyebutkan nama kontak (seperti "kirim WA ke Budi...", "
 - Jika tidak ditemukan di daftar kontak dan pengguna tidak mendiktekan nomor telepon secara langsung, kembalikan 'action': 'SEND_WHATSAPP' atau 'ASK_CONFIRMATION' (tergantung apakah langsung atau terjadwal), namun mintalah klarifikasi nomor telepon secara sopan dalam 'response' (dan isikan 'recipient' dengan null).
 
 Pilihan Aksi ("action") yang didukung:
-1. CREATE_NOTE: Membuat catatan baru (mengalihkan ke perekam suara).
-   - Payload format: { "title": "Catatan Baru", "content": "", "summary": "Membuat catatan baru", "tags": ["Asisten Suara"], "todo_list": [] }
-2. UPDATE_NOTE: Mengedit catatan aktif.
+1. CREATE_NOTE: Membuka halaman perekam suara kosong untuk merekam catatan baru secara manual.
+   - Payload format: { "folderIds": ["Array berisi ID folder utama terpilih atau []"], "title": "Catatan Baru" }
+2. CREATE_NOTE_DIRECT: Membuat catatan baru secara langsung di database dengan isi/konten teks yang ditentukan.
+   - Payload format: { "title": "Judul Catatan", "content": "Konten dalam Markdown", "summary": "Perintah suara asli", "tags": ["tag1"], "todo_list": [], "folderId": "ID folder tujuan atau null jika tanpa folder" }
+3. UPDATE_NOTE: Mengedit catatan aktif.
    - Payload format: { "noteId": "ID catatan aktif", "title": "Judul baru jika ada", "content": "Konten baru dalam Markdown", "summary": "Teks perintah suara asli", "tags": ["tag1"], "todo_list": [] }
-3. VIEW_NOTE: Membuka/melihat catatan.
+4. VIEW_NOTE: Membuka/melihat catatan.
    - Payload format: { "noteId": "ID catatan" }
-4. CATEGORIZE_NOTE: Memindahkan catatan ke folder.
+5. CATEGORIZE_NOTE: Memindahkan catatan ke folder.
    - Payload format: { "noteId": "ID catatan", "folderId": "ID folder", "folderName": "Nama folder" }
-5. SHOW_NEWS: Membuka berita.
+6. SHOW_NEWS: Membuka berita.
    - Payload format: {}
-6. SUMMARIZE_AI: Meringkas catatan.
+7. SUMMARIZE_AI: Meringkas catatan.
    - Payload format: { "noteId": "ID catatan" }
-7. SEND_WHATSAPP: Mengirim pesan WhatsApp.
+8. SEND_WHATSAPP: Mengirim pesan WhatsApp.
    - Payload format: { "recipient": "Nomor telepon (format angka saja)", "message": "Isi pesan" }
-8. ASK_CONFIRMATION: Meminta konfirmasi penjadwalan tugas.
+9. ASK_CONFIRMATION: Meminta konfirmasi penjadwalan tugas.
    - Payload format: { "originalAction": "SCHEDULE_JOB", "actionType": "whatsapp", "runAt": "ISO String tanggal waktu", "payload": { "recipient": "Nomor telepon", "message": "Isi pesan" }, "command": "perintah asli" }
    - (catatan: actionType bernilai "whatsapp", "news_summary", atau "create_note")
-9. CONFIRM_JOB: Mengonfirmasi tindakan tertunda.
-   - Payload format: Ambil objek payload dari pendingAction.
-10. CANCEL_JOB: Membatalkan tindakan tertunda.
+10. CONFIRM_JOB: Mengonfirmasi tindakan tertunda.
+    - Payload format: Ambil objek payload dari pendingAction.
+11. CANCEL_JOB: Membatalkan tindakan tertunda.
     - Payload format: {}
-11. CREATE_REMINDER: Membuat pengingat baru.
+12. CREATE_REMINDER: Membuat pengingat baru.
     - Payload format: { "title": "Judul pengingat", "description": "Keterangan", "dateTime": "ISO String waktu pengingat", "notify1Day": true, "notify1Hour": true, "notifyExact": true, "whatsappNumber": "Nomor telepon, 'default', atau null" }
-12. SUMMARIZE_FOLDER: Rangkum folder.
+13. SUMMARIZE_FOLDER: Rangkum folder.
     - Payload format: { "folderId": "ID folder", "folderName": "Nama folder", "timeframeDays": 7, "notesSummarized": ["Judul 1"], "summary": "Ringkasan singkat" }
     - (catatan: timeframeDays bernilai angka seperti 1, 3, 7, 30, atau null)
 
@@ -1048,7 +1187,7 @@ Format Keluaran (JSON murni):
 }
 
 Rules for the JSON output:
-1. "action" must be one of these strings: "CREATE_NOTE", "UPDATE_NOTE", "VIEW_NOTE", "CATEGORIZE_NOTE", "SHOW_NEWS", "SUMMARIZE_AI", "SEND_WHATSAPP", "ASK_CONFIRMATION", "CONFIRM_JOB", "CANCEL_JOB", "CREATE_REMINDER", "SUMMARIZE_FOLDER", or null.
+1. "action" must be one of these strings: "CREATE_NOTE", "CREATE_NOTE_DIRECT", "UPDATE_NOTE", "VIEW_NOTE", "CATEGORIZE_NOTE", "SHOW_NEWS", "SUMMARIZE_AI", "SEND_WHATSAPP", "ASK_CONFIRMATION", "CONFIRM_JOB", "CANCEL_JOB", "CREATE_REMINDER", "SUMMARIZE_FOLDER", or null.
 2. "payload" must match the structure required by the chosen action.
 3. "response" must be a friendly, short Bahasa Indonesia sentence.
 
@@ -1091,8 +1230,14 @@ PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan l
       cleanedText = cleanedText.replace(/\n?```$/, '');
     }
     cleanedText = cleanedText.trim();
-
-    const parsedResult = robustJsonParse(cleanedText);
+    console.log('RAW MAIN ASSISTANT TEXT:', cleanedText);
+    let parsedResult;
+    try {
+      parsedResult = robustJsonParse(cleanedText);
+    } catch (e: any) {
+      console.error('Failed to parse main assistant JSON:', e);
+      return NextResponse.json({ error: e.message, rawText: cleanedText }, { status: 500 });
+    }
 
     // If the action is CONFIRM_JOB, save the job into the database
     if (parsedResult.action === 'CONFIRM_JOB') {

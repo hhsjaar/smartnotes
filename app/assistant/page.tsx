@@ -1,7 +1,6 @@
 "use client";
 
 import Home from '../page';
-import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 
 export default function AssistantPage() {
   return (
@@ -14,7 +13,6 @@ export default function AssistantPage() {
       <link rel="apple-touch-icon" href="/icons/apple-icon.png" />
       
       <Home hideManifest={true} />
-      <PWAInstallPrompt />
     </>
   );
 }
