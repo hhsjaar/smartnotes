@@ -216,7 +216,10 @@ PENTING: Jangan sertakan teks penjelasan lainnya atau tag markdown seperti \`\`\
               parts: [{ text: prompt }]
             }],
             generationConfig: {
-              responseMimeType: 'application/json'
+              responseMimeType: 'application/json',
+              thinkingConfig: {
+                thinkingBudget: 0
+              }
             }
           };
 

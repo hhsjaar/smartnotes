@@ -83,7 +83,12 @@ export async function POST(request: Request) {
             }
           ]
         }
-      ]
+      ],
+      generationConfig: {
+        thinkingConfig: {
+          thinkingBudget: 0
+        }
+      }
     };
 
     console.log(`Transcribing file ${uploadedFileName} using gemini-3.5-flash...`);

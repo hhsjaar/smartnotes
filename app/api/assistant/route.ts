@@ -12,10 +12,13 @@ async function callGemini(apiKey: string, contents: any[], systemPrompt: string,
       parts: [{ text: systemPrompt }]
     }
   };
+  payload.generationConfig = {
+    thinkingConfig: {
+      thinkingBudget: 0
+    }
+  };
   if (responseJson) {
-    payload.generationConfig = {
-      responseMimeType: 'application/json'
-    };
+    payload.generationConfig.responseMimeType = 'application/json';
   }
 
   const res = await fetch(url, {
@@ -1199,7 +1202,10 @@ PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan l
         parts: [{ text: systemPrompt }]
       },
       generationConfig: {
-        responseMimeType: 'application/json'
+        responseMimeType: 'application/json',
+        thinkingConfig: {
+          thinkingBudget: 0
+        }
       }
     };
 

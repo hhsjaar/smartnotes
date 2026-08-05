@@ -57,7 +57,10 @@ PENTING: Jangan gunakan tanda titik-titik (elipsis seperti ...) di luar tanda ku
         }
       ],
       generationConfig: {
-        responseMimeType: 'application/json'
+        responseMimeType: 'application/json',
+        thinkingConfig: {
+          thinkingBudget: 0
+        }
       }
     };
 

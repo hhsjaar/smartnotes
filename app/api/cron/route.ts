@@ -85,7 +85,12 @@ Kembalikan jawaban HANYA dalam format JSON dengan skema berikut (jangan tambahka
 
   const payload = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { responseMimeType: 'application/json' }
+    generationConfig: {
+      responseMimeType: 'application/json',
+      thinkingConfig: {
+        thinkingBudget: 0
+      }
+    }
   };
 
   const res = await fetch(url, {

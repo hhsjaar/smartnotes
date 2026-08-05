@@ -373,7 +373,10 @@ PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan l
         }
       ],
       generationConfig: {
-        responseMimeType: 'application/json'
+        responseMimeType: 'application/json',
+        thinkingConfig: {
+          thinkingBudget: 0
+        }
       }
     };
 

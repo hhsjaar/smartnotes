@@ -121,13 +121,18 @@ TUGAS ANDA:
 3. Jika pesan tersebut HANYA berupa laporan selesai (misal: "laporan sales aman", "progres selesai"), sapaan saja ("p", "pagi", "halo"), atau informasi sepihak yang tidak memerlukan jawaban, Anda WAJIB menjawab hanya dengan satu kata: "NO_RESPONSE". Jangan menjawab apa-apa lagi jika tidak perlu direspon.
 `;
 
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
         const response = await fetch(geminiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ parts: [{ text: promptText }] }],
-            generationConfig: { temperature: 0.2 }
+            generationConfig: {
+              temperature: 0.2,
+              thinkingConfig: {
+                thinkingBudget: 0
+              }
+            }
           })
         });
 
