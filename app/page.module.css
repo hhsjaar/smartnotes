@@ -237,7 +237,7 @@
   width: 320px;
   height: 100%;
   border-right: 1px solid var(--glass-border);
-  background: rgba(13, 20, 38, 0.15);
+  background: var(--bg-secondary);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -250,7 +250,7 @@
   flex-direction: column;
   gap: 12px;
   border-bottom: 1px solid var(--glass-border);
-  background: rgba(13, 20, 38, 0.2);
+  background: var(--bg-secondary);
 }
 
 .notesListActions {
@@ -972,14 +972,14 @@
   bottom: 20px;
   right: 20px;
   z-index: 1000;
-  background: rgba(15, 15, 35, 0.85);
+  background: var(--glass-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid var(--glass-border);
   border-radius: var(--border-radius-md);
   padding: 16px;
   max-width: 400px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--glass-shadow);
   animation: slide-up-pwa 0.3s ease-out;
 }
 
@@ -999,7 +999,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  color: #fff;
+  color: var(--foreground);
   font-size: 0.85rem;
   line-height: 1.4;
 }
@@ -1125,18 +1125,18 @@
 }
 
 .folderItem:hover {
-  background: rgba(255, 255, 255, 0.04);
-  color: #fff;
+  background: var(--glass-bg-hover);
+  color: var(--foreground);
 }
 
 .activeFolderItem {
-  background: rgba(6, 182, 212, 0.1);
-  color: #fff;
-  border: 1px solid rgba(6, 182, 212, 0.2);
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--primary);
+  border: 1px solid var(--primary);
 }
 
 .activeFolderItem svg {
-  color: var(--secondary);
+  color: var(--primary);
 }
 
 .folderItemContainer {
@@ -1149,7 +1149,7 @@
 }
 
 .folderItemContainer:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--glass-bg-hover);
 }
 
 .folderItemContainer:hover .folderActions {
@@ -1157,8 +1157,8 @@
 }
 
 .activeFolderItemContainer {
-  background: rgba(6, 182, 212, 0.1);
-  border: 1px solid rgba(6, 182, 212, 0.15);
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid var(--primary);
 }
 
 .folderItemBtn {
@@ -1177,15 +1177,16 @@
 }
 
 .folderItemContainer:hover .folderItemBtn {
-  color: #fff;
+  color: var(--foreground);
 }
 
 .activeFolderItemContainer .folderItemBtn {
-  color: #fff;
+  color: var(--primary);
+  font-weight: 600;
 }
 
 .activeFolderItemContainer .folderItemBtn svg {
-  color: var(--secondary);
+  color: var(--primary);
 }
 
 .folderNameText {
@@ -2257,8 +2258,9 @@
 .reminderFormCard {
   padding: 24px;
   border-radius: var(--border-radius-lg);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--glass-bg);
   border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -2267,7 +2269,7 @@
 .reminderFormCard h3 {
   font-size: 1.15rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--foreground);
 }
 
 .reminderForm {
@@ -2290,11 +2292,11 @@
 
 .formGroup input,
 .formGroup textarea {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--border-radius-sm);
   padding: 10px 14px;
-  color: #fff;
+  color: var(--foreground);
   font-size: 0.88rem;
   outline: none;
   transition: border-color 0.2s;
@@ -2307,7 +2309,7 @@
 
 .formGroup input:focus,
 .formGroup textarea:focus {
-  border-color: var(--primary-glow);
+  border-color: var(--primary);
 }
 
 .reminderListArea {
@@ -2319,7 +2321,7 @@
 .reminderListArea h3 {
   font-size: 1.15rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--foreground);
 }
 
 .emptyReminders {
@@ -2333,6 +2335,7 @@
   gap: 12px;
   border-radius: var(--border-radius-lg);
   border: 1px dashed var(--glass-border);
+  background: var(--glass-bg);
 }
 
 .emptyIcon {
@@ -2359,8 +2362,9 @@
 .reminderCard {
   padding: 20px;
   border-radius: var(--border-radius-lg);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--glass-bg);
   border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -2368,14 +2372,14 @@
 }
 
 .reminderCard:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-active);
   transform: translateY(-1px);
 }
 
 .pastReminder {
   opacity: 0.65;
-  border-color: rgba(255, 255, 255, 0.03);
+  border-color: var(--glass-border);
 }
 
 .reminderCardHeader {
@@ -2388,7 +2392,7 @@
 .reminderCardHeader h4 {
   font-size: 1.05rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--foreground);
   margin-bottom: 4px;
 }
 
@@ -2769,16 +2773,16 @@
   gap: 6px;
   margin-top: 14px;
   padding: 10px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--glass-bg);
   border-radius: var(--border-radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
 
 .addFolderParentSelect {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--glass-bg);
   border: 1px solid var(--glass-border);
-  color: var(--text-muted);
+  color: var(--foreground);
   font-size: 0.78rem;
   padding: 6px 10px;
   border-radius: var(--border-radius-sm);
@@ -3137,7 +3141,7 @@
   align-items: center;
   padding: 16px 24px;
   border-bottom: 1px solid var(--glass-border);
-  background: rgba(13, 20, 38, 0.2);
+  background: var(--bg-secondary);
   flex-shrink: 0;
 }
 
@@ -3156,7 +3160,7 @@
 .adminChatHeaderTitle h3 {
   font-size: 1.05rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--foreground);
 }
 
 .adminChatHeaderTitle p {
@@ -3236,17 +3240,17 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--glass-shadow);
 }
 
 .chatMyBubble {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(99, 102, 241, 0.15) 100%);
+  background: rgba(99, 102, 241, 0.12);
   border: 1px solid rgba(99, 102, 241, 0.3);
   border-top-right-radius: 2px;
 }
 
 .chatOtherBubble {
-  background: rgba(13, 20, 38, 0.6);
+  background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-top-left-radius: 2px;
 }
@@ -3256,14 +3260,14 @@
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--glass-border);
   padding-bottom: 4px;
 }
 
 .chatSenderName {
   font-size: 0.78rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--foreground);
 }
 
 .chatRoleIndicator {
@@ -3290,15 +3294,15 @@
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 4px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid;
+  background: var(--glass-bg-hover);
+  border: 1px solid var(--glass-border);
   display: flex;
   align-items: center;
 }
 
 .chatMessageText {
   font-size: 0.92rem;
-  color: #f1f5f9;
+  color: var(--foreground);
   line-height: 1.45;
   word-break: break-word;
   white-space: pre-wrap;
@@ -3313,7 +3317,7 @@
 .adminChatFooter {
   padding: 16px 20px;
   border-top: 1px solid var(--glass-border);
-  background: rgba(13, 20, 38, 0.2);
+  background: var(--bg-secondary);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -6111,29 +6115,48 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  border-radius: 8px;
+  padding: 8px 14px;
+  border-radius: var(--border-radius-sm);
   cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 600;
-  transition: all 0.2s;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: all 0.2s ease;
   border: 1px solid transparent;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .adminHeaderBtnReservasi {
-  background: rgba(99, 102, 241, 0.15);
-  border-color: rgba(99, 102, 241, 0.3);
-  color: #818cf8;
+  background: #4f46e5 !important;
+  border-color: #3730a3 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3) !important;
+}
+
+.adminHeaderBtnReservasi:hover {
+  background: #4338ca !important;
+  transform: translateY(-1px);
 }
 
 .adminHeaderBtnAtribut {
-  background: rgba(236, 72, 153, 0.15);
-  border-color: rgba(236, 72, 153, 0.3);
-  color: #f472b6;
+  background: #e11d48 !important;
+  border-color: #be123c !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(225, 29, 72, 0.3) !important;
+}
+
+.adminHeaderBtnAtribut:hover {
+  background: #be123c !important;
+  transform: translateY(-1px);
 }
 
 .adminHeaderBtnKalender {
-  background: rgba(16, 185, 129, 0.15);
-  border-color: rgba(16, 185, 129, 0.3);
-  color: #34d399;
+  background: #059669 !important;
+  border-color: #047857 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3) !important;
+}
+
+.adminHeaderBtnKalender:hover {
+  background: #047857 !important;
+  transform: translateY(-1px);
 }

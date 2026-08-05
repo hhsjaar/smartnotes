@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2, Calendar as CalendarIcon, X, Image, Copy, Check, ArrowDown } from 'lucide-react';
+import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2, Calendar as CalendarIcon, X, Image, Copy, Check, ArrowDown, Sun, Moon } from 'lucide-react';
 import styles from './page.module.css';
 import { supabase } from '@/lib/supabase';
 
@@ -135,6 +135,27 @@ function formatDateTime(dateVal: any): string {
 }
 
 export default function EmployeeChatPage() {
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  useEffect(() => {
+    try {
+      const savedTheme = localStorage.getItem('smart_voice_notes_theme') as 'dark' | 'light';
+      if (savedTheme) {
+        setTheme(savedTheme);
+        document.documentElement.setAttribute('data-theme', savedTheme);
+      }
+    } catch (e) {}
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    try {
+      localStorage.setItem('smart_voice_notes_theme', newTheme);
+      document.documentElement.setAttribute('data-theme', newTheme);
+    } catch (e) {}
+  };
+
   const [name, setName] = useState('');
   const [isNameSet, setIsNameSet] = useState(false);
   const [tempName, setTempName] = useState('');
@@ -1012,6 +1033,26 @@ export default function EmployeeChatPage() {
           </div>
 
           <div className={styles.headerRight}>
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? "Beralih ke Mode Terang" : "Beralih ke Mode Gelap"}
+              style={{
+                background: 'var(--glass-bg)',
+                border: '1px solid var(--glass-border)',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--foreground)',
+                cursor: 'pointer',
+                marginRight: '8px'
+              }}
+              type="button"
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
             <button 
               onClick={() => setShowReservationsModal(true)}
               style={{
@@ -1020,9 +1061,9 @@ export default function EmployeeChatPage() {
                 gap: '6px',
                 padding: '6px 12px',
                 borderRadius: '8px',
-                background: 'rgba(99, 102, 241, 0.15)',
-                border: '1px solid rgba(99, 102, 241, 0.3)',
-                color: '#818cf8',
+                background: 'var(--glass-bg)',
+                border: '1px solid var(--glass-border)',
+                color: 'var(--primary)',
                 cursor: 'pointer',
                 fontSize: '0.8rem',
                 fontWeight: 600,
@@ -1373,13 +1414,10 @@ export default function EmployeeChatPage() {
             return (
               <div 
                 style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
                   padding: '8px 12px',
-                  background: 'rgba(15, 23, 42, 0.4)',
-                  borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                  background: 'var(--bg-secondary)',
+                  borderTop: '1px solid var(--glass-border)',
+                  borderBottom: '1px solid var(--glass-border)',
                 }}
               >
                 {/* Simple Quick Replies */}
@@ -1396,20 +1434,21 @@ export default function EmployeeChatPage() {
                           type="button"
                           onClick={() => toggleSimpleOption(opt.text)}
                           style={{
-                            padding: '5px 10px',
+                            padding: '6px 12px',
                             borderRadius: '16px',
-                            fontSize: '0.75rem',
-                            fontWeight: 500,
+                            fontSize: '0.78rem',
+                            fontWeight: 600,
                             border: isSelected 
-                              ? '1px solid rgba(99, 102, 241, 0.5)' 
-                              : '1px solid rgba(255,255,255,0.06)',
+                              ? '1.5px solid var(--primary)' 
+                              : '1.5px solid var(--glass-border)',
                             background: isSelected 
-                              ? 'rgba(99, 102, 241, 0.2)' 
-                              : 'rgba(255, 255, 255, 0.03)',
-                            color: isSelected ? '#fff' : '#cbd5e1',
+                              ? 'var(--primary)' 
+                              : 'var(--glass-bg)',
+                            color: isSelected ? '#ffffff' : 'var(--foreground)',
                             cursor: 'pointer',
                             whiteSpace: 'nowrap',
-                            transition: 'all 0.2s'
+                            transition: 'all 0.2s',
+                            boxShadow: isSelected ? '0 4px 12px rgba(67, 56, 202, 0.25)' : '0 1px 3px rgba(0, 0, 0, 0.04)'
                           }}
                         >
                           {opt.text}
@@ -1435,19 +1474,18 @@ export default function EmployeeChatPage() {
                         <div
                           key={task.id}
                           style={{
-                            background: isMine ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.02)',
-                            border: isMine ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(255, 255, 255, 0.06)',
+                            background: isMine ? 'rgba(99, 102, 241, 0.12)' : 'var(--glass-bg)',
+                            border: isMine ? '1px solid var(--primary)' : '1px solid var(--glass-border)',
                             borderRadius: '8px',
                             padding: '6px 10px',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '10px',
-                            whiteSpace: 'nowrap',
-                            flexShrink: 0
+                            gap: '8px',
+                            fontSize: '0.78rem'
                           }}
                         >
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                            <span style={{ fontWeight: 600, fontSize: '0.78rem', color: '#fff' }}>{task.text}</span>
+                            <span style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--foreground)' }}>{task.text}</span>
                             <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
                               {isTaken ? `Diambil: ${task.assignedTo} (${expiryStr})` : `Durasi: ${task.duration}`}
                             </span>

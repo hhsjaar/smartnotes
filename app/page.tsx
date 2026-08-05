@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock, GitMerge, Lock, Tag, Users, LogOut, ArrowRight, Send, AlertCircle, Filter, Pencil, Image, Copy, Check, ArrowDown, FolderPlus, Settings } from 'lucide-react';
+import { FileText, Newspaper, Search, Plus, Sparkles, Mic, Trash2, Calendar as CalendarIcon, Folder as FolderIcon, Edit3, CheckSquare, MessageSquare, X, Bell, Clock, GitMerge, Lock, Tag, Users, LogOut, ArrowRight, Send, AlertCircle, Filter, Pencil, Image, Copy, Check, ArrowDown, FolderPlus, Settings, Sun, Moon } from 'lucide-react';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { NoteCard } from '@/components/NoteCard';
 import { NoteEditor } from '@/components/NoteEditor';
@@ -239,6 +239,35 @@ function formatBoldText(text: string) {
 
 function DashboardContent() {
   const [activeTab, setActiveTab] = useState<'notes' | 'news' | 'whatsapp' | 'calendar' | 'recorder' | 'reminders' | 'chat' | 'reservations'>('notes');
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  // Load and apply initial theme preference
+  useEffect(() => {
+    try {
+      const savedTheme = localStorage.getItem('smart_voice_notes_theme') as 'dark' | 'light';
+      if (savedTheme) {
+        setTheme(savedTheme);
+        document.documentElement.setAttribute('data-theme', savedTheme);
+      }
+    } catch (e) {}
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    try {
+      localStorage.setItem('smart_voice_notes_theme', newTheme);
+      document.documentElement.setAttribute('data-theme', newTheme);
+    } catch (e) {}
+  };
+
+  // Dispatch pause-voice-recording event whenever activeTab changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('pause-voice-recording'));
+    }
+  }, [activeTab]);
+
   const [isAdminAuthorized, setIsAdminAuthorized] = useState<boolean>(true);
   const [authChecking, setAuthChecking] = useState<boolean>(true);
   const [passcodeInput, setPasscodeInput] = useState('');
@@ -3369,7 +3398,26 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
         {/* Top Header Bar */}
         <header className={styles.mobileHeader}>
           <div className={styles.mobileLogo}>SMART NOTES</div>
-          {activeTab === 'notes' && mobileView === 'list' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? "Beralih ke Mode Terang" : "Beralih ke Mode Gelap"}
+              style={{
+                background: 'var(--glass-bg)',
+                border: '1px solid var(--glass-border)',
+                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--foreground)',
+                cursor: 'pointer'
+              }}
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            {activeTab === 'notes' && mobileView === 'list' && (
             <div style={{ display: 'flex', gap: '8px' }}>
               {filteredNotes.length > 1 && (
                 <button
@@ -3399,6 +3447,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               </button>
             </div>
           )}
+          </div>
         </header>
 
         {/* Content Area */}
@@ -4843,11 +4892,12 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '6px',
-                      padding: '8px 12px',
-                      background: 'rgba(15, 23, 42, 0.4)',
-                      borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                      marginBottom: '8px'
+                      padding: '10px 14px',
+                      background: 'var(--bg-secondary)',
+                      borderTop: '1px solid var(--glass-border)',
+                      borderBottom: '1px solid var(--glass-border)',
+                      marginBottom: '8px',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
                     }}
                   >
                     {/* Simple Quick Replies */}
@@ -4864,20 +4914,23 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                               type="button"
                               onClick={() => toggleAdminSimpleOption(opt.text)}
                               style={{
-                                padding: '5px 10px',
+                                padding: '6px 12px',
                                 borderRadius: '16px',
-                                fontSize: '0.75rem',
-                                fontWeight: 500,
+                                fontSize: '0.78rem',
+                                fontWeight: 600,
                                 border: isSelected
-                                  ? '1px solid rgba(99, 102, 241, 0.5)'
-                                  : '1px solid rgba(255,255,255,0.06)',
+                                  ? '1.5px solid var(--primary)'
+                                  : '1.5px solid var(--glass-border)',
                                 background: isSelected
-                                  ? 'rgba(99, 102, 241, 0.2)'
-                                  : 'rgba(255, 255, 255, 0.03)',
-                                color: isSelected ? '#fff' : '#cbd5e1',
+                                  ? 'var(--primary)'
+                                  : 'var(--glass-bg)',
+                                color: isSelected ? '#ffffff' : 'var(--foreground)',
                                 cursor: 'pointer',
                                 whiteSpace: 'nowrap',
-                                transition: 'all 0.2s'
+                                transition: 'all 0.2s',
+                                boxShadow: isSelected
+                                  ? '0 4px 12px rgba(67, 56, 202, 0.25)'
+                                  : '0 1px 3px rgba(0, 0, 0, 0.04)'
                               }}
                             >
                               {opt.text}
@@ -4901,8 +4954,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                             <div
                               key={task.id}
                               style={{
-                                background: isTaken ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                                border: isTaken ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(255, 255, 255, 0.06)',
+                                background: isTaken ? 'rgba(16, 185, 129, 0.1)' : 'var(--glass-bg)',
+                                border: isTaken ? '1.5px solid #10b981' : '1.5px solid var(--glass-border)',
+                                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.04)',
                                 borderRadius: '8px',
                                 padding: '6px 10px',
                                 display: 'flex',
@@ -4913,7 +4967,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                               }}
                             >
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                <span style={{ fontWeight: 600, fontSize: '0.78rem', color: '#fff' }}>{task.text}</span>
+                                <span style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--foreground)' }}>{task.text}</span>
                                 <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
                                   {isTaken ? `Diambil: ${task.assignedTo} (${expiryStr})` : `Durasi: ${task.duration}`}
                                 </span>
@@ -5111,15 +5165,16 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '6px',
-                      background: 'rgba(255,255,255,0.02)',
-                      border: '1px solid rgba(255,255,255,0.06)',
+                      background: 'var(--glass-bg)',
+                      border: '1px solid var(--glass-border)',
+                      boxShadow: 'var(--glass-shadow)',
                       borderRadius: '8px',
                       padding: '10px',
                       marginBottom: '8px'
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span className={styles.attrItemName} style={{ fontWeight: 600, color: '#fff', fontSize: '0.9rem' }}>
+                      <span className={styles.attrItemName} style={{ fontWeight: 600, color: 'var(--foreground)', fontSize: '0.9rem' }}>
                         {attr.isGroup ? '📁' : '🏷️'} {attr.name}
                       </span>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -5144,12 +5199,13 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                             }
                           }}
                           style={{
-                            background: 'rgba(99, 102, 241, 0.15)',
-                            border: '1px solid rgba(99, 102, 241, 0.3)',
-                            color: '#818cf8',
-                            padding: '2px 8px',
+                            background: 'var(--primary)',
+                            border: '1px solid var(--primary)',
+                            color: '#ffffff',
+                            padding: '3px 10px',
                             borderRadius: '4px',
                             fontSize: '0.72rem',
+                            fontWeight: 600,
                             cursor: 'pointer',
                           }}
                         >
@@ -5229,19 +5285,19 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 style={{
                   maxWidth: '500px',
                   width: '100%',
-                  backgroundColor: 'rgba(10, 10, 22, 0.95)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  backgroundColor: 'var(--glass-bg)',
+                  border: '1px solid var(--glass-border)',
                   borderRadius: '16px',
                   padding: '24px',
-                  boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+                  boxShadow: 'var(--glass-shadow)',
                   backdropFilter: 'blur(10px)',
-                  color: '#f8fafc'
+                  color: 'var(--foreground)'
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '12px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '12px', marginBottom: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Tag size={20} style={{ color: '#6366f1' }} />
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: '#fff' }}>
+                    <Tag size={20} style={{ color: 'var(--primary)' }} />
+                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: 'var(--foreground)' }}>
                       {editingAttributeForOptions.isGroup ? 'Kelola Kumpulan:' : 'Kelola Atribut:'} {editingAttributeForOptions.name}
                     </h3>
                   </div>
@@ -5261,15 +5317,15 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '8px',
-                        background: 'rgba(255,255,255,0.02)',
-                        border: '1px solid rgba(255,255,255,0.05)',
+                        background: 'var(--glass-bg)',
+                        border: '1px solid var(--glass-border)',
                         padding: '12px',
                         borderRadius: '8px',
                         maxHeight: '200px',
                         overflowY: 'auto'
                       }}>
                         {chatAttributes.filter(a => !a.isGroup && a.name !== 'Umum' && a.name !== editingAttributeForOptions.name).map(a => (
-                          <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer', color: '#f1f5f9' }}>
+                          <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer', color: 'var(--foreground)' }}>
                             <input
                               type="checkbox"
                               checked={managedGroupMembers.includes(a.name)}
@@ -5289,7 +5345,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     </div>
 
                     {/* Form buttons */}
-                    <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+                    <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
                       <button
                         type="button"
                         onClick={() => setEditingAttributeForOptions(null)}
@@ -5297,9 +5353,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                           padding: '8px 16px',
                           borderRadius: '6px',
                           fontSize: '0.85rem',
-                          border: '1px solid rgba(255,255,255,0.08)',
-                          background: 'rgba(255, 255, 255, 0.03)',
-                          color: '#94a3b8',
+                          border: '1px solid var(--glass-border)',
+                          background: 'var(--glass-bg)',
+                          color: 'var(--text-muted)',
                           cursor: 'pointer'
                         }}
                       >
@@ -5312,8 +5368,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                           borderRadius: '6px',
                           fontSize: '0.85rem',
                           border: 'none',
-                          background: '#6366f1',
-                          color: '#fff',
+                          background: 'var(--primary)',
+                          color: '#ffffff',
                           cursor: 'pointer',
                           fontWeight: 600
                         }}
@@ -5327,7 +5383,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     {/* AI Chatbot configuration */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>AI Chatbot</label>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '12px', borderRadius: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px' }}>
                         <input
                           type="checkbox"
                           id="enable-chatbot"
@@ -5335,7 +5391,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                           onChange={(e) => setManagedChatbotEnabled(e.target.checked)}
                           style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                         />
-                        <label htmlFor="enable-chatbot" style={{ fontSize: '0.85rem', cursor: 'pointer', color: '#f1f5f9' }}>
+                        <label htmlFor="enable-chatbot" style={{ fontSize: '0.85rem', cursor: 'pointer', color: 'var(--foreground)' }}>
                           Aktifkan AI Chatbot untuk Atribut ini
                         </label>
                       </div>
@@ -5353,9 +5409,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                         onChange={(e) => setManagedQuickText(e.target.value)}
                         rows={3}
                         style={{
-                          background: 'rgba(0, 0, 0, 0.3)',
+                          background: 'var(--glass-bg)',
                           border: '1px solid var(--glass-border)',
-                          color: '#ffffff',
+                          color: 'var(--foreground)',
                           fontSize: '0.85rem',
                           padding: '8px 12px',
                           borderRadius: '6px',
@@ -5381,7 +5437,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                           managedOptions.map((opt, idx) => {
                             const isEditing = editingOptionId === opt.id;
                             return (
-                              <div key={opt.id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', padding: '6px 10px', borderRadius: '6px' }}>
+                              <div key={opt.id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', padding: '6px 10px', borderRadius: '6px' }}>
                                 {isEditing ? (
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', padding: '4px' }}>
                                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
@@ -5390,9 +5446,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                         value={editingOptionText}
                                         onChange={(e) => setEditingOptionText(e.target.value)}
                                         style={{
-                                          background: 'rgba(0, 0, 0, 0.4)',
-                                          border: '1px solid rgba(99, 102, 241, 0.4)',
-                                          color: '#ffffff',
+                                          background: 'var(--glass-bg)',
+                                          border: '1px solid var(--primary)',
+                                          color: 'var(--foreground)',
                                           fontSize: '0.8rem',
                                           padding: '4px 8px',
                                           borderRadius: '4px',
@@ -5429,7 +5485,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                     
                                     {/* Inline Lateness Limits editing */}
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', paddingLeft: '4px' }}>
-                                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: 'var(--foreground)', cursor: 'pointer' }}>
                                         <input
                                           type="checkbox"
                                           checked={editingOptionHasLateLimit}
@@ -5445,9 +5501,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                           value={editingOptionMaxArrivalTime}
                                           onChange={(e) => setEditingOptionMaxArrivalTime(e.target.value)}
                                           style={{
-                                            background: 'rgba(0, 0, 0, 0.4)',
-                                            border: '1px solid rgba(255,255,255,0.1)',
-                                            color: '#ffffff',
+                                            background: 'var(--glass-bg)',
+                                            border: '1px solid var(--glass-border)',
+                                            color: 'var(--foreground)',
                                             fontSize: '0.72rem',
                                             padding: '2px 4px',
                                             borderRadius: '4px',
@@ -5459,8 +5515,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                     </div>
 
                                     {/* Inline Timeframe editing */}
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', paddingLeft: '4px', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '6px' }}>
-                                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', paddingLeft: '4px', borderTop: '1px solid var(--glass-border)', paddingTop: '6px' }}>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: 'var(--foreground)', cursor: 'pointer' }}>
                                         <input
                                           type="checkbox"
                                           checked={editingOptionHasTimeframe}
@@ -5475,9 +5531,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                           value={editingOptionDuration}
                                           onChange={(e) => setEditingOptionDuration(e.target.value)}
                                           style={{
-                                            background: 'rgba(0, 0, 0, 0.4)',
-                                            border: '1px solid rgba(255,255,255,0.1)',
-                                            color: '#ffffff',
+                                            background: 'var(--glass-bg)',
+                                            border: '1px solid var(--glass-border)',
+                                            color: 'var(--foreground)',
                                             fontSize: '0.72rem',
                                             padding: '2px 4px',
                                             borderRadius: '4px',
@@ -5497,7 +5553,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                 ) : (
                                   <>
                                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                      <span style={{ fontSize: '0.8rem', color: '#e2e8f0', fontWeight: 600 }}>{opt.text || opt}</span>
+                                      <span style={{ fontSize: '0.8rem', color: 'var(--foreground)', fontWeight: 600 }}>{opt.text || opt}</span>
                                       {opt.hasTimeframe && (
                                         <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
                                           ⏱️ Jangka Waktu: {opt.duration} ({opt.status === 'taken' ? `Diambil: ${opt.assignedTo}` : 'Tersedia'})
@@ -5543,16 +5599,16 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       </div>
 
                       {/* Add option form */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.04)', padding: '12px', borderRadius: '8px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px' }}>
                         <input
                           type="text"
                           placeholder="Tulis opsi pesan baru..."
                           value={newOptionInput}
                           onChange={(e) => setNewOptionInput(e.target.value)}
                           style={{
-                            background: 'rgba(0, 0, 0, 0.3)',
+                            background: 'var(--glass-bg)',
                             border: '1px solid var(--glass-border)',
-                            color: '#ffffff',
+                            color: 'var(--foreground)',
                             fontSize: '0.85rem',
                             padding: '8px 12px',
                             borderRadius: '6px',
@@ -5567,7 +5623,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                             onChange={(e) => setNewOptionHasTimeframe(e.target.checked)}
                             style={{ cursor: 'pointer', width: '14px', height: '14px' }}
                           />
-                          <label htmlFor="enable-option-timeframe" style={{ fontSize: '0.78rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                          <label htmlFor="enable-option-timeframe" style={{ fontSize: '0.78rem', color: 'var(--foreground)', cursor: 'pointer' }}>
                             Aktifkan Jangka Waktu (Tugas Progres)
                           </label>
                         </div>
@@ -6766,8 +6822,26 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
       )}
       {/* Sidebar navigation */}
       <aside className={styles.sidebar}>
-        <div className={styles.brand}>
+        <div className={styles.brand} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div className={styles.logo}>CATATAN PINTAR</div>
+          <button
+            onClick={toggleTheme}
+            title={theme === 'dark' ? "Beralih ke Mode Terang" : "Beralih ke Mode Gelap"}
+            style={{
+              background: 'var(--glass-bg)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '50%',
+              width: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--foreground)',
+              cursor: 'pointer'
+            }}
+          >
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
         </div>
 
         <nav className={styles.navSection}>

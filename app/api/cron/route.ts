@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import webpush from 'web-push';
+import { sendDailyShoppingReport } from '@/app/api/whatsapp/shopping-report/route';
 
 if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
@@ -352,6 +353,17 @@ async function processJobdeskReminders(now: Date) {
 
 export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const triggerParam = searchParams.get('trigger');
+
+    if (triggerParam === 'shopping_report' || triggerParam === 'shopping') {
+      const shoppingReportResult = await sendDailyShoppingReport();
+      return NextResponse.json({
+        message: 'Laporan Belanjaan All 24 jam terakhir berhasil dipicu.',
+        result: shoppingReportResult
+      });
+    }
+
     const now = new Date();
 
     // Process Reminders first
@@ -360,17 +372,47 @@ export async function GET(request: Request) {
     // Process Jobdesk Reminders
     const jobdeskResults = await processJobdeskReminders(now);
 
+    const nowJkt = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+    const year = nowJkt.getFullYear();
+    const month = nowJkt.getMonth();
+    const date = nowJkt.getDate();
+    const jktDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+    const startOfDayUTC = new Date(`${jktDateStr}T00:00:00+07:00`);
+    const endOfDayUTC = new Date(`${jktDateStr}T23:59:59+07:00`);
+
+    // Process Daily Belanjaan All Shopping Report at 8 AM (Asia/Jakarta)
+    let shoppingReportResult = null;
+    if (nowJkt.getHours() >= 8) {
+      const existingShoppingJob = await prisma.scheduledJob.findFirst({
+        where: {
+          actionType: 'daily_shopping_report',
+          created_at: {
+            gte: startOfDayUTC,
+            lte: endOfDayUTC
+          },
+          status: 'completed'
+        }
+      });
+
+      if (!existingShoppingJob) {
+        const reportRes = await sendDailyShoppingReport();
+        shoppingReportResult = reportRes;
+
+        await prisma.scheduledJob.create({
+          data: {
+            command: 'daily_shopping_report',
+            actionType: 'daily_shopping_report',
+            runAt: now,
+            status: 'completed',
+            payload: reportRes as any
+          }
+        });
+      }
+    }
+
     // Process Daily Reservation Report at 9 AM (Asia/Jakarta)
     let dailyReportSent = false;
-    const nowJkt = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
-    
     if (nowJkt.getHours() >= 9) {
-      const year = nowJkt.getFullYear();
-      const month = nowJkt.getMonth();
-      const date = nowJkt.getDate();
-      const jktDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
-      const startOfDayUTC = new Date(`${jktDateStr}T00:00:00+07:00`);
-      const endOfDayUTC = new Date(`${jktDateStr}T23:59:59+07:00`);
 
       // Check if daily reservation report has already been executed today
       const existingJob = await prisma.scheduledJob.findFirst({

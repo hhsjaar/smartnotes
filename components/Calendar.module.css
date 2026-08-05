@@ -28,13 +28,13 @@
 .monthTitle {
   font-size: 0.85rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--foreground);
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
 
 .navBtn {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   color: var(--text-muted);
   width: 28px;
@@ -48,9 +48,9 @@
 }
 
 .navBtn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--glass-bg-hover);
+  color: var(--foreground);
+  border-color: var(--glass-border);
 }
 
 .navBtn:active {
@@ -85,7 +85,7 @@
   position: relative;
   background: transparent;
   border: 1px solid transparent;
-  color: #e2e8f0;
+  color: var(--foreground);
   height: 32px;
   border-radius: var(--border-radius-sm);
   display: flex;
@@ -100,8 +100,8 @@
 }
 
 .dayCell:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #fff;
+  background: var(--glass-bg-hover);
+  color: var(--foreground);
   transform: translateY(-1px);
 }
 
@@ -111,26 +111,26 @@
 
 /* Day Cell Modifiers */
 .otherMonth {
-  color: rgba(255, 255, 255, 0.15);
+  color: var(--text-dark);
+  opacity: 0.4;
   font-weight: 400;
 }
 
 .otherMonth:hover {
-  color: rgba(255, 255, 255, 0.4);
+  opacity: 0.7;
 }
 
 .today {
-  color: var(--secondary);
+  color: var(--primary);
   font-weight: 700;
-  border-color: rgba(6, 182, 212, 0.25);
-  background: rgba(6, 182, 212, 0.05);
+  border-color: var(--primary);
+  background: rgba(99, 102, 241, 0.1);
 }
 
 .selected {
   background: var(--primary) !important;
-  color: #fff !important;
+  color: #ffffff !important;
   font-weight: 700;
-  border-color: rgba(255, 255, 255, 0.15);
   box-shadow: 0 0 12px var(--primary-glow);
 }
 

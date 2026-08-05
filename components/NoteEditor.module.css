@@ -43,7 +43,7 @@
 .title {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--foreground);
   outline: none;
   border: none;
   background: transparent;
@@ -51,9 +51,9 @@
 }
 
 .titleInput {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg);
   border: 1px solid var(--glass-border);
-  color: #fff;
+  color: var(--foreground);
   font-size: 1.5rem;
   font-weight: 700;
   padding: 8px 12px;
@@ -103,11 +103,11 @@
   width: 100%;
   flex: 1;
   min-height: calc(100vh - 350px);
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--border-radius-md);
   padding: 16px;
-  color: #e2e8f0;
+  color: var(--foreground);
   font-family: var(--font-sans);
   font-size: 0.95rem;
   line-height: 1.6;
@@ -124,7 +124,7 @@
   min-height: calc(100vh - 350px);
   flex: 1;
   overflow-y: auto;
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--border-radius-md);
   padding: 20px;
@@ -133,7 +133,7 @@
 .collapsiblePanel {
   border-radius: var(--border-radius-md);
   border: 1px solid var(--glass-border);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--glass-bg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -142,8 +142,8 @@
 }
 
 .collapsiblePanel:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border);
 }
 
 .collapsibleHeader {
@@ -315,10 +315,10 @@
   padding: 0 14px;
   border-radius: var(--border-radius-sm);
   border: 1px solid var(--glass-border);
-  background: rgba(255, 255, 255, 0.05);
-  color: #fff;
+  background: var(--glass-bg);
+  color: var(--foreground);
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   outline: none;
@@ -327,42 +327,43 @@
 
 .editBtn {
   background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: var(--primary);
 }
 .editBtn:hover {
-  background: rgba(99, 102, 241, 0.25);
-  border-color: rgba(99, 102, 241, 0.4);
+  background: rgba(99, 102, 241, 0.2);
+  border-color: var(--primary);
 }
 
 .saveBtn {
   background: rgba(34, 197, 94, 0.1);
-  border-color: rgba(34, 197, 94, 0.2);
-  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.3);
+  color: var(--success);
 }
 .saveBtn:hover {
-  background: rgba(34, 197, 94, 0.25);
-  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.2);
+  border-color: var(--success);
 }
 
 .deleteBtn {
   background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--error);
 }
 .deleteBtn:hover {
-  background: rgba(239, 68, 68, 0.25);
-  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.2);
+  border-color: var(--error);
 }
 
 .cancelBtn {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg);
   border-color: var(--glass-border);
-  color: #cbd5e1;
+  color: var(--text-muted);
 }
 .cancelBtn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.25);
-  color: #fff;
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border);
+  color: var(--foreground);
 }
 
 /* Sub Tab Navigation inside Editor */

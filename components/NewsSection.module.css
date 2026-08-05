@@ -22,7 +22,7 @@
 .title {
   font-size: 1.35rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--foreground);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -37,7 +37,7 @@
 }
 
 .categoryBtn {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   color: var(--text-muted);
   padding: 6px 14px;
@@ -49,21 +49,21 @@
 }
 
 .categoryBtn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: var(--glass-bg-hover);
+  color: var(--foreground);
 }
 
 .activeCategoryBtn {
-  background: var(--secondary);
-  border-color: var(--secondary);
-  color: #000;
-  font-weight: 500;
-  box-shadow: 0 0 12px var(--secondary-glow);
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 0 12px var(--primary-glow);
 }
 
 .activeCategoryBtn:hover {
-  background: var(--secondary-hover);
-  color: #000;
+  background: var(--primary-hover);
+  color: #ffffff;
 }
 
 .scrollContainer {
@@ -86,14 +86,15 @@
   flex-direction: column;
   gap: 12px;
   transition: all 0.25s;
-  background: rgba(13, 20, 38, 0.3);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
 }
 
 .newsCard:hover {
   transform: translateY(-2px);
   background: var(--glass-bg-hover);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  border-color: var(--glass-border-active);
+  box-shadow: var(--glass-shadow);
 }
 
 .cardHeader {
@@ -111,24 +112,24 @@
 }
 
 .sourceBadge {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--glass-bg-hover);
   border: 1px solid var(--glass-border);
   padding: 2px 8px;
   border-radius: 4px;
   font-weight: 600;
-  color: #fff;
+  color: var(--foreground);
 }
 
 .newsTitle {
   font-size: 1.05rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--foreground);
   line-height: 1.4;
   text-decoration: none;
 }
 
 .newsTitle:hover {
-  color: var(--secondary);
+  color: var(--primary);
 }
 
 .newsSummary {
@@ -143,7 +144,7 @@
   align-items: center;
   margin-top: auto;
   padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid var(--glass-border);
 }
 
 .timeText {

@@ -45,6 +45,40 @@
   --font-mono: var(--font-geist-mono), Courier, monospace;
 }
 
+[data-theme="light"] {
+  /* Premium High-Contrast Light Theme Color System */
+  --bg-primary: #f1f5f9;      /* Slate 100 base */
+  --bg-secondary: #ffffff;    /* Pure White panels */
+  --bg-sidebar: #ffffff;      /* Pure White sidebar */
+  
+  --foreground: #0f172a;      /* Slate 900 - High Contrast Text */
+  --text-muted: #334155;      /* Slate 700 - Rich readable body text */
+  --text-dark: #64748b;       /* Slate 500 - Subtle text */
+  
+  /* Glassmorphism Variables for Light Theme */
+  --glass-bg: #ffffff;
+  --glass-bg-hover: #f8fafc;
+  --glass-border: #cbd5e1;    /* Slate 300 - Crisp border definition */
+  --glass-border-active: #4338ca;
+  --glass-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+  
+  /* Accent Colors for Light Theme */
+  --primary: #4338ca;         /* Deep Indigo */
+  --primary-hover: #3730a3;
+  --primary-glow: rgba(67, 56, 202, 0.2);
+  
+  --secondary: #0e7490;       /* Deep Cyan */
+  --secondary-hover: #155e75;
+  --secondary-glow: rgba(14, 116, 144, 0.2);
+  
+  --accent: #a21caf;          /* Deep Magenta */
+  --accent-glow: rgba(162, 28, 175, 0.2);
+  
+  --success: #047857;
+  --error: #b91c1c;
+  --warning: #b45309;
+}
+
 /* Base Styles */
 * {
   box-sizing: border-box;
@@ -275,3 +309,389 @@ a {
   border-radius: var(--border-radius-full);
   animation: rotate-spinner 0.8s linear infinite;
 }
+
+/* ==========================================================================
+   GLOBAL LIGHT MODE CONTRAST & LEGIBILITY OVERRIDES
+   ========================================================================== */
+html[data-theme="light"] {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-sidebar: #ffffff;
+  
+  --foreground: #0f172a;
+  --text-muted: #475569;
+  --text-dark: #64748b;
+  
+  /* Light Glassmorphism & Card Variables */
+  --glass-bg: #ffffff;
+  --glass-bg-hover: #f1f5f9;
+  --glass-border: #cbd5e1;
+  --glass-border-active: #6366f1;
+  --glass-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+  
+  /* Accent Colors in Light Mode */
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-glow: rgba(79, 70, 229, 0.2);
+  
+  --secondary: #0284c7;
+  --secondary-hover: #0369a1;
+  --secondary-glow: rgba(2, 132, 199, 0.2);
+  
+  --accent: #c026d3;
+  --accent-glow: rgba(192, 38, 211, 0.2);
+}
+
+html[data-theme="light"] body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+/* Glass Panels, Cards, Modals, Headers & Sidebars */
+html[data-theme="light"] .glass-panel,
+html[data-theme="light"] aside,
+html[data-theme="light"] header,
+html[data-theme="light"] nav,
+html[data-theme="light"] div[class*="Card"],
+html[data-theme="light"] div[class*="card"],
+html[data-theme="light"] div[class*="Header"],
+html[data-theme="light"] div[class*="header"],
+html[data-theme="light"] div[class*="Modal"],
+html[data-theme="light"] div[class*="modal"],
+html[data-theme="light"] div[class*="Sidebar"],
+html[data-theme="light"] div[class*="sidebar"],
+html[data-theme="light"] div[class*="Nav"],
+html[data-theme="light"] div[class*="nav"],
+html[data-theme="light"] div[class*="Panel"],
+html[data-theme="light"] div[class*="panel"],
+html[data-theme="light"] div[class*="Wrapper"],
+html[data-theme="light"] div[class*="wrapper"],
+html[data-theme="light"] div[class*="Container"],
+html[data-theme="light"] div[class*="container"] {
+  border-color: #cbd5e1;
+}
+
+/* Override hardcoded white text on headers, titles, buttons, and text blocks */
+html[data-theme="light"] h1,
+html[data-theme="light"] h2,
+html[data-theme="light"] h3,
+html[data-theme="light"] h4,
+html[data-theme="light"] h5,
+html[data-theme="light"] h6,
+html[data-theme="light"] label,
+html[data-theme="light"] strong,
+html[data-theme="light"] b,
+html[data-theme="light"] th,
+html[data-theme="light"] div[class*="logo"],
+html[data-theme="light"] div[class*="Logo"],
+html[data-theme="light"] div[class*="Title"],
+html[data-theme="light"] div[class*="title"],
+html[data-theme="light"] span[class*="Title"],
+html[data-theme="light"] span[class*="title"],
+html[data-theme="light"] h3[class*="title"],
+html[data-theme="light"] div[class*="Name"],
+html[data-theme="light"] span[class*="Name"],
+html[data-theme="light"] div[class*="Header"],
+html[data-theme="light"] div[class*="header"] {
+  color: #0f172a !important;
+}
+
+/* Body Text & Secondary Text */
+html[data-theme="light"] p,
+html[data-theme="light"] li,
+html[data-theme="light"] td,
+html[data-theme="light"] div[class*="subtitle"],
+html[data-theme="light"] span[class*="subtitle"],
+html[data-theme="light"] div[class*="summary"],
+html[data-theme="light"] span[class*="summary"],
+html[data-theme="light"] div[class*="description"],
+html[data-theme="light"] div[class*="Content"],
+html[data-theme="light"] div[class*="content"] {
+  color: #334155;
+}
+
+/* Inputs, Textareas, Selects in Light Mode */
+html[data-theme="light"] input,
+html[data-theme="light"] textarea,
+html[data-theme="light"] select {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+}
+
+html[data-theme="light"] input::placeholder,
+html[data-theme="light"] textarea::placeholder {
+  color: #64748b !important;
+}
+
+html[data-theme="light"] input:focus,
+html[data-theme="light"] textarea:focus,
+html[data-theme="light"] select:focus {
+  border-color: #4338ca !important;
+  box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.15) !important;
+}
+
+/* Nav Item States in Light Mode */
+html[data-theme="light"] button[class*="navItem"],
+html[data-theme="light"] button[class*="NavItem"],
+html[data-theme="light"] a[class*="navItem"] {
+  color: #475569;
+}
+
+html[data-theme="light"] button[class*="activeNavItem"],
+html[data-theme="light"] button[class*="activeBottomNavItem"] {
+  background-color: #e0e7ff !important;
+  color: #3730a3 !important;
+  border-color: #c7d2fe !important;
+  font-weight: 600 !important;
+}
+
+/* Explicit Light Mode Cards, Toolbars, & Headers */
+html[data-theme="light"] div[class*="reminderFormCard"],
+html[data-theme="light"] div[class*="reminderCard"],
+html[data-theme="light"] div[class*="newsCard"],
+html[data-theme="light"] div[class*="calendarContainer"],
+html[data-theme="light"] div[class*="chatWrapper"],
+html[data-theme="light"] div[class*="authCard"],
+html[data-theme="light"] div[class*="addFolderWrapper"],
+html[data-theme="light"] div[class*="adminChatHeader"],
+html[data-theme="light"] div[class*="adminChatRoomPanel"],
+html[data-theme="light"] div[class*="filterContainer"],
+html[data-theme="light"] div[class*="footer"],
+html[data-theme="light"] div[class*="attrItem"],
+html[data-theme="light"] div[class*="attributeOption"],
+html[data-theme="light"] div[class*="attributeCard"],
+html[data-theme="light"] div[class*="attributeBox"],
+html[data-theme="light"] div[class*="attrsListSearchContainer"],
+html[data-theme="light"] div[class*="attrSearchWrapper"],
+html[data-theme="light"] div[class*="attributeGroup"] {
+  background-color: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05) !important;
+}
+
+html[data-theme="light"] div[class*="chatArea"] {
+  background-color: #f8fafc !important;
+}
+
+/* High-Contrast Modern Minimalist Filter Chips & Attribute Pills in Light Mode */
+html[data-theme="light"] button[class*="filterChip"],
+html[data-theme="light"] button[class*="attributeChip"] {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 1.5px solid #cbd5e1 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04) !important;
+}
+
+html[data-theme="light"] button[class*="filterChip"]:hover,
+html[data-theme="light"] button[class*="attributeChip"]:hover {
+  background-color: #f1f5f9 !important;
+  border-color: #0f172a !important;
+}
+
+/* DARK & ELEGANT MINIMALIST BUTTON OVERRIDES IN LIGHT MODE */
+html[data-theme="light"] button[class*="adminHeaderBtnReservasi"] {
+  background-color: #0f172a !important;
+  border: 1px solid #1e293b !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25) !important;
+}
+
+html[data-theme="light"] button[class*="adminHeaderBtnReservasi"]:hover {
+  background-color: #1e1b4b !important;
+  transform: translateY(-1px);
+}
+
+html[data-theme="light"] button[class*="adminHeaderBtnAtribut"] {
+  background-color: #881337 !important;
+  border: 1px solid #9f1239 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(136, 19, 55, 0.25) !important;
+}
+
+html[data-theme="light"] button[class*="adminHeaderBtnAtribut"]:hover {
+  background-color: #9f1239 !important;
+  transform: translateY(-1px);
+}
+
+html[data-theme="light"] button[class*="adminHeaderBtnKalender"] {
+  background-color: #064e3b !important;
+  border: 1px solid #047857 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(6, 78, 59, 0.25) !important;
+}
+
+html[data-theme="light"] button[class*="adminHeaderBtnKalender"]:hover {
+  background-color: #047857 !important;
+  transform: translateY(-1px);
+}
+
+html[data-theme="light"] button[class*="adminLogoutBtn"],
+html[data-theme="light"] button[class*="logoutBtn"] {
+  background-color: #0f172a !important;
+  border: 1px solid #1e293b !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2) !important;
+}
+
+/* Primary Action Buttons (Tulis, Rekam, Gabung, Simpan, Tambah Note, Kirim) */
+html[data-theme="light"] button[class*="tulisCatatanBtn"],
+html[data-theme="light"] button[class*="submitBtn"],
+html[data-theme="light"] button[class*="primaryBtn"],
+html[data-theme="light"] button[class*="saveBtn"],
+html[data-theme="light"] button[class*="confirmBtn"],
+html[data-theme="light"] button[class*="addFolderBtn"],
+html[data-theme="light"] button[class*="welcomeTulisBtn"] {
+  background-color: #0f172a !important;
+  border: 1px solid #1e293b !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.2) !important;
+}
+
+html[data-theme="light"] button[class*="tulisCatatanBtn"]:hover,
+html[data-theme="light"] button[class*="submitBtn"]:hover,
+html[data-theme="light"] button[class*="primaryBtn"]:hover {
+  background-color: #1e1b4b !important;
+  box-shadow: 0 6px 18px rgba(30, 27, 75, 0.3) !important;
+}
+
+/* Secondary & Recording Action Buttons */
+html[data-theme="light"] button[class*="rekamAiBtn"],
+html[data-theme="light"] button[class*="welcomeRekamBtn"] {
+  background-color: #1e1b4b !important;
+  border: 1px solid #312e81 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(30, 27, 75, 0.25) !important;
+}
+
+html[data-theme="light"] button[class*="mergeBtn"] {
+  background-color: #0f172a !important;
+  border: 1px solid #334155 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+/* Active Nav Items & Active Category Filter Chips */
+html[data-theme="light"] button[class*="activeNavItem"],
+html[data-theme="light"] button[class*="activeBottomNavItem"],
+html[data-theme="light"] button[class*="activeCategoryBtn"],
+html[data-theme="light"] button[class*="filterChipActive"],
+html[data-theme="light"] button[class*="attributeChipActive"] {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  border: 1.5px solid #0f172a !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25) !important;
+}
+
+/* Chat Message Bubbles in Light Mode */
+html[data-theme="light"] div[class*="myBubble"] {
+  background-color: #e0e7ff !important;
+  border: 2px solid #818cf8 !important;
+  color: #1e1b4b !important;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1) !important;
+}
+
+html[data-theme="light"] div[class*="otherBubble"] {
+  background-color: #ffffff !important;
+  border: 2px solid #cbd5e1 !important;
+  color: #020617 !important;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08) !important;
+}
+
+html[data-theme="light"] div[class*="otherBubble"] span[class*="senderName"],
+html[data-theme="light"] div[class*="otherBubble"] p[class*="messageText"] {
+  color: #020617 !important;
+  font-weight: 600 !important;
+}
+
+/* Scrollbar Light Mode */
+html[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.3);
+}
+
+html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.5);
+}
+
+/* Markdown Content in Light Mode */
+html[data-theme="light"] .markdown-body,
+html[data-theme="light"] .markdown-body p,
+html[data-theme="light"] .markdown-body li,
+html[data-theme="light"] .markdown-body td,
+html[data-theme="light"] .markdown-body th {
+  color: #1e293b !important;
+}
+
+html[data-theme="light"] .markdown-body strong {
+  color: #3730a3 !important;
+  font-weight: 700 !important;
+}
+
+html[data-theme="light"] .markdown-body blockquote {
+  background-color: #f1f5f9 !important;
+  border-left-color: #4338ca !important;
+  color: #334155 !important;
+}
+
+html[data-theme="light"] .markdown-body code {
+  background-color: #e2e8f0 !important;
+  color: #312e81 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+html[data-theme="light"] .markdown-body table th {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .markdown-body table td {
+  border-color: #cbd5e1 !important;
+}
+
+/* Tag Badges in Light Mode */
+html[data-theme="light"] .tag-badge.rapat {
+  background: #e0e7ff !important;
+  color: #3730a3 !important;
+  border-color: #c7d2fe !important;
+}
+
+html[data-theme="light"] .tag-badge.ide {
+  background: #fae8ff !important;
+  color: #86198f !important;
+  border-color: #f5d0fe !important;
+}
+
+html[data-theme="light"] .tag-badge.tugas {
+  background: #cffaff !important;
+  color: #155e75 !important;
+  border-color: #a5f3fc !important;
+}
+
+html[data-theme="light"] .tag-badge.keuangan {
+  background: #d1fae5 !important;
+  color: #065f46 !important;
+  border-color: #a7f3d0 !important;
+}
+
+html[data-theme="light"] .tag-badge.pribadi {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+  border-color: #fde68a !important;
+}
+
+html[data-theme="light"] .tag-badge.default {
+  background: #e2e8f0 !important;
+  color: #334155 !important;
+  border-color: #cbd5e1 !important;
+}
+

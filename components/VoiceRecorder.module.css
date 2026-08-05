@@ -30,7 +30,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #ffffff;
+  color: var(--foreground);
 }
 
 .settings {
