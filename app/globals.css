@@ -47,31 +47,31 @@
 
 [data-theme="light"] {
   /* Premium High-Contrast Light Theme Color System */
-  --bg-primary: #f1f5f9;      /* Slate 100 base */
-  --bg-secondary: #ffffff;    /* Pure White panels */
-  --bg-sidebar: #ffffff;      /* Pure White sidebar */
+  --bg-primary: #f1f5f9;
+  --bg-secondary: #ffffff;
+  --bg-sidebar: #ffffff;
   
-  --foreground: #0f172a;      /* Slate 900 - High Contrast Text */
-  --text-muted: #334155;      /* Slate 700 - Rich readable body text */
-  --text-dark: #64748b;       /* Slate 500 - Subtle text */
+  --foreground: #0f172a;
+  --text-muted: #334155;
+  --text-dark: #64748b;
   
-  /* Glassmorphism Variables for Light Theme */
+  /* Light Glass Variables */
   --glass-bg: #ffffff;
   --glass-bg-hover: #f8fafc;
-  --glass-border: #cbd5e1;    /* Slate 300 - Crisp border definition */
+  --glass-border: #cbd5e1;
   --glass-border-active: #4338ca;
   --glass-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
   
   /* Accent Colors for Light Theme */
-  --primary: #4338ca;         /* Deep Indigo */
+  --primary: #4338ca;
   --primary-hover: #3730a3;
   --primary-glow: rgba(67, 56, 202, 0.2);
   
-  --secondary: #0e7490;       /* Deep Cyan */
+  --secondary: #0e7490;
   --secondary-hover: #155e75;
   --secondary-glow: rgba(14, 116, 144, 0.2);
   
-  --accent: #a21caf;          /* Deep Magenta */
+  --accent: #a21caf;
   --accent-glow: rgba(162, 28, 175, 0.2);
   
   --success: #047857;
@@ -311,7 +311,8 @@ a {
 }
 
 /* ==========================================================================
-   GLOBAL LIGHT MODE CONTRAST & LEGIBILITY OVERRIDES
+   GLOBAL LIGHT MODE — COMPREHENSIVE CONTRAST & LEGIBILITY OVERRIDES
+   Covers all hardcoded dark colors across every component
    ========================================================================== */
 html[data-theme="light"] {
   --bg-primary: #f8fafc;
@@ -322,314 +323,870 @@ html[data-theme="light"] {
   --text-muted: #475569;
   --text-dark: #64748b;
   
-  /* Light Glassmorphism & Card Variables */
   --glass-bg: #ffffff;
   --glass-bg-hover: #f1f5f9;
-  --glass-border: #cbd5e1;
-  --glass-border-active: #6366f1;
-  --glass-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+  --glass-border: #e2e8f0;
+  --glass-border-active: #4f46e5;
+  --glass-shadow: 0 2px 12px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
   
-  /* Accent Colors in Light Mode */
   --primary: #4f46e5;
   --primary-hover: #4338ca;
-  --primary-glow: rgba(79, 70, 229, 0.2);
+  --primary-glow: rgba(79, 70, 229, 0.18);
   
   --secondary: #0284c7;
   --secondary-hover: #0369a1;
-  --secondary-glow: rgba(2, 132, 199, 0.2);
+  --secondary-glow: rgba(2, 132, 199, 0.18);
   
   --accent: #c026d3;
-  --accent-glow: rgba(192, 38, 211, 0.2);
+  --accent-glow: rgba(192, 38, 211, 0.18);
+
+  --success: #16a34a;
+  --error: #dc2626;
+  --warning: #d97706;
 }
 
+/* ─── Base body background & text ─────────────────────────────────────────── */
 html[data-theme="light"] body {
   background-color: #f8fafc;
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(79, 70, 229, 0.04) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(2, 132, 199, 0.04) 0%, transparent 40%);
   color: #0f172a;
 }
 
-/* Glass Panels, Cards, Modals, Headers & Sidebars */
-html[data-theme="light"] .glass-panel,
-html[data-theme="light"] aside,
-html[data-theme="light"] header,
-html[data-theme="light"] nav,
-html[data-theme="light"] div[class*="Card"],
-html[data-theme="light"] div[class*="card"],
-html[data-theme="light"] div[class*="Header"],
-html[data-theme="light"] div[class*="header"],
-html[data-theme="light"] div[class*="Modal"],
-html[data-theme="light"] div[class*="modal"],
-html[data-theme="light"] div[class*="Sidebar"],
-html[data-theme="light"] div[class*="sidebar"],
-html[data-theme="light"] div[class*="Nav"],
-html[data-theme="light"] div[class*="nav"],
-html[data-theme="light"] div[class*="Panel"],
-html[data-theme="light"] div[class*="panel"],
-html[data-theme="light"] div[class*="Wrapper"],
-html[data-theme="light"] div[class*="wrapper"],
-html[data-theme="light"] div[class*="Container"],
-html[data-theme="light"] div[class*="container"] {
-  border-color: #cbd5e1;
-}
-
-/* Override hardcoded white text on headers, titles, buttons, and text blocks */
+/* ─── Typography — fix all hardcoded white text ───────────────────────────── */
 html[data-theme="light"] h1,
 html[data-theme="light"] h2,
 html[data-theme="light"] h3,
 html[data-theme="light"] h4,
 html[data-theme="light"] h5,
-html[data-theme="light"] h6,
+html[data-theme="light"] h6 {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] p,
+html[data-theme="light"] li,
+html[data-theme="light"] td,
 html[data-theme="light"] label,
 html[data-theme="light"] strong,
 html[data-theme="light"] b,
 html[data-theme="light"] th,
-html[data-theme="light"] div[class*="logo"],
-html[data-theme="light"] div[class*="Logo"],
-html[data-theme="light"] div[class*="Title"],
-html[data-theme="light"] div[class*="title"],
-html[data-theme="light"] span[class*="Title"],
-html[data-theme="light"] span[class*="title"],
-html[data-theme="light"] h3[class*="title"],
-html[data-theme="light"] div[class*="Name"],
-html[data-theme="light"] span[class*="Name"],
-html[data-theme="light"] div[class*="Header"],
-html[data-theme="light"] div[class*="header"] {
-  color: #0f172a !important;
+html[data-theme="light"] span {
+  color: inherit;
 }
 
-/* Body Text & Secondary Text */
-html[data-theme="light"] p,
-html[data-theme="light"] li,
-html[data-theme="light"] td,
-html[data-theme="light"] div[class*="subtitle"],
-html[data-theme="light"] span[class*="subtitle"],
-html[data-theme="light"] div[class*="summary"],
-html[data-theme="light"] span[class*="summary"],
-html[data-theme="light"] div[class*="description"],
-html[data-theme="light"] div[class*="Content"],
-html[data-theme="light"] div[class*="content"] {
-  color: #334155;
+/* ─── Scrollbars ──────────────────────────────────────────────────────────── */
+html[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.25);
+}
+html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.45);
 }
 
-/* Inputs, Textareas, Selects in Light Mode */
+/* ─── Form elements ───────────────────────────────────────────────────────── */
 html[data-theme="light"] input,
 html[data-theme="light"] textarea,
 html[data-theme="light"] select {
   background-color: #ffffff !important;
   color: #0f172a !important;
-  border: 1px solid #cbd5e1 !important;
+  border-color: #e2e8f0 !important;
   box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04) !important;
 }
 
 html[data-theme="light"] input::placeholder,
 html[data-theme="light"] textarea::placeholder {
-  color: #64748b !important;
+  color: #94a3b8 !important;
 }
 
 html[data-theme="light"] input:focus,
 html[data-theme="light"] textarea:focus,
 html[data-theme="light"] select:focus {
-  border-color: #4338ca !important;
-  box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.15) !important;
+  border-color: #4f46e5 !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12) !important;
 }
 
-/* Nav Item States in Light Mode */
+/* ─── sidebar + layout ─────────────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="sidebar"],
+html[data-theme="light"] div[class*="Sidebar"] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* ─── Note cards (desktop & mobile) ─────────────────────────────────────── */
+html[data-theme="light"] div[class*="noteCard"],
+html[data-theme="light"] button[class*="noteCard"],
+html[class*="noteCard"],
+html[data-theme="light"] div[class*="mobileNoteCard"],
+html[data-theme="light"] button[class*="mobileNoteCard"],
+html[data-theme="light"] div[class*="sidebarNoteCard"],
+html[data-theme="light"] button[class*="sidebarNoteCard"] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06) !important;
+}
+
+html[data-theme="light"] div[class*="noteCard"]:hover,
+html[data-theme="light"] button[class*="noteCard"]:hover,
+html[data-theme="light"] div[class*="mobileNoteCard"]:hover,
+html[data-theme="light"] button[class*="mobileNoteCard"]:hover {
+  background-color: #f8fafc !important;
+  border-color: #c7d2fe !important;
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.1) !important;
+}
+
+html[data-theme="light"] div[class*="activeNoteCard"],
+html[data-theme="light"] div[class*="activeMobileNoteCard"],
+html[data-theme="light"] div[class*="activeSidebarNoteCard"] {
+  background-color: #eef2ff !important;
+  border-color: #a5b4fc !important;
+  border-left-color: #4f46e5 !important;
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.12) !important;
+}
+
+/* note card text colors */
+html[data-theme="light"] span[class*="noteCardTitle"],
+html[data-theme="light"] span[class*="mobileNoteTitle"],
+html[data-theme="light"] div[class*="noteCardTitle"],
+html[data-theme="light"] div[class*="mobileNoteTitle"],
+html[data-theme="light"] span[class*="sidebarNoteTitle"],
+html[data-theme="light"] div[class*="sidebarNoteTitle"],
+html[data-theme="light"] div[class*="calendarNoteTitle"] {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] div[class*="noteCardSummary"],
+html[data-theme="light"] div[class*="mobileNoteSummary"],
+html[data-theme="light"] div[class*="calendarNoteSummary"],
+html[data-theme="light"] div[class*="noteCardDate"],
+html[data-theme="light"] div[class*="mobileNoteDate"],
+html[data-theme="light"] div[class*="sidebarNoteMeta"] {
+  color: #64748b !important;
+}
+
+html[data-theme="light"] div[class*="noteCardFooter"],
+html[data-theme="light"] div[class*="mobileNoteFooter"],
+html[data-theme="light"] div[class*="calendarNoteMeta"] {
+  border-color: #f1f5f9 !important;
+}
+
+/* ─── Top bar / search bar ─────────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="topBar"],
+html[data-theme="light"] div[class*="mobileHeader"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  backdrop-filter: none;
+}
+
+html[data-theme="light"] div[class*="searchBar"],
+html[data-theme="light"] div[class*="mobileSearchBar"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] input[class*="searchInput"] {
+  color: #0f172a !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* ─── Theme toggle button ─────────────────────────────────────────────────── */
+html[data-theme="light"] button[class*="themeToggle"],
+html[data-theme="light"] button[class*="toggleTheme"] {
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+/* ─── Nav items (sidebar & bottom nav) ──────────────────────────────────── */
 html[data-theme="light"] button[class*="navItem"],
-html[data-theme="light"] button[class*="NavItem"],
 html[data-theme="light"] a[class*="navItem"] {
-  color: #475569;
+  color: #64748b !important;
 }
 
-html[data-theme="light"] button[class*="activeNavItem"],
-html[data-theme="light"] button[class*="activeBottomNavItem"] {
-  background-color: #e0e7ff !important;
+html[data-theme="light"] button[class*="navItem"]:hover,
+html[data-theme="light"] a[class*="navItem"]:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] button[class*="activeNavItem"] {
+  background: #eef2ff !important;
   color: #3730a3 !important;
   border-color: #c7d2fe !important;
   font-weight: 600 !important;
 }
 
-/* Explicit Light Mode Cards, Toolbars, & Headers */
-html[data-theme="light"] div[class*="reminderFormCard"],
-html[data-theme="light"] div[class*="reminderCard"],
-html[data-theme="light"] div[class*="newsCard"],
-html[data-theme="light"] div[class*="calendarContainer"],
-html[data-theme="light"] div[class*="chatWrapper"],
-html[data-theme="light"] div[class*="authCard"],
-html[data-theme="light"] div[class*="addFolderWrapper"],
-html[data-theme="light"] div[class*="adminChatHeader"],
-html[data-theme="light"] div[class*="adminChatRoomPanel"],
-html[data-theme="light"] div[class*="filterContainer"],
-html[data-theme="light"] div[class*="footer"],
-html[data-theme="light"] div[class*="attrItem"],
-html[data-theme="light"] div[class*="attributeOption"],
-html[data-theme="light"] div[class*="attributeCard"],
-html[data-theme="light"] div[class*="attributeBox"],
-html[data-theme="light"] div[class*="attrsListSearchContainer"],
-html[data-theme="light"] div[class*="attrSearchWrapper"],
-html[data-theme="light"] div[class*="attributeGroup"] {
-  background-color: #ffffff !important;
-  border: 1px solid #cbd5e1 !important;
+html[data-theme="light"] button[class*="bottomNavItem"] {
+  color: #94a3b8 !important;
+}
+
+html[data-theme="light"] button[class*="activeBottomNavItem"] {
   color: #0f172a !important;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05) !important;
 }
 
-html[data-theme="light"] div[class*="chatArea"] {
-  background-color: #f8fafc !important;
+html[data-theme="light"] button[class*="activeBottomNavItem"] svg {
+  color: #4f46e5 !important;
 }
 
-/* High-Contrast Modern Minimalist Filter Chips & Attribute Pills in Light Mode */
-html[data-theme="light"] button[class*="filterChip"],
-html[data-theme="light"] button[class*="attributeChip"] {
-  background-color: #ffffff !important;
+/* ─── Bottom nav bar ─────────────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="bottomNav"] {
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(12px) !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* ─── Calendar toggle & folder toggle buttons ────────────────────────────── */
+html[data-theme="light"] button[class*="calendarToggleBtn"],
+html[data-theme="light"] button[class*="foldersToggleBtn"],
+html[data-theme="light"] button[class*="mobileCalendarToggleBtn"],
+html[data-theme="light"] button[class*="mobileFolderToggleBtn"] {
+  color: #475569 !important;
+}
+
+html[data-theme="light"] button[class*="calendarToggleBtn"]:hover,
+html[data-theme="light"] button[class*="foldersToggleBtn"]:hover {
   color: #0f172a !important;
-  border: 1.5px solid #cbd5e1 !important;
-  font-weight: 700 !important;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04) !important;
 }
 
-html[data-theme="light"] button[class*="filterChip"]:hover,
-html[data-theme="light"] button[class*="attributeChip"]:hover {
-  background-color: #f1f5f9 !important;
-  border-color: #0f172a !important;
+html[data-theme="light"] button[class*="mobileCalendarToggleBtn"],
+html[data-theme="light"] button[class*="mobileFolderToggleBtn"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
 }
 
-/* DARK & ELEGANT MINIMALIST BUTTON OVERRIDES IN LIGHT MODE */
-html[data-theme="light"] button[class*="adminHeaderBtnReservasi"] {
-  background-color: #0f172a !important;
-  border: 1px solid #1e293b !important;
-  color: #ffffff !important;
-  font-weight: 700 !important;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25) !important;
+/* ─── Folder items ─────────────────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="folderItem"],
+html[data-theme="light"] button[class*="folderItem"],
+html[data-theme="light"] button[class*="folderItemBtn"] {
+  color: #64748b !important;
 }
 
-html[data-theme="light"] button[class*="adminHeaderBtnReservasi"]:hover {
-  background-color: #1e1b4b !important;
-  transform: translateY(-1px);
+html[data-theme="light"] div[class*="folderItem"]:hover,
+html[data-theme="light"] button[class*="folderItemBtn"]:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
 }
 
-html[data-theme="light"] button[class*="adminHeaderBtnAtribut"] {
-  background-color: #881337 !important;
-  border: 1px solid #9f1239 !important;
-  color: #ffffff !important;
-  font-weight: 700 !important;
-  box-shadow: 0 4px 14px rgba(136, 19, 55, 0.25) !important;
+html[data-theme="light"] div[class*="activeFolderItemContainer"],
+html[data-theme="light"] div[class*="activeFolderItem"] {
+  background: #eef2ff !important;
+  border-color: #a5b4fc !important;
 }
 
-html[data-theme="light"] button[class*="adminHeaderBtnAtribut"]:hover {
-  background-color: #9f1239 !important;
-  transform: translateY(-1px);
+html[data-theme="light"] div[class*="activeFolderItemContainer"] button[class*="folderItemBtn"] {
+  color: #4f46e5 !important;
 }
 
-html[data-theme="light"] button[class*="adminHeaderBtnKalender"] {
-  background-color: #064e3b !important;
-  border: 1px solid #047857 !important;
-  color: #ffffff !important;
-  font-weight: 700 !important;
-  box-shadow: 0 4px 14px rgba(6, 78, 59, 0.25) !important;
+html[data-theme="light"] button[class*="folderActions"] button,
+html[data-theme="light"] div[class*="folderActions"] button {
+  color: #94a3b8 !important;
 }
 
-html[data-theme="light"] button[class*="adminHeaderBtnKalender"]:hover {
-  background-color: #047857 !important;
-  transform: translateY(-1px);
+html[data-theme="light"] div[class*="folderActions"] button:hover {
+  color: #0f172a !important;
+  background: #f1f5f9 !important;
 }
 
-html[data-theme="light"] button[class*="adminLogoutBtn"],
-html[data-theme="light"] button[class*="logoutBtn"] {
-  background-color: #0f172a !important;
-  border: 1px solid #1e293b !important;
-  color: #ffffff !important;
-  font-weight: 700 !important;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2) !important;
+html[data-theme="light"] div[class*="folderRenameInput"],
+html[data-theme="light"] input[class*="folderRenameInput"],
+html[data-theme="light"] input[class*="addFolderInput"] {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
 }
 
-/* Primary Action Buttons (Tulis, Rekam, Gabung, Simpan, Tambah Note, Kirim) */
+/* ─── Folder chips (mobile horizontal scroll) ────────────────────────────── */
+html[data-theme="light"] div[class*="mobileFolderChip"],
+html[data-theme="light"] button[class*="mobileFolderChip"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+html[data-theme="light"] div[class*="mobileFolderChipActive"],
+html[data-theme="light"] button[class*="mobileFolderChipActive"] {
+  background: #eef2ff !important;
+  border-color: #a5b4fc !important;
+  color: #3730a3 !important;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.15) !important;
+}
+
+html[data-theme="light"] div[class*="mobileFolderActionAdd"] {
+  background: #eef2ff !important;
+  border-color: #c7d2fe !important;
+  color: #4f46e5 !important;
+}
+
+html[data-theme="light"] div[class*="mobileFolderActionManage"],
+html[data-theme="light"] button[class*="mobileFolderActionManage"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #64748b !important;
+}
+
+html[data-theme="light"] div[class*="mobileFolderActions"] {
+  border-color: #e2e8f0 !important;
+}
+
+/* ─── Close/Misc buttons ─────────────────────────────────────────────────── */
+html[data-theme="light"] button[class*="closeRecorderBtn"] {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #64748b !important;
+}
+
+html[data-theme="light"] button[class*="closeRecorderBtn"]:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] button[class*="mobileCalendarTriggerBtn"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #64748b !important;
+}
+
+html[data-theme="light"] div[class*="mobileCalendarTriggerActive"],
+html[data-theme="light"] button[class*="mobileCalendarTriggerActive"] {
+  background: #eef2ff !important;
+  border-color: #a5b4fc !important;
+  color: #3730a3 !important;
+}
+
+/* ─── Primary action buttons ─────────────────────────────────────────────── */
 html[data-theme="light"] button[class*="tulisCatatanBtn"],
-html[data-theme="light"] button[class*="submitBtn"],
-html[data-theme="light"] button[class*="primaryBtn"],
-html[data-theme="light"] button[class*="saveBtn"],
-html[data-theme="light"] button[class*="confirmBtn"],
+html[data-theme="light"] button[class*="welcomeTulisBtn"],
 html[data-theme="light"] button[class*="addFolderBtn"],
-html[data-theme="light"] button[class*="welcomeTulisBtn"] {
-  background-color: #0f172a !important;
-  border: 1px solid #1e293b !important;
+html[data-theme="light"] button[class*="mobileNewNoteBtn"],
+html[data-theme="light"] button[class*="installBtn"],
+html[data-theme="light"] button[class*="activatePushBtn"] {
+  background: #4f46e5 !important;
+  border-color: #4338ca !important;
   color: #ffffff !important;
-  font-weight: 700 !important;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.2) !important;
+  font-weight: 600 !important;
+  box-shadow: 0 2px 10px rgba(79, 70, 229, 0.25) !important;
 }
 
 html[data-theme="light"] button[class*="tulisCatatanBtn"]:hover,
-html[data-theme="light"] button[class*="submitBtn"]:hover,
-html[data-theme="light"] button[class*="primaryBtn"]:hover {
-  background-color: #1e1b4b !important;
-  box-shadow: 0 6px 18px rgba(30, 27, 75, 0.3) !important;
+html[data-theme="light"] button[class*="welcomeTulisBtn"]:hover,
+html[data-theme="light"] button[class*="addFolderBtn"]:hover {
+  background: #4338ca !important;
+  box-shadow: 0 4px 14px rgba(67, 56, 202, 0.35) !important;
 }
 
-/* Secondary & Recording Action Buttons */
+/* ─── Secondary/Record buttons ───────────────────────────────────────────── */
 html[data-theme="light"] button[class*="rekamAiBtn"],
 html[data-theme="light"] button[class*="welcomeRekamBtn"] {
-  background-color: #1e1b4b !important;
-  border: 1px solid #312e81 !important;
-  color: #ffffff !important;
-  font-weight: 700 !important;
-  box-shadow: 0 4px 14px rgba(30, 27, 75, 0.25) !important;
+  background: #f0f9ff !important;
+  border-color: #bae6fd !important;
+  color: #0369a1 !important;
+  font-weight: 600 !important;
 }
 
+html[data-theme="light"] button[class*="rekamAiBtn"]:hover,
+html[data-theme="light"] button[class*="welcomeRekamBtn"]:hover {
+  background: #e0f2fe !important;
+  border-color: #0284c7 !important;
+}
+
+/* ─── Merge button ────────────────────────────────────────────────────────── */
 html[data-theme="light"] button[class*="mergeBtn"] {
-  background-color: #0f172a !important;
-  border: 1px solid #334155 !important;
-  color: #ffffff !important;
-  font-weight: 700 !important;
+  background: #f5f3ff !important;
+  border-color: #ddd6fe !important;
+  color: #4f46e5 !important;
+  font-weight: 600 !important;
 }
 
-/* Active Nav Items & Active Category Filter Chips */
-html[data-theme="light"] button[class*="activeNavItem"],
-html[data-theme="light"] button[class*="activeBottomNavItem"],
+html[data-theme="light"] button[class*="mergeBtn"]:hover {
+  background: #ede9fe !important;
+  border-color: #a5b4fc !important;
+}
+
+/* ─── Active category / filter chips ─────────────────────────────────────── */
 html[data-theme="light"] button[class*="activeCategoryBtn"],
 html[data-theme="light"] button[class*="filterChipActive"],
 html[data-theme="light"] button[class*="attributeChipActive"] {
-  background-color: #0f172a !important;
+  background: #4f46e5 !important;
   color: #ffffff !important;
-  border: 1.5px solid #0f172a !important;
-  font-weight: 700 !important;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25) !important;
+  border-color: #4338ca !important;
+  font-weight: 600 !important;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25) !important;
 }
 
-/* Chat Message Bubbles in Light Mode */
-html[data-theme="light"] div[class*="myBubble"] {
-  background-color: #e0e7ff !important;
-  border: 2px solid #818cf8 !important;
+html[data-theme="light"] button[class*="categoryBtn"],
+html[data-theme="light"] button[class*="filterChip"],
+html[data-theme="light"] button[class*="attributeChip"] {
+  background: #ffffff !important;
+  color: #475569 !important;
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] button[class*="categoryBtn"]:hover,
+html[data-theme="light"] button[class*="filterChip"]:hover {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #c7d2fe !important;
+}
+
+/* ─── Filter chip active nav ─────────────────────────────────────────────── */
+html[data-theme="light"] button[class*="activeNavItem"],
+html[data-theme="light"] button[class*="activeBottomNavItem"] {
+  background: #eef2ff !important;
+  color: #3730a3 !important;
+  border-color: #c7d2fe !important;
+  font-weight: 600 !important;
+}
+
+/* ─── Welcome state ──────────────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="welcomeState"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] div[class*="welcomeState"] h3 {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] div[class*="welcomeState"] p {
+  color: #64748b !important;
+}
+
+/* ─── Group headers ──────────────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="groupHeader"],
+html[data-theme="light"] div[class*="mobileGroupHeader"],
+html[data-theme="light"] div[class*="notesListHeader"] {
+  color: #94a3b8 !important;
+  border-color: #0284c7 !important;
+}
+
+/* ─── Source indicator & folder badge ────────────────────────────────────── */
+html[data-theme="light"] div[class*="sourceIndicator"] {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] div[class*="folderBadgeSmall"] {
+  background: #f0f9ff !important;
+  border-color: #bae6fd !important;
+  color: #0369a1 !important;
+}
+
+html[data-theme="light"] div[class*="todoProgressIndicator"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+/* ─── Modal / confirm dialog ─────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="modalContent"],
+html[data-theme="light"] div[class*="confirmBox"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12) !important;
+}
+
+html[data-theme="light"] div[class*="modalContent"] h3,
+html[data-theme="light"] div[class*="confirmTitle"],
+html[data-theme="light"] div[class*="mobileBottomSheetHeader"] h3 {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] div[class*="modalContent"] p,
+html[data-theme="light"] div[class*="confirmMessage"] {
+  color: #475569 !important;
+}
+
+html[data-theme="light"] div[class*="folderSelectDropdown"] {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] div[class*="folderSelectDropdown"] option,
+html[data-theme="light"] select option {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] div[class*="modalFolderInput"],
+html[data-theme="light"] input[class*="modalFolderInput"] {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] button[class*="modalFolderBtn"] {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+html[data-theme="light"] button[class*="modalFolderBtn"]:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] button[class*="confirmCancelBtn"] {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+html[data-theme="light"] button[class*="confirmCancelBtn"]:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* ─── Bottom sheet (mobile) ──────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="mobileBottomSheet"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.1) !important;
+}
+
+html[data-theme="light"] div[class*="mobileBottomSheetHeader"] {
+  border-color: #f1f5f9 !important;
+}
+
+html[data-theme="light"] button[class*="mobileBottomSheetClose"] {
+  color: #94a3b8 !important;
+}
+
+html[data-theme="light"] button[class*="mobileBottomSheetClose"]:hover {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] div[class*="mobileFolderEditRow"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] div[class*="mobileFolderEditRow"] span,
+html[data-theme="light"] div[class*="mobileFolderEditRow"] div[class*="folderNameText"] {
+  color: #0f172a !important;
+}
+
+/* ─── Notification Toast ─────────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="notificationToast"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  border-left-color: #0284c7 !important;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.1) !important;
+}
+
+html[data-theme="light"] div[class*="notificationTitle"] {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] div[class*="notificationHeader"] {
+  border-color: #f1f5f9 !important;
+}
+
+html[data-theme="light"] button[class*="notificationCloseBtn"]:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] div[class*="notificationItem"] {
+  background: #f8fafc !important;
+  border-color: #f1f5f9 !important;
+}
+
+html[data-theme="light"] div[class*="notificationNoteTitle"] {
+  color: #0f172a !important;
+}
+
+/* ─── Calendar dashboard ─────────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="calendarDashboardLeft"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] div[class*="calendarDashboardHeader"] h3 {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] div[class*="calendarNotesDateStr"] {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] button[class*="calendarNoteSelectBtn"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
+}
+
+html[data-theme="light"] button[class*="calendarNoteSelectBtn"]:hover {
+  background: #f8fafc !important;
+  border-color: #c7d2fe !important;
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.1) !important;
+}
+
+html[data-theme="light"] div[class*="calendarNoteMeta"] {
+  border-color: #f1f5f9 !important;
+}
+
+/* ─── Reminders ──────────────────────────────────────────────────────────── */
+html[data-theme="light"] h2[class*="remindersHeader"],
+html[data-theme="light"] div[class*="remindersHeader"] h2 {
+  color: #0f172a !important;
+}
+
+/* ─── Voice Recorder ─────────────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="recorderCard"],
+html[data-theme="light"] div[class*="workspaceRecorderWrapper"] {
+  background: #ffffff;
+}
+
+html[data-theme="light"] div[class*="transcriptArea"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] div[class*="fileUploadArea"] {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+
+html[data-theme="light"] div[class*="fileUploadArea"]:hover {
+  border-color: #a5b4fc !important;
+  background: #f5f3ff !important;
+}
+
+html[data-theme="light"] div[class*="fileSelectedInfo"] {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] div[class*="folderChecklistSection"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="light"] div[class*="folderChecklistItem"],
+html[data-theme="light"] button[class*="folderChecklistItem"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #64748b !important;
+}
+
+html[data-theme="light"] div[class*="folderChecklistItem"]:hover:not(:disabled),
+html[data-theme="light"] button[class*="folderChecklistItem"]:hover:not(:disabled) {
+  background: #f1f5f9 !important;
+  border-color: #c7d2fe !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] select[class*="langSelect"] {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* ─── Voice Assistant panel ──────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="assistantPanel"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12) !important;
+}
+
+html[data-theme="light"] div[class*="panelHeader"] {
+  border-color: #f1f5f9 !important;
+}
+
+html[data-theme="light"] button[class*="controlBtn"],
+html[data-theme="light"] button[class*="closeBtn"] {
+  color: #94a3b8 !important;
+}
+
+html[data-theme="light"] button[class*="controlBtn"]:hover,
+html[data-theme="light"] button[class*="closeBtn"]:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] div[class*="bubbleText"] {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] div[class*="bubbleTextAI"] {
+  background: #eef2ff !important;
+  border-color: #c7d2fe !important;
   color: #1e1b4b !important;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1) !important;
+}
+
+html[data-theme="light"] div[class*="suggestions"] {
+  background: #f8fafc !important;
+  border-color: #f1f5f9 !important;
+}
+
+html[data-theme="light"] button[class*="suggestionBtn"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+html[data-theme="light"] button[class*="suggestionBtn"]:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #c7d2fe !important;
+}
+
+html[data-theme="light"] div[class*="chatInputBar"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] div[class*="chatInputBar"]:focus-within {
+  border-color: #a5b4fc !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+}
+
+html[data-theme="light"] input[class*="chatInputField"] {
+  color: #0f172a !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="light"] button[class*="chatSendBtn"]:disabled,
+html[data-theme="light"] button[class*="chatMicBtn"]:disabled {
+  background: #e2e8f0 !important;
+  color: #94a3b8 !important;
+}
+
+/* ─── NoteEditor ─────────────────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="collapsiblePanel"],
+html[data-theme="light"] div[class*="panelCard"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] div[class*="collapsiblePanel"]:hover {
+  background: #fafafa !important;
+}
+
+html[data-theme="light"] div[class*="collapsibleHeaderTitle"] {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] div[class*="collapsibleContent"] {
+  border-color: #f1f5f9 !important;
+}
+
+html[data-theme="light"] div[class*="panelTitle"] {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] input[class*="tagInput"],
+html[data-theme="light"] div[class*="tagInput"] {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] button[class*="backBtn"] {
+  color: #64748b !important;
+}
+
+html[data-theme="light"] button[class*="backBtn"]:hover {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] button[class*="subTab"] {
+  color: #94a3b8 !important;
+}
+
+html[data-theme="light"] button[class*="subTab"]:hover {
+  color: #475569 !important;
+}
+
+html[data-theme="light"] button[class*="activeSubTab"] {
+  color: #4f46e5 !important;
+  border-bottom-color: #4f46e5 !important;
+}
+
+/* ─── WhatsApp Chat form inputs ──────────────────────────────────────────── */
+html[data-theme="light"] input[class*="textInput"],
+html[data-theme="light"] textarea[class*="textarea"] {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* ─── Misc buttons ───────────────────────────────────────────────────────── */
+html[data-theme="light"] button[class*="clearHistoryBtn"]:hover {
+  background: #fef2f2 !important;
+}
+
+html[data-theme="light"] button[class*="closeInstallBtn"] {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #64748b !important;
+}
+
+html[data-theme="light"] button[class*="closeInstallBtn"]:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* ─── Chat message bubbles ───────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="myBubble"] {
+  background-color: #eef2ff !important;
+  border-color: #a5b4fc !important;
+  color: #1e1b4b !important;
 }
 
 html[data-theme="light"] div[class*="otherBubble"] {
   background-color: #ffffff !important;
-  border: 2px solid #cbd5e1 !important;
-  color: #020617 !important;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08) !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
 }
 
 html[data-theme="light"] div[class*="otherBubble"] span[class*="senderName"],
 html[data-theme="light"] div[class*="otherBubble"] p[class*="messageText"] {
-  color: #020617 !important;
-  font-weight: 600 !important;
+  color: #0f172a !important;
 }
 
-/* Scrollbar Light Mode */
-html[data-theme="light"] ::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.3);
+/* ─── News cards ──────────────────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="newsCard"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
 }
 
-html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.5);
+html[data-theme="light"] div[class*="newsCard"]:hover {
+  background: #fafbff !important;
+  border-color: #c7d2fe !important;
 }
 
-/* Markdown Content in Light Mode */
+html[data-theme="light"] div[class*="sourceBadge"] {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* ─── Markdown content ───────────────────────────────────────────────────── */
 html[data-theme="light"] .markdown-body,
 html[data-theme="light"] .markdown-body p,
 html[data-theme="light"] .markdown-body li,
 html[data-theme="light"] .markdown-body td,
 html[data-theme="light"] .markdown-body th {
   color: #1e293b !important;
+}
+
+html[data-theme="light"] .markdown-body h1,
+html[data-theme="light"] .markdown-body h2,
+html[data-theme="light"] .markdown-body h3 {
+  color: #0f172a !important;
 }
 
 html[data-theme="light"] .markdown-body strong {
@@ -639,7 +1196,7 @@ html[data-theme="light"] .markdown-body strong {
 
 html[data-theme="light"] .markdown-body blockquote {
   background-color: #f1f5f9 !important;
-  border-left-color: #4338ca !important;
+  border-left-color: #4f46e5 !important;
   color: #334155 !important;
 }
 
@@ -655,10 +1212,10 @@ html[data-theme="light"] .markdown-body table th {
 }
 
 html[data-theme="light"] .markdown-body table td {
-  border-color: #cbd5e1 !important;
+  border-color: #e2e8f0 !important;
 }
 
-/* Tag Badges in Light Mode */
+/* ─── Tag Badges ─────────────────────────────────────────────────────────── */
 html[data-theme="light"] .tag-badge.rapat {
   background: #e0e7ff !important;
   color: #3730a3 !important;
@@ -672,7 +1229,7 @@ html[data-theme="light"] .tag-badge.ide {
 }
 
 html[data-theme="light"] .tag-badge.tugas {
-  background: #cffaff !important;
+  background: #e0f9ff !important;
   color: #155e75 !important;
   border-color: #a5f3fc !important;
 }
@@ -690,8 +1247,948 @@ html[data-theme="light"] .tag-badge.pribadi {
 }
 
 html[data-theme="light"] .tag-badge.default {
-  background: #e2e8f0 !important;
-  color: #334155 !important;
-  border-color: #cbd5e1 !important;
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  border-color: #e2e8f0 !important;
 }
 
+/* ─── Spinner ─────────────────────────────────────────────────────────────── */
+html[data-theme="light"] .spinner {
+  border-color: rgba(79, 70, 229, 0.15);
+  border-top-color: #4f46e5;
+}
+
+
+
+/* ==========================================================================
+   ADDITIONAL LIGHT MODE OVERRIDES — COMPREHENSIVE ELEMENT FIX
+   Covers remaining hardcoded dark colors across all components
+   ========================================================================== */
+
+/* --- Notes list column & header --- */
+html[data-theme="light"] div[class*="notesListColumn"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+html[data-theme="light"] div[class*="notesListHeader"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+html[data-theme="light"] div[class*="filterChipsRow"] {
+  background: #fafafa !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* --- Action icon buttons inside NoteEditor --- */
+html[data-theme="light"] button[class*="actionIconBtn"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+html[data-theme="light"] button[class*="editBtn"] {
+  background: #eef2ff !important;
+  border-color: #c7d2fe !important;
+  color: #4f46e5 !important;
+}
+html[data-theme="light"] button[class*="editBtn"]:hover {
+  background: #e0e7ff !important;
+  border-color: #a5b4fc !important;
+}
+html[data-theme="light"] button[class*="saveBtn"] {
+  background: #dcfce7 !important;
+  border-color: #bbf7d0 !important;
+  color: #16a34a !important;
+}
+html[data-theme="light"] button[class*="saveBtn"]:hover {
+  background: #bbf7d0 !important;
+}
+html[data-theme="light"] button[class*="deleteBtn"] {
+  background: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #dc2626 !important;
+}
+html[data-theme="light"] button[class*="deleteBtn"]:hover {
+  background: #fecaca !important;
+}
+html[data-theme="light"] button[class*="cancelBtn"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #64748b !important;
+}
+html[data-theme="light"] button[class*="cancelBtn"]:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* --- Copy, Move, RecorderShortcut buttons --- */
+html[data-theme="light"] button[class*="copyBtn"] {
+  background: #f0f9ff !important;
+  border-color: #bae6fd !important;
+  color: #0284c7 !important;
+}
+html[data-theme="light"] button[class*="copyBtn"]:hover {
+  background: #e0f2fe !important;
+  color: #0369a1 !important;
+}
+html[data-theme="light"] button[class*="moveBtn"] {
+  background: #fefce8 !important;
+  border-color: #fde68a !important;
+  color: #d97706 !important;
+}
+html[data-theme="light"] button[class*="recorderShortcutBtn"] {
+  background: #f0f9ff !important;
+  border-color: #bae6fd !important;
+  color: #0284c7 !important;
+}
+html[data-theme="light"] button[class*="recorderShortcutBtnActive"] {
+  background: #dbeafe !important;
+  border-color: #93c5fd !important;
+  color: #1d4ed8 !important;
+}
+
+/* --- Editor textarea and preview area --- */
+html[data-theme="light"] textarea[class*="textarea"],
+html[data-theme="light"] div[class*="previewArea"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+html[data-theme="light"] textarea[class*="textarea"]:focus {
+  border-color: #4f46e5 !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+}
+html[data-theme="light"] div[class*="previewArea"] li,
+html[data-theme="light"] div[class*="previewArea"] p {
+  color: #1e293b !important;
+}
+html[data-theme="light"] div[class*="previewArea"] blockquote {
+  background: #f1f5f9 !important;
+  border-left-color: #4f46e5 !important;
+  color: #475569 !important;
+}
+
+/* --- Inline recorder section --- */
+html[data-theme="light"] div[class*="inlineRecorderSection"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06) !important;
+  backdrop-filter: none !important;
+}
+html[data-theme="light"] div[class*="inlineRecorderHeader"] {
+  border-color: #e2e8f0 !important;
+}
+html[data-theme="light"] div[class*="inlineRecorderTitle"] {
+  color: #0f172a !important;
+}
+
+/* --- Deck controls --- */
+html[data-theme="light"] div[class*="deckControls"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+html[data-theme="light"] div[class*="deckLabel"] {
+  color: #64748b !important;
+}
+html[data-theme="light"] select[class*="inlineLangSelect"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+html[data-theme="light"] button[class*="inlineUploadBtn"] {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #64748b !important;
+}
+html[data-theme="light"] button[class*="inlineUploadBtn"]:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+html[data-theme="light"] div[class*="inlineSelectedFile"] {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+html[data-theme="light"] div[class*="inlineFileName"],
+html[data-theme="light"] span[class*="inlineFileName"] {
+  color: #0f172a !important;
+}
+
+/* --- Inline transcript area --- */
+html[data-theme="light"] div[class*="inlineTranscriptArea"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+/* --- Inline format cards --- */
+html[data-theme="light"] div[class*="inlineFormatCard"],
+html[data-theme="light"] button[class*="inlineFormatCard"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+html[data-theme="light"] div[class*="inlineFormatCard"]:hover:not(:disabled),
+html[data-theme="light"] button[class*="inlineFormatCard"]:hover:not(:disabled) {
+  background: #f8fafc !important;
+  border-color: #c7d2fe !important;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.08) !important;
+}
+html[data-theme="light"] div[class*="inlineFormatName"],
+html[data-theme="light"] span[class*="inlineFormatName"] {
+  color: #0f172a !important;
+}
+html[data-theme="light"] div[class*="inlineFormatLabel"],
+html[data-theme="light"] span[class*="inlineFormatLabel"] {
+  color: #64748b !important;
+}
+
+/* --- Format panel (standalone recorder) --- */
+html[data-theme="light"] div[class*="formatPanel"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: none !important;
+}
+html[data-theme="light"] div[class*="formatPanelTitle"],
+html[data-theme="light"] span[class*="formatPanelTitle"] {
+  color: #64748b !important;
+}
+html[data-theme="light"] div[class*="formatCard"],
+html[data-theme="light"] button[class*="formatCard"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+html[data-theme="light"] div[class*="formatCard"]:hover:not(:disabled),
+html[data-theme="light"] button[class*="formatCard"]:hover:not(:disabled) {
+  background: #f8fafc !important;
+  border-color: #c7d2fe !important;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.08) !important;
+}
+html[data-theme="light"] div[class*="formatName"],
+html[data-theme="light"] span[class*="formatName"] {
+  color: #0f172a !important;
+}
+html[data-theme="light"] div[class*="formatDesc"],
+html[data-theme="light"] span[class*="formatDesc"] {
+  color: #64748b !important;
+}
+
+/* --- Todo list items --- */
+html[data-theme="light"] div[class*="todoItemRow"] {
+  background: #fafafa !important;
+  border-color: transparent !important;
+}
+html[data-theme="light"] div[class*="todoItemRow"]:hover {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+html[data-theme="light"] span[class*="todoText"],
+html[data-theme="light"] div[class*="todoText"] {
+  color: #1e293b !important;
+}
+html[data-theme="light"] span[class*="todoCompleted"],
+html[data-theme="light"] div[class*="todoCompleted"] {
+  color: #94a3b8 !important;
+}
+html[data-theme="light"] input[class*="todoInput"] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-bottom: 1px dashed #cbd5e1 !important;
+  color: #0f172a !important;
+}
+html[data-theme="light"] input[class*="addTodoInput"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+html[data-theme="light"] button[class*="addTodoBtn"] {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+html[data-theme="light"] button[class*="todoOrderBtn"],
+html[data-theme="light"] button[class*="todoDeleteBtn"] {
+  color: #94a3b8 !important;
+}
+html[data-theme="light"] button[class*="todoOrderBtn"]:hover:not(:disabled) {
+  color: #0f172a !important;
+  background: #f1f5f9 !important;
+}
+html[data-theme="light"] button[class*="todoDeleteBtn"]:hover {
+  color: #dc2626 !important;
+  background: #fef2f2 !important;
+}
+
+/* --- Editor toolbar --- */
+html[data-theme="light"] div[class*="editorToolbar"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+html[data-theme="light"] button[class*="toolbarBtn"] {
+  color: #64748b !important;
+}
+html[data-theme="light"] button[class*="toolbarBtn"]:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* --- Folder select inside NoteEditor --- */
+html[data-theme="light"] div[class*="folderSelectContainer"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+html[data-theme="light"] select[class*="folderSelect"] {
+  color: #0f172a !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+html[data-theme="light"] select[class*="folderSelect"] option,
+html[data-theme="light"] select[class*="moveFolderSelect"] option {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+html[data-theme="light"] select[class*="moveFolderSelect"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+html[data-theme="light"] button[class*="newFolderBtn"] {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #64748b !important;
+}
+html[data-theme="light"] button[class*="newFolderBtn"]:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+html[data-theme="light"] div[class*="folderBadge"],
+html[data-theme="light"] span[class*="folderBadge"] {
+  background: #f0f9ff !important;
+  border-color: #bae6fd !important;
+  color: #0369a1 !important;
+}
+
+/* --- Workspace & main container backgrounds --- */
+html[data-theme="light"] div[class*="workspace"],
+html[data-theme="light"] div[class*="mainContainer"] {
+  background: #f8fafc !important;
+}
+html[data-theme="light"] div[class*="mobileLayout"],
+html[data-theme="light"] div[class*="mobileContent"] {
+  background: #f8fafc !important;
+}
+
+/* --- Calendar dashboard specifics --- */
+html[data-theme="light"] div[class*="calendarDashboardRight"] {
+  background: #f8fafc !important;
+}
+html[data-theme="light"] div[class*="calendarNotesHeader"] {
+  color: #64748b !important;
+  border-color: #e2e8f0 !important;
+}
+html[data-theme="light"] div[class*="calendarDashboardLeft"] {
+  background: #ffffff !important;
+}
+
+/* --- Empty and loading states --- */
+html[data-theme="light"] div[class*="emptyState"],
+html[data-theme="light"] div[class*="loadingState"],
+html[data-theme="light"] div[class*="emptyTabState"],
+html[data-theme="light"] div[class*="noSelect"] {
+  color: #94a3b8 !important;
+  border-color: #e2e8f0 !important;
+  background: transparent !important;
+}
+
+/* --- Summary text & metadata --- */
+html[data-theme="light"] div[class*="summaryText"],
+html[data-theme="light"] span[class*="summaryText"] {
+  color: #475569 !important;
+}
+html[data-theme="light"] div[class*="metadata"],
+html[data-theme="light"] span[class*="metadata"] {
+  color: #64748b !important;
+}
+
+/* --- Sidebar sections border --- */
+html[data-theme="light"] div[class*="navSection"],
+html[data-theme="light"] div[class*="calendarSidebarSection"],
+html[data-theme="light"] div[class*="foldersSidebarSection"],
+html[data-theme="light"] div[class*="notesSection"],
+html[data-theme="light"] div[class*="brand"] {
+  border-color: #e2e8f0 !important;
+}
+
+/* --- Install banner --- */
+html[data-theme="light"] div[class*="installBanner"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1) !important;
+}
+
+/* --- Mobile confirm / bottom sheet overlay --- */
+html[data-theme="light"] div[class*="mobileBottomSheetOverlay"],
+html[data-theme="light"] div[class*="confirmOverlay"],
+html[data-theme="light"] div[class*="modalOverlay"] {
+  background: rgba(15, 23, 42, 0.5) !important;
+}
+
+/* --- Inline error message --- */
+html[data-theme="light"] div[class*="inlineErrorMsg"] {
+  background: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #dc2626 !important;
+}
+
+/* --- Floating assistant --- */
+html[data-theme="light"] button[class*="floatingAssistantBtn"] {
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.25) !important;
+}
+html[data-theme="light"] button[class*="btnListening"] {
+  background: #f8fafc !important;
+  border-color: rgba(79, 70, 229, 0.3) !important;
+}
+html[data-theme="light"] div[class*="assistantPanelOverlay"] {
+  background: rgba(15, 23, 42, 0.4) !important;
+}
+html[data-theme="light"] div[class*="panelBody"] {
+  background: #f8fafc !important;
+}
+
+/* --- Tag remove button --- */
+html[data-theme="light"] button[class*="tagRemoveBtn"] {
+  color: #94a3b8 !important;
+}
+html[data-theme="light"] button[class*="tagRemoveBtn"]:hover {
+  color: #dc2626 !important;
+}
+
+/* --- Title input in NoteEditor --- */
+html[data-theme="light"] input[class*="titleInput"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* --- Collapsible arrow & toggle arrow --- */
+html[data-theme="light"] div[class*="collapsibleArrow"],
+html[data-theme="light"] span[class*="collapsibleArrow"],
+html[data-theme="light"] div[class*="toggleArrow"],
+html[data-theme="light"] span[class*="toggleArrow"] {
+  color: #94a3b8 !important;
+}
+
+/* --- Small spinners --- */
+html[data-theme="light"] div[class*="smallSpinner"],
+html[data-theme="light"] div[class*="inlineSpinner"] {
+  border-color: rgba(79, 70, 229, 0.15) !important;
+  border-top-color: #4f46e5 !important;
+}
+html[data-theme="light"] div[class*="spinner"] {
+  border-color: rgba(79, 70, 229, 0.15) !important;
+  border-top-color: #4f46e5 !important;
+}
+
+/* --- Record button border in light mode --- */
+html[data-theme="light"] button[class*="recordBtn"],
+html[data-theme="light"] button[class*="deckRecordBtn"] {
+  border-color: rgba(79, 70, 229, 0.2) !important;
+}
+
+/* --- Waveform bars --- */
+html[data-theme="light"] div[class*="waveBar"]:not([class*="recordingWaveBar"]) {
+  background-color: #a5b4fc !important;
+}
+html[data-theme="light"] div[class*="recordingWaveBar"] {
+  background-color: #dc2626 !important;
+}
+
+/* --- Active dot --- */
+html[data-theme="light"] div[class*="activeDot"] {
+  background-color: #0284c7 !important;
+  box-shadow: 0 0 5px rgba(2, 132, 199, 0.4) !important;
+}
+
+/* --- File upload text --- */
+html[data-theme="light"] div[class*="fileUploadText"],
+html[data-theme="light"] span[class*="fileUploadText"] {
+  color: #64748b !important;
+}
+
+/* --- Status text in recorder --- */
+html[data-theme="light"] div[class*="statusText"],
+html[data-theme="light"] span[class*="statusText"] {
+  color: #64748b !important;
+}
+
+/* --- Divider line in recorder --- */
+html[data-theme="light"] div[class*="divider"] {
+  color: #94a3b8 !important;
+}
+
+/* --- Group headers border fix --- */
+html[data-theme="light"] div[class*="groupHeader"],
+html[data-theme="light"] div[class*="mobileGroupHeader"] {
+  border-left-color: #0284c7 !important;
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+}
+
+/* --- filterChip inside row (active selected filter tags) --- */
+html[data-theme="light"] div[class*="filterChipsRow"] div[class*="filterChip"] {
+  background: #eef2ff !important;
+  border-color: #c7d2fe !important;
+  color: #3730a3 !important;
+}
+
+/* --- Folder checklist checked item --- */
+html[data-theme="light"] div[class*="folderChecklistItemChecked"],
+html[data-theme="light"] button[class*="folderChecklistItemChecked"] {
+  background: #eef2ff !important;
+  border-color: #4f46e5 !important;
+  color: #3730a3 !important;
+  box-shadow: none !important;
+}
+html[data-theme="light"] div[class*="folderChecklistItemChecked"] div[class*="folderChecklistIcon"] {
+  color: #0284c7 !important;
+}
+
+/* --- Folder checklist title --- */
+html[data-theme="light"] div[class*="folderChecklistTitle"],
+html[data-theme="light"] span[class*="folderChecklistTitle"] {
+  color: #64748b !important;
+}
+
+/* --- Mobile folder edit row button --- */
+html[data-theme="light"] div[class*="mobileFolderEditRow"] button {
+  color: #64748b !important;
+}
+html[data-theme="light"] div[class*="mobileFolderEditRow"] button:hover {
+  color: #0f172a !important;
+  background: #f1f5f9 !important;
+}
+
+/* --- News card text --- */
+html[data-theme="light"] div[class*="newsCard"] h3,
+html[data-theme="light"] div[class*="newsCard"] h4 {
+  color: #0f172a !important;
+}
+html[data-theme="light"] div[class*="newsCard"] p {
+  color: #475569 !important;
+}
+
+/* --- Sidebar note card hover --- */
+html[data-theme="light"] button[class*="sidebarNoteCard"]:hover,
+html[data-theme="light"] div[class*="sidebarNoteCard"]:hover {
+  background: #f1f5f9 !important;
+  border-color: #c7d2fe !important;
+}
+html[data-theme="light"] div[class*="activeSidebarNoteCard"],
+html[data-theme="light"] button[class*="activeSidebarNoteCard"] {
+  background: #eef2ff !important;
+  border-color: #a5b4fc !important;
+}
+
+/* --- Mobile header backdrop fix --- */
+html[data-theme="light"] div[class*="mobileHeader"] {
+  background: #ffffff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* --- Note cards no glassmorphism in light mode --- */
+html[data-theme="light"] div[class*="noteCard"],
+html[data-theme="light"] div[class*="mobileNoteCard"],
+html[data-theme="light"] div[class*="calendarNoteSelectBtn"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* --- Mobile search bar fix --- */
+html[data-theme="light"] div[class*="mobileSearchBar"] {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* --- Search bar focus --- */
+html[data-theme="light"] div[class*="searchBar"]:focus-within {
+  border-color: #4f46e5 !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+}
+
+/* --- Todo item editing state --- */
+html[data-theme="light"] div[class*="todoItemEditing"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* --- Reminder list items --- */
+html[data-theme="light"] div[class*="reminderItem"],
+html[data-theme="light"] button[class*="reminderItem"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* --- Notification badge/count --- */
+html[data-theme="light"] span[class*="notificationBadge"],
+html[data-theme="light"] div[class*="notificationBadge"] {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+/* --- Mobile recorder container --- */
+html[data-theme="light"] div[class*="mobileRecorderContainer"] {
+  background: transparent !important;
+}
+
+/* --- Calendar note item --- */
+html[data-theme="light"] button[class*="calendarNoteSelectBtn"] {
+  backdrop-filter: none !important;
+}
+
+/* ==========================================================================
+   LIGHT MODE — PHASE 2 OVERRIDES
+   Covers remaining hardcoded white text elements in page.module.css
+   ========================================================================== */
+
+/* --- Timeframe filter --- */
+html[data-theme="light"] button[class*="timeframeBtn"]:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+html[data-theme="light"] button[class*="timeframeBtnActive"],
+html[data-theme="light"] div[class*="timeframeBtnActive"] {
+  background: #eef2ff !important;
+  border-color: #a5b4fc !important;
+  color: #3730a3 !important;
+  box-shadow: none !important;
+}
+html[data-theme="light"] div[class*="mobileTimeframeChipActive"],
+html[data-theme="light"] button[class*="mobileTimeframeChipActive"] {
+  background: #eef2ff !important;
+  border-color: #a5b4fc !important;
+  color: #3730a3 !important;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.1) !important;
+}
+html[data-theme="light"] div[class*="mobileTimeframeChip"],
+html[data-theme="light"] button[class*="mobileTimeframeChip"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+html[data-theme="light"] button[class*="timeframeBtn"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+html[data-theme="light"] div[class*="timeframeFilterRow"] {
+  background: #fafafa !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* --- Toggle/switch in reminders --- */
+html[data-theme="light"] div[class*="slider"] {
+  background-color: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
+}
+html[data-theme="light"] div[class*="toggleItem"] {
+  color: #475569 !important;
+}
+html[data-theme="light"] div[class*="togglesList"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* --- Stage badges in reminder cards --- */
+html[data-theme="light"] span[class*="stagePending"],
+html[data-theme="light"] div[class*="stagePending"] {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #64748b !important;
+}
+html[data-theme="light"] span[class*="stageDisabled"],
+html[data-theme="light"] div[class*="stageDisabled"] {
+  background: #f8fafc !important;
+  border-color: #f1f5f9 !important;
+  color: #94a3b8 !important;
+}
+html[data-theme="light"] span[class*="pastLabel"],
+html[data-theme="light"] div[class*="pastLabel"] {
+  background: #f1f5f9 !important;
+  color: #64748b !important;
+}
+
+/* --- Status badges --- */
+html[data-theme="light"] span[class*="statusActive"],
+html[data-theme="light"] div[class*="statusActive"] {
+  background: #dcfce7 !important;
+  color: #16a34a !important;
+  border-color: #bbf7d0 !important;
+}
+html[data-theme="light"] span[class*="statusInactive"],
+html[data-theme="light"] div[class*="statusInactive"] {
+  background: #fefce8 !important;
+  color: #ca8a04 !important;
+  border-color: #fef08a !important;
+}
+
+/* --- Folder AI summary card --- */
+html[data-theme="light"] div[class*="folderAiSummaryCard"] {
+  background: rgba(251, 191, 36, 0.06) !important;
+  border-color: rgba(251, 191, 36, 0.2) !important;
+  backdrop-filter: none !important;
+}
+html[data-theme="light"] div[class*="folderAiSummaryText"],
+html[data-theme="light"] span[class*="folderAiSummaryText"] {
+  color: #78350f !important;
+}
+html[data-theme="light"] button[class*="closeFolderSummaryBtn"] {
+  color: #94a3b8 !important;
+}
+html[data-theme="light"] button[class*="closeFolderSummaryBtn"]:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* --- Folder AI summary generate button --- */
+html[data-theme="light"] button[class*="generateSummaryBtn"],
+html[data-theme="light"] button[class*="folderSummaryBtn"] {
+  background: #fef3c7 !important;
+  border-color: #fde68a !important;
+  color: #92400e !important;
+}
+html[data-theme="light"] button[class*="generateSummaryBtn"]:hover {
+  background: #fde68a !important;
+}
+
+/* --- Notes list count badge --- */
+html[data-theme="light"] span[class*="countBadge"],
+html[data-theme="light"] div[class*="countBadge"] {
+  background: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+/* --- Import/Export buttons --- */
+html[data-theme="light"] button[class*="exportBtn"],
+html[data-theme="light"] button[class*="importBtn"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+html[data-theme="light"] button[class*="exportBtn"]:hover,
+html[data-theme="light"] button[class*="importBtn"]:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* --- Sort/filter dropdowns --- */
+html[data-theme="light"] select[class*="sortSelect"],
+html[data-theme="light"] div[class*="sortSelect"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* --- Category buttons (note type filter) --- */
+html[data-theme="light"] button[class*="categoryBtn"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+html[data-theme="light"] button[class*="activeCategoryBtn"] {
+  background: #4f46e5 !important;
+  border-color: #4338ca !important;
+  color: #ffffff !important;
+}
+
+/* --- Attribute chip --- */
+html[data-theme="light"] button[class*="attributeChip"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+html[data-theme="light"] button[class*="attributeChipActive"] {
+  background: #eef2ff !important;
+  border-color: #a5b4fc !important;
+  color: #3730a3 !important;
+}
+
+/* --- Clear filter button --- */
+html[data-theme="light"] button[class*="clearFiltersBtn"],
+html[data-theme="light"] button[class*="clearFilterBtn"] {
+  background: transparent !important;
+  color: #64748b !important;
+  border-color: transparent !important;
+}
+html[data-theme="light"] button[class*="clearFiltersBtn"]:hover {
+  color: #dc2626 !important;
+  background: #fef2f2 !important;
+}
+
+/* --- Smart recording toggle --- */
+html[data-theme="light"] button[class*="smartRecordBtn"],
+html[data-theme="light"] div[class*="smartRecordToggle"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #64748b !important;
+}
+
+/* --- Interactve merge component --- */
+html[data-theme="light"] div[class*="mergePreview"],
+html[data-theme="light"] div[class*="mergeContainer"],
+html[data-theme="light"] div[class*="mergeContent"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* --- Calendar section in sidebar (light mode) --- */
+html[data-theme="light"] div[class*="calendarSidebarSection"] {
+  background: transparent !important;
+}
+
+/* --- Calendar compact in sidebar --- */
+html[data-theme="light"] td[class*="calendarDay"],
+html[data-theme="light"] button[class*="calendarDay"] {
+  color: #475569 !important;
+}
+html[data-theme="light"] td[class*="calendarDaySelected"] button,
+html[data-theme="light"] button[class*="calendarDaySelected"] {
+  background: #4f46e5 !important;
+  color: #ffffff !important;
+}
+html[data-theme="light"] td[class*="calendarDayHasNote"] button,
+html[data-theme="light"] button[class*="calendarDayHasNote"] {
+  color: #4f46e5 !important;
+}
+html[data-theme="light"] div[class*="calendarHeader"],
+html[data-theme="light"] div[class*="calendarTitle"] {
+  color: #0f172a !important;
+}
+html[data-theme="light"] button[class*="calendarNavBtn"] {
+  color: #64748b !important;
+}
+html[data-theme="light"] button[class*="calendarNavBtn"]:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* --- PWA Install Banner text --- */
+html[data-theme="light"] div[class*="installBannerContent"] {
+  color: #0f172a !important;
+}
+
+/* --- Close install button hover --- */
+html[data-theme="light"] button[class*="closeInstallBtn"]:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* --- News section headlines --- */
+html[data-theme="light"] div[class*="newsHeadline"],
+html[data-theme="light"] span[class*="newsHeadline"],
+html[data-theme="light"] h3[class*="newsTitle"],
+html[data-theme="light"] div[class*="newsTitle"] {
+  color: #0f172a !important;
+}
+html[data-theme="light"] div[class*="newsDescription"],
+html[data-theme="light"] p[class*="newsDescription"] {
+  color: #475569 !important;
+}
+html[data-theme="light"] div[class*="newsMeta"],
+html[data-theme="light"] span[class*="newsMeta"] {
+  color: #94a3b8 !important;
+}
+html[data-theme="light"] div[class*="newsSection"] {
+  background: transparent !important;
+}
+
+/* --- Folder count badge in sidebar --- */
+html[data-theme="light"] span[class*="folderCount"],
+html[data-theme="light"] div[class*="folderCount"] {
+  background: #e2e8f0 !important;
+  color: #64748b !important;
+}
+
+/* --- Active filter chip close button in list header --- */
+html[data-theme="light"] div[class*="activeFiltersRow"] {
+  background: #fafafa !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* --- Mobile folder toggle active --- */
+html[data-theme="light"] button[class*="mobileFolderToggleBtn"]:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* --- Folder item count --- */
+html[data-theme="light"] span[class*="noteCount"],
+html[data-theme="light"] div[class*="noteCount"] {
+  background: #e2e8f0 !important;
+  color: #64748b !important;
+}
+
+/* --- Note card active strip (left border) - desktop --- */
+html[data-theme="light"] div[class*="activeNoteCard"],
+html[data-theme="light"] button[class*="activeNoteCard"] {
+  border-left-color: #4f46e5 !important;
+}
+
+/* --- Progress bar in todo --- */
+html[data-theme="light"] div[class*="progressBar"],
+html[data-theme="light"] div[class*="todoProgress"] {
+  background: #e2e8f0 !important;
+}
+html[data-theme="light"] div[class*="progressFill"],
+html[data-theme="light"] div[class*="todoProgressFill"] {
+  background: #4f46e5 !important;
+}
+
+/* --- Sub tab bar --- */
+html[data-theme="light"] div[class*="subTabBar"] {
+  border-color: #e2e8f0 !important;
+}
+
+/* --- Clear history button --- */
+html[data-theme="light"] button[class*="clearHistoryBtn"] {
+  color: #64748b !important;
+}
+
+/* --- WhatsApp chat message area --- */
+html[data-theme="light"] div[class*="chatArea"],
+html[data-theme="light"] div[class*="messageArea"] {
+  background: #f8fafc !important;
+}
+html[data-theme="light"] div[class*="chatContainer"],
+html[data-theme="light"] div[class*="whatsappContainer"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+html[data-theme="light"] div[class*="chatHeader"],
+html[data-theme="light"] div[class*="whatsappHeader"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* --- Calendar component (mini widget) --- */
+html[data-theme="light"] table[class*="calendarTable"] th {
+  color: #64748b !important;
+}
+html[data-theme="light"] table[class*="calendarTable"] td {
+  color: #475569 !important;
+}
+
+/* --- Summary text in panel card --- */
+html[data-theme="light"] div[class*="summaryText"] p {
+  color: #475569 !important;
+}
+
+/* --- Action area in welcome state --- */
+html[data-theme="light"] div[class*="welcomeActions"] {
+  background: transparent !important;
+}

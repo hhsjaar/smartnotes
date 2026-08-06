@@ -164,7 +164,7 @@
   gap: 10px;
   font-size: 0.9rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--foreground);
 }
 
 .collapsibleArrow {
@@ -202,7 +202,7 @@
   font-size: 0.9rem;
   font-weight: 600;
   margin-bottom: 12px;
-  color: #fff;
+  color: var(--foreground);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -260,7 +260,7 @@
 .tagInput {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--glass-border);
-  color: #fff;
+  color: var(--foreground);
   font-size: 0.8rem;
   padding: 6px 10px;
   border-radius: var(--border-radius-sm);
@@ -393,11 +393,11 @@
 }
 
 .subTab:hover {
-  color: #fff;
+  color: var(--foreground);
 }
 
 .activeSubTab {
-  color: #fff;
+  color: var(--primary);
   border-bottom-color: var(--primary);
   background: rgba(255, 255, 255, 0.02);
   border-top-left-radius: var(--border-radius-sm);
@@ -594,7 +594,7 @@
 .folderSelect {
   background: transparent;
   border: none;
-  color: #fff;
+  color: var(--foreground);
   font-size: 0.8rem;
   outline: none;
   cursor: pointer;
@@ -738,7 +738,7 @@
 .inlineRecorderTitle {
   font-size: 0.85rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--foreground);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -934,7 +934,7 @@
 }
 
 .inlineFileName {
-  color: #ffffff;
+  color: var(--foreground);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1048,7 +1048,7 @@
   cursor: pointer;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--glass-border);
-  color: #ffffff;
+  color: var(--foreground);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: left;
   outline: none;
@@ -1180,7 +1180,7 @@
 }
 
 .todoText:hover {
-  color: #fff;
+  color: var(--foreground);
 }
 
 .todoCompleted {
@@ -1203,7 +1203,7 @@
 
 .todoInput:focus {
   border-bottom-color: var(--secondary);
-  color: #fff;
+  color: var(--foreground);
 }
 
 .todoItemActions {
@@ -1325,8 +1325,8 @@
 }
 
 .toolbarBtn:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--foreground);
+  background: rgba(128, 128, 128, 0.12);
 }
 
 /* Tablet Media Query for action icon buttons */
