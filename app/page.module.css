@@ -218,18 +218,35 @@
   transition: all 0.2s;
 }
 
-.searchBar:focus-within {
+.searchBar:focus-within,
+.mobileSearchBar:focus-within {
   border-color: var(--primary-glow);
   background: rgba(255, 255, 255, 0.07);
 }
 
 .searchInput {
-  background: transparent;
-  border: none;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
   color: var(--foreground);
   font-size: 0.85rem;
-  outline: none;
   width: 100%;
+  padding: 0;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.searchInput:focus,
+.searchInput:focus-visible,
+.searchInput:active {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* 3-Pane Desktop Layout */
@@ -3765,12 +3782,27 @@
 
 .attrSearchInput {
   background: transparent !important;
+  background-color: transparent !important;
   border: none !important;
   outline: none !important;
+  box-shadow: none !important;
   color: #fff !important;
   font-size: 0.72rem !important;
   width: 100% !important;
   padding: 0 !important;
+  margin: 0 !important;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.attrSearchInput:focus,
+.attrSearchInput:focus-visible,
+.attrSearchInput:active {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .attrSearchInput::placeholder {

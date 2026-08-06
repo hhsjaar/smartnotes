@@ -483,10 +483,26 @@ html[data-theme="light"] div[class*="mobileSearchBar"] {
   border-color: #e2e8f0 !important;
 }
 
-html[data-theme="light"] input[class*="searchInput"] {
+html[data-theme="light"] input[class*="searchInput"],
+html[data-theme="light"] input[class*="searchInput"]:focus,
+html[data-theme="light"] input[class*="searchInput"]:focus-visible,
+html[data-theme="light"] input[class*="attrSearchInput"],
+html[data-theme="light"] input[class*="attrSearchInput"]:focus,
+html[data-theme="light"] input[class*="attrSearchInput"]:focus-visible,
+html[data-theme="light"] div[class*="searchBar"] input,
+html[data-theme="light"] div[class*="searchBar"] input:focus,
+html[data-theme="light"] div[class*="searchBar"] input:focus-visible,
+html[data-theme="light"] div[class*="mobileSearchBar"] input,
+html[data-theme="light"] div[class*="mobileSearchBar"] input:focus,
+html[data-theme="light"] div[class*="mobileSearchBar"] input:focus-visible,
+html[data-theme="light"] div[class*="attrSearchWrapper"] input,
+html[data-theme="light"] div[class*="attrSearchWrapper"] input:focus,
+html[data-theme="light"] div[class*="attrSearchWrapper"] input:focus-visible {
   color: #0f172a !important;
   background: transparent !important;
+  background-color: transparent !important;
   border: none !important;
+  outline: none !important;
   box-shadow: none !important;
 }
 
@@ -1812,7 +1828,8 @@ html[data-theme="light"] div[class*="mobileSearchBar"] {
 }
 
 /* --- Search bar focus --- */
-html[data-theme="light"] div[class*="searchBar"]:focus-within {
+html[data-theme="light"] div[class*="searchBar"]:focus-within,
+html[data-theme="light"] div[class*="mobileSearchBar"]:focus-within {
   border-color: #4f46e5 !important;
   background: #ffffff !important;
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
