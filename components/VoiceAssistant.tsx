@@ -6,14 +6,14 @@ import { useRouter, usePathname } from 'next/navigation';
 import styles from './VoiceAssistant.module.css';
 
 // Declare SpeechRecognition properties safely on window
-const SpeechRecognition = typeof window !== 'undefined' 
-  ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) 
+const SpeechRecognition = typeof window !== 'undefined'
+  ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
   : null;
 
 function mergeTranscripts(accumulated: string, current: string): string {
   const accClean = accumulated.trim();
   const currClean = current.trim();
-  
+
   if (!accClean) return currClean;
   if (!currClean) return accClean;
 
@@ -26,8 +26,8 @@ function mergeTranscripts(accumulated: string, current: string): string {
   for (let len = 1; len <= maxOverlap; len++) {
     let match = true;
     for (let i = 0; i < len; i++) {
-      const accWord = accWords[accWords.length - len + i].toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"");
-      const currWord = currWords[i].toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"");
+      const accWord = accWords[accWords.length - len + i].toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+      const currWord = currWords[i].toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
       if (accWord !== currWord) {
         match = false;
         break;
@@ -62,21 +62,37 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
   const [errorMsg, setErrorMsg] = useState('');
   const showPanel = pathname === '/assistant';
   const [isMuted, setIsMuted] = useState(false);
-  
+
   const [inputText, setInputText] = useState('');
-  
+
   // MediaRecorder states for voice note fallback mode
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [isRecordingVoiceNote, setIsRecordingVoiceNote] = useState(false);
   const [voiceNoteSeconds, setVoiceNoteSeconds] = useState(0);
   const voiceNoteTimerRef = useRef<NodeJS.Timeout | null>(null);
   const shouldAutoListenRef = useRef(false);
-  
-  // Dragging states for mobile/desktop flexibility
+
+  // Floating trigger button dragging state
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);
+  const hasDraggedRef = useRef(false);
   const touchStartPosRef = useRef({ x: 0, y: 0 });
+  const lastDragEndTimeRef = useRef<number>(0);
+
+  // Restore saved position on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('smart_notes_assistant_btn_pos');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+          setPosition(parsed);
+        }
+      }
+    } catch (e) {}
+  }, []);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLButtonElement>) => {
     dragStartRef.current = {
@@ -88,36 +104,46 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
       y: e.clientY
     };
     isDraggingRef.current = false;
-    
+    hasDraggedRef.current = false;
+
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const dx = moveEvent.clientX - touchStartPosRef.current.x;
       const dy = moveEvent.clientY - touchStartPosRef.current.y;
-      
-      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+
+      if (Math.hypot(dx, dy) > 4) {
         isDraggingRef.current = true;
+        hasDraggedRef.current = true;
+        setIsDragging(true);
       }
-      
+
       if (isDraggingRef.current) {
-        setPosition({
-          x: moveEvent.clientX - dragStartRef.current.x,
-          y: moveEvent.clientY - dragStartRef.current.y
-        });
+        moveEvent.preventDefault();
+        const newX = moveEvent.clientX - dragStartRef.current.x;
+        const newY = moveEvent.clientY - dragStartRef.current.y;
+        setPosition({ x: newX, y: newY });
       }
     };
-    
+
     const handleMouseUp = (upEvent: MouseEvent) => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
-      
-      if (isDraggingRef.current) {
-        const clickHandler = (event: MouseEvent) => {
-          event.stopImmediatePropagation();
-          document.removeEventListener('click', clickHandler, true);
-        };
-        document.addEventListener('click', clickHandler, true);
+
+      setIsDragging(false);
+      if (hasDraggedRef.current) {
+        lastDragEndTimeRef.current = Date.now();
+        try {
+          const finalX = upEvent.clientX - dragStartRef.current.x;
+          const finalY = upEvent.clientY - dragStartRef.current.y;
+          localStorage.setItem('smart_notes_assistant_btn_pos', JSON.stringify({ x: finalX, y: finalY }));
+        } catch (e) {}
+
+        setTimeout(() => {
+          isDraggingRef.current = false;
+          hasDraggedRef.current = false;
+        }, 300);
       }
     };
-    
+
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
@@ -133,36 +159,48 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
       y: touch.clientY
     };
     isDraggingRef.current = false;
+    hasDraggedRef.current = false;
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLButtonElement>) => {
     const touch = e.touches[0];
     const dx = touch.clientX - touchStartPosRef.current.x;
     const dy = touch.clientY - touchStartPosRef.current.y;
-    
-    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+
+    if (Math.hypot(dx, dy) > 4) {
       isDraggingRef.current = true;
+      hasDraggedRef.current = true;
+      setIsDragging(true);
     }
-    
+
     if (isDraggingRef.current) {
-      setPosition({
-        x: touch.clientX - dragStartRef.current.x,
-        y: touch.clientY - dragStartRef.current.y
-      });
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+      const newX = touch.clientX - dragStartRef.current.x;
+      const newY = touch.clientY - dragStartRef.current.y;
+      setPosition({ x: newX, y: newY });
     }
   };
 
   const handleTouchEnd = (e: React.TouchEvent<HTMLButtonElement>) => {
-    if (isDraggingRef.current) {
-      e.preventDefault();
-      const clickHandler = (event: MouseEvent) => {
-        event.stopImmediatePropagation();
-        document.removeEventListener('click', clickHandler, true);
-      };
-      document.addEventListener('click', clickHandler, true);
+    setIsDragging(false);
+    if (hasDraggedRef.current) {
+      lastDragEndTimeRef.current = Date.now();
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+      try {
+        localStorage.setItem('smart_notes_assistant_btn_pos', JSON.stringify(position));
+      } catch (err) {}
+
+      setTimeout(() => {
+        isDraggingRef.current = false;
+        hasDraggedRef.current = false;
+      }, 300);
     }
   };
-  
+
   // Multi-turn state variables
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [pendingAction, setPendingAction] = useState<any | null>(null);
@@ -173,7 +211,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
   const synthRef = useRef<SpeechSynthesis | null>(typeof window !== 'undefined' ? window.speechSynthesis : null);
   const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const dialogEndRef = useRef<HTMLDivElement | null>(null);
-  
+
   // Debounce timeout for silence detection
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -188,7 +226,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
   const transcriptRef = useRef(transcript);
   const selectedNoteRef = useRef<any>(selectedNote);
   const isProcessingRef = useRef(false);
- 
+
   useEffect(() => {
     chatHistoryRef.current = chatHistory;
   }, [chatHistory]);
@@ -252,7 +290,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
       if (chatHistory.length === 0) {
         const welcomeMsg = "Halo! Saya asisten suara cerdas Anda. Ada yang bisa saya bantu hari ini?";
         setChatHistory([{ role: 'model', text: welcomeMsg }]);
-        
+
         // Try speaking immediately
         speak(welcomeMsg);
         shouldAutoListenRef.current = true;
@@ -393,7 +431,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
     } else if (action === 'CATEGORIZE_NOTE') {
       if (payload.noteId) {
         let targetFolderId = payload.folderId;
-        
+
         if (!targetFolderId && payload.folderName) {
           router.push(`/?action=CATEGORIZE_NOTE&noteId=${payload.noteId}&folderName=${encodeURIComponent(payload.folderName)}`);
           return;
@@ -435,13 +473,13 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
     // 1. Add user speech command to chat history view
     const userMsg: ChatMessage = { role: 'user', text: commandText };
     setChatHistory(prev => [...prev, userMsg]);
-    
+
     try {
       // Call our assistant API to process the command
       const res = await fetch('/api/assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           command: commandText,
           history: chatHistoryRef.current,
           pendingAction: pendingActionRef.current,
@@ -449,19 +487,19 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
           selectedNote: selectedNoteRef.current
         }),
       });
-      
+
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || 'Gagal memproses instruksi');
       }
-      
+
       const data = await res.json();
       setResponse(data.response);
 
       // 2. Add AI reply to history
       const modelMsg: ChatMessage = { role: 'model', text: data.response };
       setChatHistory(prev => [...prev, modelMsg]);
-      
+
       // 3. Process actions
       let isTerminal = false;
       if (data.action === 'ASK_CONFIRMATION') {
@@ -480,7 +518,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
           handleActionAndClose(data.action, data.payload, data.response);
         }
       }
-      
+
       // Speak back the response
       speak(data.response);
 
@@ -509,13 +547,13 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
     if (typeof window !== 'undefined') {
       setIsSupported(true); // Always supported because typing/voice notes fallback are available
       synthRef.current = window.speechSynthesis;
-      
+
       if (SpeechRecognition) {
         rec = new SpeechRecognition();
         rec.continuous = true;       // Allow pauses without immediate browser cutoff
         rec.interimResults = true;   // Capture speech in real-time
         rec.lang = 'id-ID';          // default to Indonesian
-        
+
         rec.onstart = () => {
           setStatus('listening');
           // Only clear transcript if we are starting a completely fresh session (not restarting)
@@ -525,7 +563,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
           setResponse('');
           setErrorMsg('');
         };
-        
+
         rec.onerror = (event: any) => {
           if (event.error === 'no-speech' || event.error === 'aborted') {
             return;
@@ -538,7 +576,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
           }
           setStatus('error');
         };
-        
+
         rec.onend = () => {
           // Keep listening indefinitely if the status is still 'listening'
           // This prevents automatic browser cutoffs from ending the voice session
@@ -556,7 +594,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
             return prev;
           });
         };
-        
+
         rec.onresult = (event: any) => {
           let interimTranscript = '';
           let finalTranscript = '';
@@ -569,47 +607,47 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
               interimTranscript += event.results[i][0].transcript;
             }
           }
-          
+
           // Merge with accumulated transcript from previous sessions
           const totalFinal = mergeTranscripts(accumulatedTranscriptRef.current, finalTranscript);
-          
+
           if (finalTranscript) {
             accumulatedTranscriptRef.current = totalFinal;
           }
-          
+
           const currentText = (totalFinal + ' ' + interimTranscript).trim();
           setTranscript(currentText);
 
           // Check if user spoke the trigger word "cukup" at the end of the text
-          const cleanText = currentText.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"").trim().toLowerCase();
+          const cleanText = currentText.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").trim().toLowerCase();
           const words = cleanText.split(/\s+/);
           const hasCukupTrigger = words.length > 0 && words[words.length - 1] === 'cukup';
 
           if (hasCukupTrigger) {
             const cleanedText = currentText.replace(/\s*cukup[.,\/#!$%\^&\*;:{}=\-_`~()]*$/i, '').trim();
-            
+
             // Set statusRef.current directly to processing to prevent onend restart
             statusRef.current = 'processing';
             setStatus('processing');
             accumulatedTranscriptRef.current = '';
-            
+
             try {
               rec.stop();
-            } catch (e) {}
+            } catch (e) { }
 
             if (cleanedText) {
               processCommandRef.current(cleanedText);
             } else {
               try {
                 rec.stop();
-              } catch (e) {}
+              } catch (e) { }
               stopListening();
               setStatus('idle');
               speak("Mendengarkan selesai.");
             }
           }
         };
-        
+
         setRecognition(rec);
       }
     }
@@ -622,7 +660,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
           rec.onend = null;
           rec.onresult = null;
           rec.abort();
-        } catch (e) {}
+        } catch (e) { }
       }
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis.cancel();
@@ -667,29 +705,29 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
       synthRef.current.cancel();
     }
     setErrorMsg('');
-    
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
       const chunks: Blob[] = [];
-      
+
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
           chunks.push(e.data);
         }
       };
-      
+
       recorder.onstop = async () => {
         const audioBlob = new Blob(chunks, { type: 'audio/webm' });
         stream.getTracks().forEach(track => track.stop());
         await uploadVoiceNote(audioBlob);
       };
-      
+
       recorder.start();
       setMediaRecorder(recorder);
       setIsRecordingVoiceNote(true);
       setVoiceNoteSeconds(0);
-      
+
       voiceNoteTimerRef.current = setInterval(() => {
         setVoiceNoteSeconds(prev => prev + 1);
       }, 1000);
@@ -713,22 +751,22 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
   const uploadVoiceNote = async (blob: Blob) => {
     setStatus('processing');
     setErrorMsg('');
-    
+
     try {
       const file = new File([blob], 'voice_assistant_note.webm', { type: 'audio/webm' });
       const formData = new FormData();
       formData.append('file', file);
-      
+
       const res = await fetch('/api/transcribe', {
         method: 'POST',
         body: formData,
       });
-      
+
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || 'Gagal mentranskripsi voice note');
       }
-      
+
       const data = await res.json();
       if (data.text && data.text.trim()) {
         await processCommand(data.text.trim());
@@ -774,7 +812,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
     if (recognition) {
       try {
         recognition.stop();
-      } catch (e) {}
+      } catch (e) { }
     }
     // If user clicked stop manually and there is spoken text, process it immediately
     if (transcriptRef.current && transcriptRef.current.trim() !== '') {
@@ -788,46 +826,46 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
       autoListenNext();
       return;
     }
-    
+
     // Stop and resume to clear any stuck state
     synthRef.current.cancel();
     if (synthRef.current.paused) {
       synthRef.current.resume();
     }
-    
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'id-ID'; // Force Indonesian language locale
-    
+
     // Choose Indonesian voice if available
     const voicesList = voices.length > 0 ? voices : (synthRef.current ? synthRef.current.getVoices() : []);
-    const idVoice = voicesList.find(v => 
-      v.lang.startsWith('id') || 
-      v.lang.startsWith('in') || 
+    const idVoice = voicesList.find(v =>
+      v.lang.startsWith('id') ||
+      v.lang.startsWith('in') ||
       v.lang.toLowerCase().includes('indonesia')
     );
     if (idVoice) {
       utterance.voice = idVoice;
     }
-    
+
     utterance.onstart = () => {
       setStatus('speaking');
     };
-    
+
     utterance.onend = () => {
       setStatus('idle');
       autoListenNext();
     };
-    
+
     utterance.onerror = (event: any) => {
       console.warn('SpeechSynthesisUtterance error:', event);
       setStatus('idle');
       autoListenNext();
     };
-    
+
     activeUtteranceRef.current = utterance;
     // Workaround for Chrome garbage collection bug
     (window as any)._activeUtterance = utterance;
-    
+
     synthRef.current.speak(utterance);
   };
 
@@ -876,10 +914,21 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
     <>
       {/* Floating Wave Trigger Button */}
       {pathname !== '/assistant' && (
-        <button 
-          type="button" 
-          className={`${styles.floatingAssistantBtn} ${status === 'listening' ? styles.btnListening : ''}`}
-          onClick={() => {
+        <button
+          type="button"
+          className={`${styles.floatingAssistantBtn} ${status === 'listening' ? styles.btnListening : ''} ${isDragging ? styles.isDragging : ''}`}
+          onClick={(e) => {
+            const now = Date.now();
+            if (
+              now - lastDragEndTimeRef.current < 500 ||
+              isDraggingRef.current ||
+              hasDraggedRef.current ||
+              isDragging
+            ) {
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
             router.push('/assistant');
           }}
           onMouseDown={handleMouseDown}
@@ -889,9 +938,11 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
           style={{
             transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
             touchAction: 'none',
-            transition: isDraggingRef.current ? 'none' : 'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            transition: isDragging ? 'none' : 'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
           }}
-          title="Bicara dengan Asisten AI"
+          title="Bicara dengan Asisten AI (Bisa digeser ke mana saja)"
         >
           {status === 'listening' ? (
             <div className={styles.pulseContainer}>
@@ -917,17 +968,17 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
                 <span>Asisten Suara Pintar</span>
               </div>
               <div className={styles.headerControls}>
-                <button 
-                  type="button" 
-                  className={styles.controlBtn} 
+                <button
+                  type="button"
+                  className={styles.controlBtn}
                   onClick={toggleMute}
                   title={isMuted ? 'Aktifkan Suara' : 'Bisukan Suara'}
                 >
                   {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
                 </button>
-                <button 
-                  type="button" 
-                  className={styles.closeBtn} 
+                <button
+                  type="button"
+                  className={styles.closeBtn}
                   onClick={closePanel}
                   title="Tutup Panel"
                 >
@@ -957,12 +1008,12 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
               )}
 
               {/* Dialog Panel Contents */}
-              <div 
-                className={styles.dialogContainer} 
-                style={{ 
-                  maxHeight: (status === 'listening' || status === 'processing' || status === 'speaking' || isRecordingVoiceNote) 
-                    ? '280px' 
-                    : '450px' 
+              <div
+                className={styles.dialogContainer}
+                style={{
+                  maxHeight: (status === 'listening' || status === 'processing' || status === 'speaking' || isRecordingVoiceNote)
+                    ? '280px'
+                    : '450px'
                 }}
               >
                 {chatHistory.length === 0 && !transcript && (
@@ -973,8 +1024,8 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
                 )}
 
                 {chatHistory.map((msg, index) => (
-                  <div 
-                    key={index} 
+                  <div
+                    key={index}
                     className={msg.role === 'user' ? styles.userBubble : styles.aiBubble}
                   >
                     <span className={msg.role === 'user' ? styles.bubbleLabel : styles.bubbleLabelAI}>
@@ -1026,16 +1077,16 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
                     }
                   }}
                   placeholder={
-                    status === 'listening' 
-                      ? "Sedang mendengarkan..." 
-                      : isRecordingVoiceNote 
-                      ? "Sedang merekam..." 
-                      : "Ketik pesan/perintah untuk asisten..."
+                    status === 'listening'
+                      ? "Sedang mendengarkan..."
+                      : isRecordingVoiceNote
+                        ? "Sedang merekam..."
+                        : "Ketik pesan/perintah untuk asisten..."
                   }
                   className={styles.chatInputField}
                   disabled={status === 'processing' || status === 'listening' || isRecordingVoiceNote}
                 />
-                
+
                 {inputText.trim() !== '' ? (
                   <button
                     type="button"
@@ -1073,8 +1124,8 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
               <div className={styles.suggestions}>
                 <span className={styles.suggestionsLabel}>Saran Obrolan:</span>
                 <div className={styles.suggestionsRow}>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className={styles.suggestionBtn}
                     onClick={() => {
                       const text = 'Tampilkan berita terbaru';
@@ -1082,7 +1133,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
                       const responseText = 'Tentu, saya akan membuka halaman berita untuk Anda.';
                       setResponse(responseText);
                       setChatHistory(prev => [
-                        ...prev, 
+                        ...prev,
                         { role: 'user', text },
                         { role: 'model', text: responseText }
                       ]);
@@ -1093,8 +1144,8 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
                   >
                     📰 Buka Berita
                   </button>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className={styles.suggestionBtn}
                     onClick={() => {
                       const text = 'Buat catatan baru tentang rapat besok';
@@ -1102,14 +1153,14 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ selectedNote }) 
                       const responseText = 'Tentu, saya akan membuat catatan baru tentang rapat besok.';
                       setResponse(responseText);
                       setChatHistory(prev => [
-                        ...prev, 
+                        ...prev,
                         { role: 'user', text },
                         { role: 'model', text: responseText }
                       ]);
                       speak(responseText);
-                      handleActionAndClose('CREATE_NOTE', { 
-                        title: 'Agenda Rapat Besok', 
-                        content: '# Agenda Rapat Besok\n\n1. Pembahasan rencana kuartalan\n2. Alokasi budget divisi baru\n3. Tanya jawab' 
+                      handleActionAndClose('CREATE_NOTE', {
+                        title: 'Agenda Rapat Besok',
+                        content: '# Agenda Rapat Besok\n\n1. Pembahasan rencana kuartalan\n2. Alokasi budget divisi baru\n3. Tanya jawab'
                       });
                       autoClosePanel();
                     }}

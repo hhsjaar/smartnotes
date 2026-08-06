@@ -413,13 +413,12 @@ html[data-theme="light"] div[class*="Sidebar"] {
 }
 
 /* ─── Note cards (desktop & mobile) ─────────────────────────────────────── */
-html[data-theme="light"] div[class*="noteCard"],
-html[data-theme="light"] button[class*="noteCard"],
-html[class*="noteCard"],
-html[data-theme="light"] div[class*="mobileNoteCard"],
-html[data-theme="light"] button[class*="mobileNoteCard"],
-html[data-theme="light"] div[class*="sidebarNoteCard"],
-html[data-theme="light"] button[class*="sidebarNoteCard"] {
+html[data-theme="light"] div[class*="noteCard"]:not([class*="Header"]):not([class*="Footer"]):not([class*="Title"]):not([class*="Body"]):not([class*="Meta"]):not([class*="Summary"]),
+html[data-theme="light"] button[class*="noteCard"]:not([class*="Header"]):not([class*="Footer"]):not([class*="Title"]):not([class*="Body"]):not([class*="Meta"]):not([class*="Summary"]),
+html[data-theme="light"] div[class*="mobileNoteCard"]:not([class*="Header"]):not([class*="Footer"]):not([class*="Title"]):not([class*="Body"]):not([class*="Meta"]):not([class*="Summary"]),
+html[data-theme="light"] button[class*="mobileNoteCard"]:not([class*="Header"]):not([class*="Footer"]):not([class*="Title"]):not([class*="Body"]):not([class*="Meta"]):not([class*="Summary"]),
+html[data-theme="light"] div[class*="sidebarNoteCard"]:not([class*="Header"]):not([class*="Footer"]):not([class*="Title"]):not([class*="Body"]):not([class*="Meta"]):not([class*="Summary"]),
+html[data-theme="light"] button[class*="sidebarNoteCard"]:not([class*="Header"]):not([class*="Footer"]):not([class*="Title"]):not([class*="Body"]):not([class*="Meta"]):not([class*="Summary"]) {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06) !important;
@@ -517,39 +516,38 @@ html[data-theme="light"] button[class*="toggleTheme"] {
 /* ─── Nav items (sidebar & bottom nav) ──────────────────────────────────── */
 html[data-theme="light"] button[class*="navItem"],
 html[data-theme="light"] a[class*="navItem"] {
-  color: #64748b !important;
+  color: #475569 !important;
+  font-weight: 600 !important;
 }
 
 html[data-theme="light"] button[class*="navItem"]:hover,
 html[data-theme="light"] a[class*="navItem"]:hover {
   background: #f1f5f9 !important;
-  color: #0f172a !important;
+  color: #4338ca !important;
 }
 
-html[data-theme="light"] button[class*="activeNavItem"] {
-  background: #eef2ff !important;
+html[data-theme="light"] button[class*="activeNavItem"],
+html[data-theme="light"] a[class*="activeNavItem"] {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(6, 182, 212, 0.12) 100%) !important;
   color: #3730a3 !important;
-  border-color: #c7d2fe !important;
-  font-weight: 600 !important;
+  border-color: rgba(99, 102, 241, 0.3) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.18) !important;
 }
 
-html[data-theme="light"] button[class*="bottomNavItem"] {
-  color: #94a3b8 !important;
-}
-
-html[data-theme="light"] button[class*="activeBottomNavItem"] {
-  color: #0f172a !important;
-}
-
-html[data-theme="light"] button[class*="activeBottomNavItem"] svg {
-  color: #4f46e5 !important;
+html[data-theme="light"] button[class*="activeNavItem"] svg,
+html[data-theme="light"] a[class*="activeNavItem"] svg {
+  color: #4338ca !important;
+  filter: drop-shadow(0 0 6px rgba(99, 102, 241, 0.75)) !important;
 }
 
 /* ─── Bottom nav bar ─────────────────────────────────────────────────────── */
+html[data-theme="light"] nav[class*="bottomNav"],
 html[data-theme="light"] div[class*="bottomNav"] {
-  background: rgba(255, 255, 255, 0.92) !important;
-  backdrop-filter: blur(12px) !important;
+  background: #ffffff !important;
   border-color: #e2e8f0 !important;
+  box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08) !important;
+  backdrop-filter: none !important;
 }
 
 /* ─── Calendar toggle & folder toggle buttons ────────────────────────────── */
@@ -1637,7 +1635,7 @@ html[data-theme="light"] div[class*="brand"] {
 }
 
 /* --- Install banner --- */
-html[data-theme="light"] div[class*="installBanner"] {
+html[data-theme="light"] div[class*="installBanner"]:not([class*="Content"]):not([class*="Actions"]):not([class*="Text"]) {
   background: #ffffff !important;
   border-color: #e2e8f0 !important;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1) !important;
@@ -2209,3 +2207,670 @@ html[data-theme="light"] div[class*="summaryText"] p {
 html[data-theme="light"] div[class*="welcomeActions"] {
   background: transparent !important;
 }
+
+
+/* ==========================================================================
+   MOBILE LIGHT MODE — PREMIUM OVERHAUL
+   Pure white base, high-contrast, elegant drop shadows, minimalist
+   ========================================================================== */
+
+/* ── Mobile body & layout background ──────────────────────────────────────── */
+html[data-theme="light"] div[class*="mobileLayout"] {
+  background: #f0f4f8 !important;
+}
+html[data-theme="light"] div[class*="mobileContent"] {
+  background: #f0f4f8 !important;
+}
+
+/* ── Mobile Header — white with clean bottom shadow ──────────────────────── */
+html[data-theme="light"] div[class*="mobileHeader"] {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e8edf3 !important;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ── Bottom Navigation Bar — clear box-free base with neon purple glow ──── */
+html[data-theme="light"] nav[class*="bottomNav"],
+html[data-theme="light"] div[class*="bottomNav"],
+html[data-theme="light"] [class*="bottomNav"] {
+  background: #ffffff !important;
+  border-top: 1px solid #f1f5f9 !important;
+  box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.05) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html[data-theme="light"] button[class*="bottomNavItem"] {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  color: #64748b !important;
+  font-weight: 500 !important;
+}
+
+html[data-theme="light"] button[class*="bottomNavItem"] svg {
+  color: #64748b !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+html[data-theme="light"] button[class*="bottomNavItem"] span {
+  color: #64748b !important;
+  font-size: 0.72rem !important;
+  font-weight: 500 !important;
+  text-shadow: none !important;
+}
+
+html[data-theme="light"] button[class*="bottomNavItem"]:hover svg {
+  color: #7e22ce !important;
+}
+
+html[data-theme="light"] button[class*="bottomNavItem"]:hover span {
+  color: #7e22ce !important;
+}
+
+/* Active bottom nav item: CLEAR (NO BOX/BORDER), soft neon light purple aura, dark purple text/icon */
+html[data-theme="light"] button[class*="activeBottomNavItem"] {
+  background: radial-gradient(circle, rgba(192, 132, 252, 0.22) 0%, rgba(192, 132, 252, 0) 75%) !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-radius: 50% !important;
+}
+
+html[data-theme="light"] button[class*="activeBottomNavItem"] svg {
+  color: #6b21a8 !important; /* Ungu tua */
+  transform: translateY(-2px) !important;
+  filter: drop-shadow(0 0 6px rgba(192, 132, 252, 0.85)) drop-shadow(0 0 12px rgba(168, 85, 247, 0.45)) !important; /* Neon ungu muda glow */
+}
+
+html[data-theme="light"] button[class*="activeBottomNavItem"] span {
+  color: #581c87 !important; /* Ungu tua */
+  font-weight: 700 !important;
+  text-shadow: 0 0 8px rgba(192, 132, 252, 0.4) !important;
+}
+
+/* ── Mobile Note Cards — white with refined shadow ───────────────────────── */
+html[data-theme="light"] button[class*="mobileNoteCard"]:not([class*="Header"]):not([class*="Footer"]):not([class*="Title"]):not([class*="Body"]):not([class*="Meta"]):not([class*="Summary"]),
+html[data-theme="light"] div[class*="mobileNoteCard"]:not([class*="Header"]):not([class*="Footer"]):not([class*="Title"]):not([class*="Body"]):not([class*="Meta"]):not([class*="Summary"]) {
+  background: #ffffff !important;
+  border: 1px solid #e8edf3 !important;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html[data-theme="light"] div[class*="mobileNoteCardHeader"],
+html[data-theme="light"] div[class*="mobileNoteCardFooter"],
+html[data-theme="light"] div[class*="mobileNoteTitle"],
+html[data-theme="light"] div[class*="mobileNoteSummary"],
+html[data-theme="light"] div[class*="mobileNoteDate"],
+html[data-theme="light"] div[class*="mobileNoteMeta"],
+html[data-theme="light"] div[class*="noteCardHeader"],
+html[data-theme="light"] div[class*="noteCardFooter"],
+html[data-theme="light"] div[class*="noteCardTitle"],
+html[data-theme="light"] div[class*="sidebarNoteTitle"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="light"] button[class*="mobileNoteCard"]:active,
+html[data-theme="light"] div[class*="mobileNoteCard"]:active {
+  background: #f8fafc !important;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06) !important;
+}
+
+html[data-theme="light"] div[class*="activeMobileNoteCard"],
+html[data-theme="light"] button[class*="activeMobileNoteCard"] {
+  background: #f5f3ff !important;
+  border: 1px solid #c4b5fd !important;
+  border-left: 3px solid #4f46e5 !important;
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.12) !important;
+}
+
+html[data-theme="light"] div[class*="mobileNoteTitle"],
+html[data-theme="light"] span[class*="mobileNoteTitle"] {
+  color: #0f172a !important;
+  font-weight: 600 !important;
+}
+
+html[data-theme="light"] div[class*="mobileNoteSummary"],
+html[data-theme="light"] span[class*="mobileNoteSummary"] {
+  color: #475569 !important;
+}
+
+html[data-theme="light"] div[class*="mobileNoteDate"],
+html[data-theme="light"] span[class*="mobileNoteDate"] {
+  color: #94a3b8 !important;
+}
+
+html[data-theme="light"] div[class*="mobileNoteFooter"] {
+  border-top-color: #f1f5f9 !important;
+}
+
+/* ── Mobile Group Header ─────────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="mobileGroupHeader"] {
+  color: #64748b !important;
+  border-left-color: #4f46e5 !important;
+  opacity: 1 !important;
+  font-weight: 700 !important;
+}
+
+/* ── Mobile Search Bar ───────────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="mobileSearchBar"] {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06) !important;
+}
+
+html[data-theme="light"] div[class*="mobileSearchBar"]:focus-within {
+  border-color: #4f46e5 !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1), 0 1px 4px rgba(15, 23, 42, 0.06) !important;
+}
+
+html[data-theme="light"] div[class*="mobileSearchBar"] input {
+  color: #0f172a !important;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="light"] div[class*="mobileSearchBar"] input::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* ── Mobile Search Row container ─────────────────────────────────────────── */
+html[data-theme="light"] div[class*="mobileSearchRow"] {
+  background: transparent !important;
+}
+
+/* ── Mobile Calendar Trigger Button ─────────────────────────────────────── */
+html[data-theme="light"] button[class*="mobileCalendarTriggerBtn"] {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #64748b !important;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06) !important;
+}
+
+html[data-theme="light"] div[class*="mobileCalendarTriggerActive"],
+html[data-theme="light"] button[class*="mobileCalendarTriggerActive"] {
+  background: #eef2ff !important;
+  border-color: #a5b4fc !important;
+  color: #3730a3 !important;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.12) !important;
+}
+
+/* ── Mobile Folder Chips ─────────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="mobileFolderChip"],
+html[data-theme="light"] button[class*="mobileFolderChip"] {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #475569 !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+  font-weight: 500 !important;
+}
+
+html[data-theme="light"] div[class*="mobileFolderChipActive"],
+html[data-theme="light"] button[class*="mobileFolderChipActive"] {
+  background: #4f46e5 !important;
+  border-color: #4338ca !important;
+  color: #ffffff !important;
+  box-shadow: 0 3px 10px rgba(79, 70, 229, 0.28) !important;
+  font-weight: 600 !important;
+}
+
+/* ── Mobile Folder Action Buttons ────────────────────────────────────────── */
+html[data-theme="light"] div[class*="mobileFolderActionAdd"],
+html[data-theme="light"] button[class*="mobileFolderActionAdd"] {
+  background: #eef2ff !important;
+  border-color: #c7d2fe !important;
+  color: #4f46e5 !important;
+  box-shadow: 0 1px 4px rgba(79, 70, 229, 0.12) !important;
+}
+
+html[data-theme="light"] div[class*="mobileFolderActionManage"],
+html[data-theme="light"] button[class*="mobileFolderActionManage"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #64748b !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+
+html[data-theme="light"] div[class*="mobileFolderActions"] {
+  border-left-color: #e2e8f0 !important;
+}
+
+/* ── Mobile Folder Row (horizontal folder scroll) ────────────────────────── */
+html[data-theme="light"] div[class*="mobileFolderRowWrapper"] {
+  background: transparent !important;
+}
+
+html[data-theme="light"] div[class*="mobileFolderScrollContainer"] {
+  background: transparent !important;
+}
+
+/* ── Mobile Calendar Toggle Button ──────────────────────────────────────── */
+html[data-theme="light"] button[class*="mobileCalendarToggleBtn"],
+html[data-theme="light"] button[class*="mobileFolderToggleBtn"] {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #475569 !important;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06) !important;
+}
+
+html[data-theme="light"] button[class*="mobileCalendarToggleBtn"] svg,
+html[data-theme="light"] button[class*="mobileFolderToggleBtn"] svg {
+  color: #4f46e5 !important;
+}
+
+/* ── Mobile Bottom Sheet ─────────────────────────────────────────────────── */
+html[data-theme="light"] div[class*="mobileBottomSheet"] {
+  background: #ffffff !important;
+  border-top: 1px solid #e8edf3 !important;
+  box-shadow: 0 -8px 40px rgba(15, 23, 42, 0.12), 0 -2px 8px rgba(15, 23, 42, 0.06) !important;
+}
+
+html[data-theme="light"] div[class*="mobileBottomSheetHeader"] {
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+html[data-theme="light"] div[class*="mobileBottomSheetHandle"] {
+  background: #cbd5e1 !important;
+}
+
+html[data-theme="light"] div[class*="mobileBottomSheetOverlay"] {
+  background: rgba(15, 23, 42, 0.45) !important;
+}
+
+html[data-theme="light"] button[class*="mobileBottomSheetClose"] {
+  background: #f1f5f9 !important;
+  color: #64748b !important;
+}
+
+html[data-theme="light"] button[class*="mobileBottomSheetClose"]:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* ── Mobile Folder Edit Row (bottom sheet folder list) ───────────────────── */
+html[data-theme="light"] div[class*="mobileFolderEditRow"] {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+html[data-theme="light"] div[class*="mobileFolderEditRow"] span,
+html[data-theme="light"] div[class*="mobileFolderEditRow"] div {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] div[class*="mobileFolderEditRow"] button {
+  color: #64748b !important;
+}
+
+html[data-theme="light"] div[class*="mobileFolderEditRow"] button:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* ── Mobile New Note Button ──────────────────────────────────────────────── */
+html[data-theme="light"] button[class*="mobileNewNoteBtn"] {
+  background: #4f46e5 !important;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3) !important;
+  border: none !important;
+  color: #ffffff !important;
+}
+
+/* ── Mobile Timeframe Filter Chips ───────────────────────────────────────── */
+html[data-theme="light"] div[class*="mobileTimeframeChip"],
+html[data-theme="light"] button[class*="mobileTimeframeChip"] {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #475569 !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+
+html[data-theme="light"] div[class*="mobileTimeframeChipActive"],
+html[data-theme="light"] button[class*="mobileTimeframeChipActive"] {
+  background: #4f46e5 !important;
+  border-color: #4338ca !important;
+  color: #ffffff !important;
+  box-shadow: 0 3px 10px rgba(79, 70, 229, 0.28) !important;
+  font-weight: 600 !important;
+}
+
+/* ── Mobile Empty / Loading States ──────────────────────────────────────── */
+html[data-theme="light"] div[class*="emptyState"],
+html[data-theme="light"] div[class*="loadingState"] {
+  color: #94a3b8 !important;
+  background: transparent !important;
+}
+
+/* ── Mobile Recorder Container ───────────────────────────────────────────── */
+html[data-theme="light"] div[class*="mobileRecorderContainer"] {
+  background: #f0f4f8 !important;
+}
+
+/* ── Source indicator on mobile note card ─────────────────────────────────  */
+html[data-theme="light"] div[class*="sourceIndicator"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* ── Folder badge small on mobile cards ──────────────────────────────────── */
+html[data-theme="light"] div[class*="folderBadgeSmall"],
+html[data-theme="light"] span[class*="folderBadgeSmall"] {
+  background: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #2563eb !important;
+}
+
+/* ── Todo progress indicator on mobile cards ─────────────────────────────── */
+html[data-theme="light"] div[class*="todoProgressIndicator"],
+html[data-theme="light"] span[class*="todoProgressIndicator"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+html[data-theme="light"] div[class*="todoProgressIndicator"] svg {
+  color: #4f46e5 !important;
+}
+
+/* ── Active dot (calendar filter indicator) ──────────────────────────────── */
+html[data-theme="light"] span[class*="activeDot"],
+html[data-theme="light"] div[class*="activeDot"] {
+  background: #4f46e5 !important;
+  box-shadow: 0 0 6px rgba(79, 70, 229, 0.5) !important;
+}
+
+/* ── Mobile notes list container background ──────────────────────────────── */
+html[data-theme="light"] div[class*="mobileNotesListContainer"] {
+  background: transparent !important;
+}
+
+/* ── Remove dark glass effects from all mobile elements ──────────────────── */
+html[data-theme="light"] div[class*="mobile"],
+html[data-theme="light"] button[class*="mobile"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ── Reservation Card & Structured Order Recap Light Mode ────────────────── */
+html[data-theme="light"] div[class*="resMobileCard"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06) !important;
+}
+
+html[data-theme="light"] div[class*="resMobileMenuSection"] {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  padding: 12px 14px !important;
+}
+
+html[data-theme="light"] div[class*="resMenuMainHeader"] {
+  color: #4338ca !important;
+  border-bottom-color: #cbd5e1 !important;
+}
+
+html[data-theme="light"] div[class*="resCatFood"] {
+  background: #fef3c7 !important;
+  color: #b45309 !important;
+}
+
+html[data-theme="light"] div[class*="resCatDrink"] {
+  background: #e0f2fe !important;
+  color: #0369a1 !important;
+}
+
+html[data-theme="light"] div[class*="resMenuItemRow"] {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] span[class*="tableBadge"] {
+  background: #eef2ff !important;
+  color: #3730a3 !important;
+  border-color: #c7d2fe !important;
+  font-weight: 600 !important;
+}
+
+/* ==========================================================================
+   GLOBAL LIGHT MODE — COMPREHENSIVE TEXT & COMPONENT CONTRAST FIX
+   Forces dark text across all pages, components, panels, modals, and inputs
+   ========================================================================== */
+
+/* ── Typography & Base Text ─────────────────────────────────────────────── */
+html[data-theme="light"] h1,
+html[data-theme="light"] h2,
+html[data-theme="light"] h3,
+html[data-theme="light"] h4,
+html[data-theme="light"] h5,
+html[data-theme="light"] h6 {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] p,
+html[data-theme="light"] label,
+html[data-theme="light"] li,
+html[data-theme="light"] td,
+html[data-theme="light"] th,
+html[data-theme="light"] strong,
+html[data-theme="light"] b,
+html[data-theme="light"] dt,
+html[data-theme="light"] dd,
+html[data-theme="light"] caption {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] small,
+html[data-theme="light"] time {
+  color: #64748b !important;
+}
+
+/* ── Component Text Overrides ───────────────────────────────────────────── */
+
+/* News & Articles */
+html[data-theme="light"] div[class*="newsCard"] h3,
+html[data-theme="light"] div[class*="newsCard"] h4,
+html[data-theme="light"] div[class*="newsCard"] p,
+html[data-theme="light"] div[class*="newsCard"] span,
+html[data-theme="light"] div[class*="newsSection"] h3,
+html[data-theme="light"] div[class*="newsSection"] p {
+  color: #0f172a !important;
+}
+
+/* WhatsApp & Contacts */
+html[data-theme="light"] div[class*="whatsappContainer"] *,
+html[data-theme="light"] div[class*="chatContainer"] *,
+html[data-theme="light"] div[class*="contactsList"] * {
+  color: #0f172a;
+}
+html[data-theme="light"] input[class*="textInput"],
+html[data-theme="light"] input[class*="miniTextInput"],
+html[data-theme="light"] textarea[class*="textarea"] {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+html[data-theme="light"] label[class*="inputLabel"] {
+  color: #334155 !important;
+  font-weight: 600 !important;
+}
+
+/* Note Editor, Panels & Markdown */
+html[data-theme="light"] div[class*="editor"] h1,
+html[data-theme="light"] div[class*="editor"] h2,
+html[data-theme="light"] div[class*="editor"] h3,
+html[data-theme="light"] div[class*="editor"] p,
+html[data-theme="light"] div[class*="editor"] span,
+html[data-theme="light"] div[class*="editor"] label,
+html[data-theme="light"] div[class*="panel"] h3,
+html[data-theme="light"] div[class*="panel"] h4,
+html[data-theme="light"] div[class*="panel"] p,
+html[data-theme="light"] div[class*="panel"] span {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] div[class*="previewArea"] *,
+html[data-theme="light"] div[class*="previewContent"] * {
+  color: #0f172a !important;
+}
+
+/* Voice Recorder & Audio Assistant */
+html[data-theme="light"] div[class*="recorder"] h2,
+html[data-theme="light"] div[class*="recorder"] h3,
+html[data-theme="light"] div[class*="recorder"] p,
+html[data-theme="light"] div[class*="recorder"] span,
+html[data-theme="light"] div[class*="transcript"] p,
+html[data-theme="light"] div[class*="transcript"] span {
+  color: #0f172a !important;
+}
+
+/* Calendar & Reminders */
+html[data-theme="light"] div[class*="calendar"] h3,
+html[data-theme="light"] div[class*="calendar"] span,
+html[data-theme="light"] div[class*="reminder"] h3,
+html[data-theme="light"] div[class*="reminder"] p,
+html[data-theme="light"] div[class*="reminder"] span {
+  color: #0f172a !important;
+}
+
+/* Modals & Bottom Sheets */
+html[data-theme="light"] div[class*="modal"] h3,
+html[data-theme="light"] div[class*="modal"] h4,
+html[data-theme="light"] div[class*="modal"] p,
+html[data-theme="light"] div[class*="modal"] span,
+html[data-theme="light"] div[class*="sheet"] h3,
+html[data-theme="light"] div[class*="sheet"] p,
+html[data-theme="light"] div[class*="sheet"] span {
+  color: #0f172a !important;
+}
+
+/* PWA Banner */
+html[data-theme="light"] div[class*="installBanner"] *,
+html[data-theme="light"] div[class*="installBannerContent"] * {
+  color: #0f172a !important;
+}
+
+/* ── Preserve White Text on Filled Primary Action Buttons ────────────────── */
+html[data-theme="light"] button[class*="tulisCatatanBtn"],
+html[data-theme="light"] button[class*="activeCategoryBtn"],
+html[data-theme="light"] button[class*="mobileNewNoteBtn"],
+html[data-theme="light"] button[class*="addFolderBtn"],
+html[data-theme="light"] button[class*="primaryBtn"],
+html[data-theme="light"] button[class*="confirmBtn"],
+html[data-theme="light"] button[class*="mobileFolderChipActive"],
+html[data-theme="light"] button[class*="mobileTimeframeChipActive"],
+html[data-theme="light"] button[class*="installBtn"],
+html[data-theme="light"] button[class*="floatingAssistantBtn"],
+html[data-theme="light"] button[class*="saveBtn"],
+html[data-theme="light"] button[class*="btnPrimary"] {
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] button[class*="tulisCatatanBtn"] *,
+html[data-theme="light"] button[class*="activeCategoryBtn"] *,
+html[data-theme="light"] button[class*="mobileNewNoteBtn"] *,
+html[data-theme="light"] button[class*="addFolderBtn"] *,
+html[data-theme="light"] button[class*="primaryBtn"] *,
+html[data-theme="light"] button[class*="confirmBtn"] *,
+html[data-theme="light"] button[class*="installBtn"] *,
+html[data-theme="light"] button[class*="floatingAssistantBtn"] * {
+  color: #ffffff !important;
+}
+
+/* ── Secondary / Filter / Refresh Buttons Light Mode Contrast Fix ────────── */
+html[data-theme="light"] button[class*="refreshBtnMobile"],
+html[data-theme="light"] button[class*="adminMobileCalBtn"]:not([class*="Active"]):not([class*="active"]),
+html[data-theme="light"] button[class*="adminMobileStatusPill"]:not([class*="Active"]):not([class*="active"]),
+html[data-theme="light"] button[class*="clearCalFilterBtn"] {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+
+html[data-theme="light"] button[class*="refreshBtnMobile"] *,
+html[data-theme="light"] button[class*="adminMobileCalBtn"]:not([class*="Active"]):not([class*="active"]) *,
+html[data-theme="light"] button[class*="adminMobileStatusPill"]:not([class*="Active"]):not([class*="active"]) * {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] button[class*="adminMobileCalBtnActive"],
+html[data-theme="light"] button[class*="adminMobileCalBtn"][class*="Active"],
+html[data-theme="light"] button[class*="adminMobileStatusPillActive"],
+html[data-theme="light"] button[class*="adminMobileStatusPill"][class*="Active"] {
+  background: #4f46e5 !important;
+  border-color: #4338ca !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25) !important;
+}
+
+html[data-theme="light"] button[class*="adminMobileCalBtnActive"] *,
+html[data-theme="light"] button[class*="adminMobileCalBtn"][class*="Active"] *,
+html[data-theme="light"] button[class*="adminMobileStatusPillActive"] *,
+html[data-theme="light"] button[class*="adminMobileStatusPill"][class*="Active"] * {
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] div[class*="adminMobileFilterSection"] {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+/* ==========================================================================
+   UNIVERSAL LIGHT MODE INNER ELEMENT TRANSPARENT RESET
+   Eliminates all accidental nested white boxes & shadows across all components
+   ========================================================================== */
+
+html[data-theme="light"] div[class*="installBannerContent"],
+html[data-theme="light"] div[class*="installBannerActions"],
+html[data-theme="light"] div[class*="installBannerText"],
+html[data-theme="light"] p[class*="installBannerText"],
+html[data-theme="light"] div[class*="mobileNoteCardHeader"],
+html[data-theme="light"] div[class*="mobileNoteCardFooter"],
+html[data-theme="light"] div[class*="mobileNoteTitle"],
+html[data-theme="light"] div[class*="mobileNoteSummary"],
+html[data-theme="light"] div[class*="mobileNoteDate"],
+html[data-theme="light"] div[class*="mobileNoteMeta"],
+html[data-theme="light"] div[class*="noteCardHeader"],
+html[data-theme="light"] div[class*="noteCardFooter"],
+html[data-theme="light"] div[class*="noteCardTitle"],
+html[data-theme="light"] div[class*="noteCardSummary"],
+html[data-theme="light"] div[class*="sidebarNoteTitle"],
+html[data-theme="light"] div[class*="sidebarNoteMeta"],
+html[data-theme="light"] div[class*="resMobileCardHeader"],
+html[data-theme="light"] div[class*="resMobileCardBody"],
+html[data-theme="light"] div[class*="resMobileCardActions"],
+html[data-theme="light"] div[class*="newsCardHeader"],
+html[data-theme="light"] div[class*="newsCardFooter"],
+html[data-theme="light"] div[class*="newsCardBody"],
+html[data-theme="light"] div[class*="newsCardContent"],
+html[data-theme="light"] div[class*="whatsappHeader"],
+html[data-theme="light"] div[class*="whatsappBody"],
+html[data-theme="light"] div[class*="whatsappFooter"],
+html[data-theme="light"] div[class*="chatHeader"],
+html[data-theme="light"] div[class*="chatBody"],
+html[data-theme="light"] div[class*="chatFooter"],
+html[data-theme="light"] div[class*="modalHeader"],
+html[data-theme="light"] div[class*="modalFooter"],
+html[data-theme="light"] div[class*="modalBody"],
+html[data-theme="light"] div[class*="modalContent"],
+html[data-theme="light"] div[class*="sheetHeader"],
+html[data-theme="light"] div[class*="sheetBody"],
+html[data-theme="light"] div[class*="sheetFooter"],
+html[data-theme="light"] div[class*="sheetContent"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border-left: none !important;
+  border-right: none !important;
+}
+

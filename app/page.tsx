@@ -156,6 +156,65 @@ function formatDateTime(dateVal: any): string {
   }
 }
 
+const renderFormattedMenuList = (text: string) => {
+  if (!text) return null;
+
+  const hasLineBreaks = text.includes('\n');
+  let formattedLines: string[] = [];
+
+  if (hasLineBreaks) {
+    formattedLines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  } else {
+    let normalized = text
+      .replace(/(REKAP PESANAN MAKANAN\s*\&\s*MINUMAN|REKAP PESANAN)/gi, '\nHEAD:$1\n')
+      .replace(/(?<!HEAD:)\b(MAKANAN|MINUMAN|SNACK|DESSERT|CATATAN)\b/gi, '\nCAT:$1\n')
+      .replace(/([A-Z0-9][A-Za-z0-9\s\+\-\/\&\.\(\)]+:\s*\d+(?:\s*porsi|\s*pcs|\s*orang|\s*pack)?(?:\s*\([^)]+\))?)/g, '\nITEM:$1');
+
+    formattedLines = normalized.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  }
+
+  return (
+    <div className={styles.resMenuRecapWrapper}>
+      {formattedLines.map((line, idx) => {
+        const isHead = line.startsWith('HEAD:') || /^REKAP PESANAN/i.test(line);
+        const isCat = line.startsWith('CAT:') || /^(MAKANAN|MINUMAN|SNACK|DESSERT|CATATAN)$/i.test(line);
+
+        let cleanText = line.replace(/^(HEAD:|CAT:|ITEM:)\s*/, '').trim();
+
+        if (isHead) {
+          return (
+            <div key={idx} className={styles.resMenuMainHeader}>
+              <span style={{ fontSize: '0.85rem' }}>📋</span>
+              <span>{cleanText}</span>
+            </div>
+          );
+        }
+
+        if (isCat) {
+          const isFood = /MAKANAN/i.test(cleanText);
+          const isDrink = /MINUMAN/i.test(cleanText);
+          return (
+            <div key={idx} className={`${styles.resMenuCatHeader} ${isFood ? styles.resCatFood : isDrink ? styles.resCatDrink : ''}`}>
+              <span>{isFood ? '🍽️' : isDrink ? '🥤' : '🏷️'}</span>
+              <span>{cleanText}</span>
+            </div>
+          );
+        }
+
+        if (!cleanText.startsWith('•') && !cleanText.startsWith('-')) {
+          cleanText = `• ${cleanText}`;
+        }
+
+        return (
+          <div key={idx} className={styles.resMenuItemRow}>
+            <span>{cleanText}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const getGroupedNotes = (notesList: Note[]) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -4377,9 +4436,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                             </div>
 
                             {res.menuList && (
-                              <div style={{ fontSize: '0.8rem' }}>
-                                <span style={{ color: '#64748b', fontSize: '0.7rem', display: 'block' }}>Menu Pesanan:</span>
-                                <p style={{ margin: '2px 0 0 0', color: '#94a3b8', lineHeight: '1.4' }}>{res.menuList}</p>
+                              <div style={{ fontSize: '0.8rem', marginTop: '6px' }}>
+                                <span style={{ color: '#64748b', fontSize: '0.7rem', display: 'block', marginBottom: '4px' }}>Menu Pesanan:</span>
+                                {renderFormattedMenuList(res.menuList)}
                               </div>
                             )}
                           </div>
@@ -4454,7 +4513,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   </p>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <div className={styles.adminHeaderControls}>
                 <button
                   onClick={() => {
                     fetchAdminReservations();
@@ -4673,7 +4732,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                             onTouchCancel={handleAdminTouchEnd}
                           >
                             <div className={styles.chatBubbleHeader}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div className={styles.chatBubbleUserBox}>
                                 <span className={styles.chatSenderName}>{msg.senderName}</span>
                                 <span className={`${styles.chatRoleIndicator} ${isMe ? styles.chatRoleAdmin : styles.chatRoleEmployee}`}>
                                   {msg.senderRole === 'admin' ? 'Admin' : 'Karyawan'}
@@ -6511,8 +6570,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
                       {r.menuList && (
                         <div className={styles.resMobileMenuSection}>
-                          <span className={styles.resMobileLabel}>Menu:</span>
-                          <p className={styles.resMobileMenuText}>{r.menuList}</p>
+                          <span className={styles.resMobileLabel}>MENU PESANAN:</span>
+                          {renderFormattedMenuList(r.menuList)}
                         </div>
                       )}
                     </div>
