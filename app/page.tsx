@@ -14,6 +14,7 @@ import { VoiceAssistant } from '@/components/VoiceAssistant';
 import { InteractiveMerge } from '@/components/InteractiveMerge';
 import styles from './page.module.css';
 import { supabase } from '@/lib/supabase';
+import { formatForWhatsApp } from '@/lib/whatsappFormatter';
 
 
 
@@ -1216,7 +1217,8 @@ function DashboardContent() {
 
   const handleAdminCopyMessage = (msgId: string, text: string) => {
     if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
+    const formattedText = formatForWhatsApp(text);
+    navigator.clipboard.writeText(formattedText).then(() => {
       setAdminCopiedMessageId(msgId);
       setTimeout(() => setAdminCopiedMessageId(null), 1500);
     }).catch(err => {
@@ -3461,18 +3463,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
             <button
               onClick={toggleTheme}
               title={theme === 'dark' ? "Beralih ke Mode Terang" : "Beralih ke Mode Gelap"}
-              style={{
-                background: 'var(--glass-bg)',
-                border: '1px solid var(--glass-border)',
-                borderRadius: '50%',
-                width: '36px',
-                height: '36px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--foreground)',
-                cursor: 'pointer'
-              }}
+              className={styles.themeToggleBtn}
             >
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
@@ -3485,18 +3476,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     setMobileView('editor');
                   }}
                   title="Gabungkan Catatan"
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    border: '1px solid var(--glass-border)',
-                    borderRadius: '50%',
-                    width: '36px',
-                    height: '36px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#fff',
-                    cursor: 'pointer'
-                  }}
+                  className={styles.mobileHeaderBtn}
                 >
                   <GitMerge size={18} />
                 </button>
@@ -3737,7 +3717,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                         className={styles.folderParentEditSelect}
                                         value={editingFolderParentId}
                                         onChange={(e) => setEditingFolderParentId(e.target.value)}
-                                        style={{ fontSize: '0.75rem', padding: '4px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border)', color: '#fff', borderRadius: '4px' }}
+                                        style={{ fontSize: '0.75rem', padding: '6px 8px', width: '100%' }}
                                       >
                                         <option value="">— Induk (Root) —</option>
                                         {folders.filter(f => !f.parentId && f.id !== folder.id).map(f => (
@@ -3822,7 +3802,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                             <select
                               id="mobile-add-folder-parent-select"
                               className={styles.addFolderParentSelect}
-                              style={{ width: '100%', fontSize: '0.75rem', padding: '4px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border)', color: '#fff', borderRadius: '4px' }}
+                              style={{ width: '100%', fontSize: '0.75rem', padding: '6px 8px' }}
                               defaultValue=""
                             >
                               <option value="">— Folder Induk (Root) —</option>
@@ -6886,18 +6866,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           <button
             onClick={toggleTheme}
             title={theme === 'dark' ? "Beralih ke Mode Terang" : "Beralih ke Mode Gelap"}
-            style={{
-              background: 'var(--glass-bg)',
-              border: '1px solid var(--glass-border)',
-              borderRadius: '50%',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--foreground)',
-              cursor: 'pointer'
-            }}
+            className={styles.themeToggleBtn}
+            style={{ width: '32px', height: '32px' }}
           >
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Edit3, Check, Trash2, Calendar, FileText, CheckSquare, Sparkles, Tag, Plus, X, ArrowLeft, Copy, Mic, FolderInput, Square, Upload, AlertCircle, List, FileAudio, Shield, ChevronUp, ChevronDown } from 'lucide-react';
 import { GlowButton } from './ui/GlowButton';
 import styles from './NoteEditor.module.css';
+import { formatForWhatsApp } from '../lib/whatsappFormatter';
 
 // Declare SpeechRecognition properties safely on window
 const SpeechRecognition = typeof window !== 'undefined' 
@@ -689,7 +690,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
 
   const handleCopy = (text: string, section: string) => {
     if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
+    const formattedText = formatForWhatsApp(text);
+    navigator.clipboard.writeText(formattedText).then(() => {
       setCopiedSection(section);
       setTimeout(() => setCopiedSection(null), 2000);
     });

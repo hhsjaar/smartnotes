@@ -696,6 +696,46 @@
   box-shadow: 0 0 10px var(--primary-glow);
 }
 
+.themeToggleBtn {
+  background: var(--glass-bg-hover);
+  border: 1px solid var(--glass-border);
+  color: var(--primary);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.themeToggleBtn:hover {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+}
+
+.mobileHeaderBtn {
+  background: var(--glass-bg-hover);
+  border: 1px solid var(--glass-border);
+  color: var(--foreground);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mobileHeaderBtn:hover {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+}
+
 .mobileContent {
   flex: 1;
   display: flex;
@@ -1920,10 +1960,17 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--border-radius-md);
+  padding: 10px 8px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--glass-border);
+  border-radius: 0;
+  transition: background 0.2s ease, border-radius 0.2s ease;
+}
+
+.mobileFolderEditRow:hover {
+  background: var(--glass-bg-hover);
+  border-radius: var(--border-radius-sm);
 }
 
 .mobileFolderEditRow .folderNameText {

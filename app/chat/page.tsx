@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2, Calendar as CalendarIcon, X, Image, Copy, Check, ArrowDown, Sun, Moon } from 'lucide-react';
 import styles from './page.module.css';
 import { supabase } from '@/lib/supabase';
+import { formatForWhatsApp } from '@/lib/whatsappFormatter';
 
 
 interface ChatMessage {
@@ -642,7 +643,8 @@ export default function EmployeeChatPage() {
 
   const handleCopyMessage = (msgId: string, text: string) => {
     if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
+    const formattedText = formatForWhatsApp(text);
+    navigator.clipboard.writeText(formattedText).then(() => {
       setCopiedMessageId(msgId);
       setTimeout(() => setCopiedMessageId(null), 1500);
     }).catch(err => {

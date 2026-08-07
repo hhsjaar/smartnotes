@@ -7,8 +7,9 @@
   padding: 24px;
   overflow-y: auto;
   gap: 20px;
-  background: rgba(15, 23, 42, 0.25);
+  background: var(--glass-bg);
   border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
 
 @media (max-width: 768px) {
@@ -29,9 +30,9 @@
 }
 
 .backBtn {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg-hover);
   border: 1px solid var(--glass-border);
-  color: #fff;
+  color: var(--foreground);
   cursor: pointer;
   padding: 8px 16px;
   border-radius: var(--border-radius-sm);
@@ -44,14 +45,15 @@
 }
 
 .backBtn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
 }
 
 .titleText h2 {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--foreground);
   margin: 0 0 4px 0;
 }
 
@@ -69,10 +71,11 @@
 
 .summaryBadge {
   background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  color: #a5b4fc;
+  border: 1px solid var(--glass-border-active);
+  color: var(--primary);
   font-size: 0.75rem;
-  padding: 4px 10px;
+  font-weight: 600;
+  padding: 6px 12px;
   border-radius: var(--border-radius-full);
   display: flex;
   align-items: center;
@@ -117,7 +120,7 @@
 }
 
 .noteCard {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--border-radius-md);
   padding: 16px;
@@ -130,6 +133,7 @@
   gap: 8px;
   position: relative;
   overflow: hidden;
+  box-shadow: var(--glass-shadow);
 }
 
 .noteCard::before {
@@ -144,10 +148,10 @@
 }
 
 .noteCard:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(99, 102, 241, 0.4);
+  background: var(--glass-bg-hover);
+  border-color: var(--primary);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
 }
 
 .noteCard:hover::before {
@@ -164,7 +168,7 @@
 .noteTitleText {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--foreground);
   line-height: 1.4;
 }
 
@@ -191,22 +195,23 @@
   justify-content: space-between;
   margin-top: auto;
   padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  border-top: 1px solid var(--glass-border);
 }
 
 .leftMeta {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .folderTag {
-  background: rgba(6, 182, 212, 0.1);
+  background: rgba(6, 182, 212, 0.12);
   color: var(--secondary);
   font-size: 0.7rem;
-  padding: 2px 8px;
+  padding: 3px 8px;
   border-radius: var(--border-radius-sm);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .tagList {
@@ -215,11 +220,13 @@
 }
 
 .tagBadge {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--glass-bg-hover);
+  border: 1px solid var(--glass-border);
   color: var(--text-muted);
   font-size: 0.65rem;
   padding: 2px 6px;
   border-radius: var(--border-radius-sm);
+  font-weight: 500;
 }
 
 .actionIndicator {
@@ -249,5 +256,5 @@
   gap: 12px;
   border: 1px dashed var(--glass-border);
   border-radius: var(--border-radius-md);
-  background: rgba(255, 255, 255, 0.01);
+  background: var(--glass-bg);
 }
