@@ -47,7 +47,7 @@
 
 [data-theme="light"] {
   /* Premium High-Contrast Light Theme Color System */
-  --bg-primary: #f1f5f9;
+  --bg-primary: #ffffff;
   --bg-secondary: #ffffff;
   --bg-sidebar: #ffffff;
   
@@ -1595,11 +1595,11 @@ html[data-theme="light"] span[class*="folderBadge"] {
 /* --- Workspace & main container backgrounds --- */
 html[data-theme="light"] div[class*="workspace"],
 html[data-theme="light"] div[class*="mainContainer"] {
-  background: #f8fafc !important;
+  background: #ffffff !important;
 }
 html[data-theme="light"] div[class*="mobileLayout"],
 html[data-theme="light"] div[class*="mobileContent"] {
-  background: #f8fafc !important;
+  background: #ffffff !important;
 }
 
 /* --- Calendar dashboard specifics --- */
@@ -2887,14 +2887,15 @@ html[data-theme="light"] div[class*="sheetContent"] {
 
 /* ─── InteractiveMerge Light Theme Overrides ───────────────────────────────── */
 html[data-theme="light"] div[class*="container"] {
-  background: #f8fafc !important;
+  background: #ffffff !important;
   border-color: #e2e8f0 !important;
 }
 
 html[data-theme="light"] button[class*="backBtn"] {
   background: #ffffff !important;
-  border-color: #cbd5e1 !important;
+  border: 1px solid #cbd5e1 !important;
   color: #0f172a !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
 }
 
 html[data-theme="light"] button[class*="backBtn"]:hover {
@@ -2907,10 +2908,25 @@ html[data-theme="light"] div[class*="titleText"] h2 {
   color: #0f172a !important;
 }
 
-html[data-theme="light"] div[class*="summaryBadge"] {
+html[data-theme="light"] div[class*="titleText"] p {
+  color: #475569 !important;
+}
+
+html[data-theme="light"] div[class*="dashboardSummary"] div[class*="summaryBadge"] {
   background: #eef2ff !important;
-  border-color: #c7d2fe !important;
+  border: 1px solid #c7d2fe !important;
   color: #3730a3 !important;
+  font-weight: 600 !important;
+}
+
+html[data-theme="light"] div[class*="dashboardSummary"] div[class*="summaryBadge"] svg {
+  color: #4338ca !important;
+  stroke: #4338ca !important;
+}
+
+html[data-theme="light"] div[class*="dateGroupHeader"] {
+  color: #0284c7 !important;
+  border-left: 3px solid #0284c7 !important;
 }
 
 html[data-theme="light"] button[class*="noteCard"] {
@@ -2922,7 +2938,7 @@ html[data-theme="light"] button[class*="noteCard"] {
 html[data-theme="light"] button[class*="noteCard"]:hover {
   background: #ffffff !important;
   border-color: #6366f1 !important;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1) !important;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.12) !important;
 }
 
 html[data-theme="light"] span[class*="noteTitleText"] {
@@ -2930,7 +2946,7 @@ html[data-theme="light"] span[class*="noteTitleText"] {
 }
 
 html[data-theme="light"] p[class*="noteSnippet"] {
-  color: #475569 !important;
+  color: #334155 !important;
 }
 
 html[data-theme="light"] span[class*="noteTime"] {
@@ -2938,15 +2954,17 @@ html[data-theme="light"] span[class*="noteTime"] {
 }
 
 html[data-theme="light"] span[class*="folderTag"] {
-  background: #ecfeff !important;
-  color: #0e7490 !important;
-  border: 1px solid #cff4fc !important;
+  background: #e0f2fe !important;
+  color: #0369a1 !important;
+  border: 1px solid #bae6fd !important;
+  font-weight: 600 !important;
 }
 
 html[data-theme="light"] span[class*="tagBadge"] {
   background: #f1f5f9 !important;
   color: #475569 !important;
   border: 1px solid #e2e8f0 !important;
+  font-weight: 500 !important;
 }
 
 /* ─── Theme Toggle & Header Buttons (Light Mode) ──────────────────────────── */
