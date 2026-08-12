@@ -1127,53 +1127,54 @@ export default function EmployeeChatPage() {
           </div>
         </div>
 
-        {/* Filter Bar */}
+        {/* Search & Filter Bar */}
         <div className={styles.filterContainer}>
-          {/* Search Box */}
-          <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--glass-border)', borderRadius: '20px', padding: '4px 10px', marginRight: '8px', flexShrink: 0 }}>
-            <Search size={13} style={{ color: 'var(--text-muted)', marginRight: '6px' }} />
+          {/* Prominent Search Box */}
+          <div className={styles.searchBox}>
+            <Search size={14} className={styles.searchIcon} />
             <input
               type="text"
               placeholder="Cari chat..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                color: 'inherit',
-                fontSize: '0.75rem',
-                width: searchQuery ? '110px' : '80px',
-                transition: 'width 0.2s',
-              }}
+              className={styles.searchInput}
             />
             {searchQuery && (
-              <X size={12} style={{ cursor: 'pointer', color: 'var(--text-muted)', marginLeft: '4px' }} onClick={() => setSearchQuery('')} />
+              <button 
+                type="button" 
+                onClick={() => setSearchQuery('')} 
+                className={styles.searchClearBtn}
+              >
+                <X size={13} />
+              </button>
             )}
           </div>
 
           <span className={styles.filterLabel}>
             <Filter size={12} style={{ marginRight: '4px' }} /> Filter:
           </span>
-          {['Semua', ...Array.from(new Set(attributes.map(a => a.name)))].map((attrName) => {
-            const isActive = filterAttribute === attrName;
-            const color = attrName === 'Semua' ? '#6366f1' : getAttributeColor(attrName);
-            return (
-              <button
-                key={attrName}
-                type="button"
-                className={`${styles.filterChip} ${isActive ? styles.filterChipActive : ''}`}
-                onClick={() => setFilterAttribute(attrName)}
-                style={{
-                  borderColor: isActive ? color : 'var(--glass-border)',
-                  color: isActive ? '#fff' : 'var(--text-muted)',
-                  background: isActive ? color : 'rgba(255, 255, 255, 0.03)',
-                }}
-              >
-                {attrName}
-              </button>
-            );
-          })}
+
+          <div className={styles.filterChipsScroll}>
+            {['Semua', ...Array.from(new Set(attributes.map(a => a.name)))].map((attrName) => {
+              const isActive = filterAttribute === attrName;
+              const color = attrName === 'Semua' ? '#6366f1' : getAttributeColor(attrName);
+              return (
+                <button
+                  key={attrName}
+                  type="button"
+                  className={`${styles.filterChip} ${isActive ? styles.filterChipActive : ''}`}
+                  onClick={() => setFilterAttribute(attrName)}
+                  style={{
+                    borderColor: isActive ? color : 'var(--glass-border)',
+                    color: isActive ? '#fff' : 'var(--text-muted)',
+                    background: isActive ? color : 'rgba(255, 255, 255, 0.03)',
+                  }}
+                >
+                  {attrName}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Messages */}
