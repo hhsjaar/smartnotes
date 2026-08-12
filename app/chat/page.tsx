@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2, Calendar as CalendarIcon, X, Image, Copy, Check, ArrowDown, Sun, Moon, Camera } from 'lucide-react';
+import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2, Calendar as CalendarIcon, X, Image, Copy, Check, ArrowDown, Sun, Moon, Camera, Search } from 'lucide-react';
 import styles from './page.module.css';
 import { supabase } from '@/lib/supabase';
 import { formatForWhatsApp } from '@/lib/whatsappFormatter';
@@ -27,6 +27,16 @@ interface ChatAttribute {
   isGroup?: boolean;
   groupAttributes?: any;
 }
+
+const DEFAULT_ATTRIBUTES: ChatAttribute[] = [
+  { id: '1', name: 'Absen' },
+  { id: '2', name: 'Barang ketinggalan' },
+  { id: '3', name: 'Belanja Lain"' },
+  { id: '4', name: 'Pemasukan' },
+  { id: '5', name: 'Reservasi' },
+  { id: '6', name: 'Umum' },
+  { id: '7', name: 'Bon Karyawan' },
+];
 
 function formatBoldText(text: string) {
   if (!text) return '';
@@ -163,9 +173,10 @@ export default function EmployeeChatPage() {
   const [isCheckingName, setIsCheckingName] = useState(true);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [attributes, setAttributes] = useState<ChatAttribute[]>([]);
+  const [attributes, setAttributes] = useState<ChatAttribute[]>(DEFAULT_ATTRIBUTES);
   const [selectedAttribute, setSelectedAttribute] = useState<string>('Umum');
   const [filterAttribute, setFilterAttribute] = useState<string>('Semua');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Image Upload and Lightbox States & Refs
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -182,15 +193,29 @@ export default function EmployeeChatPage() {
   const longPressTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const filteredMessages = (() => {
-    if (filterAttribute === 'Semua') return messages;
-    const filterAttrObj = attributes.find(a => a.name === filterAttribute);
-    if (filterAttrObj?.isGroup) {
-      const groupAttrs = Array.isArray(filterAttrObj.groupAttributes)
-        ? (filterAttrObj.groupAttributes as string[])
-        : [];
-      return messages.filter(msg => msg.attribute === filterAttribute || (msg.attribute && groupAttrs.includes(msg.attribute)));
+    let list = messages;
+    if (filterAttribute !== 'Semua') {
+      const filterAttrObj = attributes.find(a => a.name === filterAttribute);
+      if (filterAttrObj?.isGroup) {
+        const groupAttrs = Array.isArray(filterAttrObj.groupAttributes)
+          ? (filterAttrObj.groupAttributes as string[])
+          : [];
+        list = list.filter(msg => msg.attribute === filterAttribute || (msg.attribute && groupAttrs.includes(msg.attribute)));
+      } else {
+        list = list.filter(msg => msg.attribute === filterAttribute);
+      }
     }
-    return messages.filter(msg => msg.attribute === filterAttribute);
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(msg => 
+        (msg.message && msg.message.toLowerCase().includes(q)) ||
+        (msg.senderName && msg.senderName.toLowerCase().includes(q)) ||
+        (msg.attribute && msg.attribute.toLowerCase().includes(q))
+      );
+    }
+
+    return list;
   })();
 
   const [newMessageText, setNewMessageText] = useState('');
@@ -1005,7 +1030,9 @@ export default function EmployeeChatPage() {
   }
 
   return (
-    <div className={styles.pageContainer}>
+    <>
+      <link rel="manifest" href="/manifest-chat.json" />
+      <div className={styles.pageContainer}>
       <link rel="manifest" href="/manifest-chat.json?v=2" />
       <div className={`${styles.chatWrapper} glass-panel`}>
         {/* Header */}
@@ -1078,10 +1105,33 @@ export default function EmployeeChatPage() {
 
         {/* Filter Bar */}
         <div className={styles.filterContainer}>
+          {/* Search Box */}
+          <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--glass-border)', borderRadius: '20px', padding: '4px 10px', marginRight: '8px', flexShrink: 0 }}>
+            <Search size={13} style={{ color: 'var(--text-muted)', marginRight: '6px' }} />
+            <input
+              type="text"
+              placeholder="Cari chat..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: 'inherit',
+                fontSize: '0.75rem',
+                width: searchQuery ? '110px' : '80px',
+                transition: 'width 0.2s',
+              }}
+            />
+            {searchQuery && (
+              <X size={12} style={{ cursor: 'pointer', color: 'var(--text-muted)', marginLeft: '4px' }} onClick={() => setSearchQuery('')} />
+            )}
+          </div>
+
           <span className={styles.filterLabel}>
             <Filter size={12} style={{ marginRight: '4px' }} /> Filter:
           </span>
-          {['Semua', ...attributes.map(a => a.name)].map((attrName) => {
+          {['Semua', ...Array.from(new Set(attributes.map(a => a.name)))].map((attrName) => {
             const isActive = filterAttribute === attrName;
             const color = attrName === 'Semua' ? '#6366f1' : getAttributeColor(attrName);
             return (
@@ -1933,7 +1983,8 @@ export default function EmployeeChatPage() {
         </div>
       )}
     </div>
-  );
+  </>
+);
 }
 
 const compressImageToBlob = (file: File, maxWidth = 600, maxHeight = 600, quality = 0.45): Promise<Blob> => {
