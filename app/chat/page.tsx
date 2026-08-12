@@ -177,6 +177,7 @@ export default function EmployeeChatPage() {
   const [selectedAttribute, setSelectedAttribute] = useState<string>('Umum');
   const [filterAttribute, setFilterAttribute] = useState<string>('Semua');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [attrSearchQuery, setAttrSearchQuery] = useState<string>('');
 
   // Image Upload and Lightbox States & Refs
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1439,28 +1440,46 @@ export default function EmployeeChatPage() {
             </div>
           )}
 
-          {/* Attribute Chips Selection */}
+          {/* Attribute Chips Selection & Search */}
           <div className={styles.attributeChipsContainer}>
-            {attributes.filter(attr => !attr.isGroup).map((attr) => {
-              const isActive = selectedAttribute === attr.name;
-              const color = getAttributeColor(attr.name);
-              return (
-                <button
-                  key={attr.id}
-                  type="button"
-                  className={`${styles.attributeChip} ${isActive ? styles.attributeChipActive : ''}`}
-                  onClick={() => setSelectedAttribute(attr.name)}
-                  style={{
-                    borderColor: isActive ? color : 'var(--glass-border)',
-                    color: isActive ? '#fff' : 'var(--text-muted)',
-                    background: isActive ? color : 'rgba(255, 255, 255, 0.03)',
-                  }}
-                >
-                  <Tag size={10} style={{ marginRight: '4px' }} />
-                  {attr.name}
-                </button>
-              );
-            })}
+            <div className={styles.attrSearchBox}>
+              <Search size={12} className={styles.attrSearchIcon} />
+              <input
+                type="text"
+                placeholder="Cari atribut..."
+                value={attrSearchQuery}
+                onChange={(e) => setAttrSearchQuery(e.target.value)}
+                className={styles.attrSearchInput}
+              />
+              {attrSearchQuery && (
+                <X size={11} style={{ cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => setAttrSearchQuery('')} />
+              )}
+            </div>
+
+            {attributes
+              .filter(attr => !attr.isGroup)
+              .filter(attr => !attrSearchQuery.trim() || attr.name.toLowerCase().includes(attrSearchQuery.toLowerCase().trim()))
+              .map((attr) => {
+                const isActive = selectedAttribute === attr.name;
+                const color = getAttributeColor(attr.name);
+                return (
+                  <button
+                    key={attr.id}
+                    type="button"
+                    className={`${styles.attributeChip} ${isActive ? styles.attributeChipActive : ''}`}
+                    onClick={() => setSelectedAttribute(attr.name)}
+                    style={{
+                      borderColor: isActive ? color : 'var(--glass-border)',
+                      color: isActive ? '#fff' : 'var(--text-muted)',
+                      background: isActive ? color : 'rgba(255, 255, 255, 0.03)',
+                    }}
+                  >
+                    <Tag size={10} style={{ marginRight: '4px' }} />
+                    {attr.name}
+                  </button>
+                );
+              })
+            }
           </div>
 
           {/* Quick Options (Pesan Cepat / Pilihan Ganda) */}

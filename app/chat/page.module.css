@@ -675,18 +675,57 @@
   letter-spacing: 0.5px;
 }
 
-/* Chat Attribute Chips */
+/* Chat Attribute Chips & Attribute Search */
 .attributeChipsContainer {
   display: flex;
+  align-items: center;
   gap: 8px;
   overflow-x: auto;
-  padding: 4px 4px 10px 4px;
+  padding: 6px 8px;
   width: 100%;
   scrollbar-width: none;
 }
 
 .attributeChipsContainer::-webkit-scrollbar {
   display: none;
+}
+
+.attrSearchBox {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 3px 10px;
+  flex-shrink: 0;
+  width: 140px;
+  transition: all 0.2s ease;
+}
+
+.attrSearchBox:focus-within {
+  border-color: #818cf8;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.attrSearchIcon {
+  color: #818cf8;
+  flex-shrink: 0;
+}
+
+.attrSearchInput {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-size: 0.75rem;
+  width: 100%;
+}
+
+.attrSearchInput::placeholder {
+  color: var(--text-muted);
+  font-size: 0.72rem;
 }
 
 .attributeChip {
