@@ -4461,14 +4461,14 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
             {/* Filter Bar */}
             <div className={styles.filterContainer}>
-              <div className={styles.searchBox}>
-                <Search size={14} className={styles.searchIcon} />
+              <div className={styles.searchBoxCompact} title="Cari filter...">
+                <Search size={13} className={styles.searchIcon} />
                 <input
                   type="text"
-                  placeholder="Cari chat..."
+                  placeholder=""
                   value={filterAttrSearchQuery}
                   onChange={(e) => setFilterAttrSearchQuery(e.target.value)}
-                  className={styles.searchInput}
+                  className={styles.searchInputCompact}
                 />
                 {filterAttrSearchQuery && (
                   <button 
@@ -4476,7 +4476,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                     onClick={() => setFilterAttrSearchQuery('')} 
                     className={styles.searchClearBtn}
                   >
-                    <X size={13} />
+                    <X size={11} />
                   </button>
                 )}
               </div>
@@ -4762,14 +4762,14 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               )}
 
               <div className={styles.attributeChipsContainer}>
-                <div className={styles.attrSearchBox}>
+                <div className={styles.attrSearchBoxCompact} title="Cari atribut...">
                   <Search size={12} className={styles.attrSearchIcon} />
                   <input
                     type="text"
-                    placeholder="Cari atribut..."
+                    placeholder=""
                     value={selectAttrSearchQuery}
                     onChange={(e) => setSelectAttrSearchQuery(e.target.value)}
-                    className={styles.attrSearchInput}
+                    className={styles.attrSearchInputCompact}
                   />
                   {selectAttrSearchQuery && (
                     <X size={11} style={{ cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => setSelectAttrSearchQuery('')} />

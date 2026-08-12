@@ -1130,15 +1130,15 @@ export default function EmployeeChatPage() {
 
         {/* Search & Filter Bar */}
         <div className={styles.filterContainer}>
-          {/* Prominent Search Box */}
-          <div className={styles.searchBox}>
-            <Search size={14} className={styles.searchIcon} />
+          {/* Compact Icon-only Filter Search Box */}
+          <div className={styles.searchBoxCompact} title="Cari filter...">
+            <Search size={13} className={styles.searchIcon} />
             <input
               type="text"
-              placeholder="Cari chat..."
+              placeholder=""
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className={styles.searchInput}
+              className={styles.searchInputCompact}
             />
             {searchQuery && (
               <button 
@@ -1146,7 +1146,7 @@ export default function EmployeeChatPage() {
                 onClick={() => setSearchQuery('')} 
                 className={styles.searchClearBtn}
               >
-                <X size={13} />
+                <X size={11} />
               </button>
             )}
           </div>
@@ -1442,14 +1442,14 @@ export default function EmployeeChatPage() {
 
           {/* Attribute Chips Selection & Search */}
           <div className={styles.attributeChipsContainer}>
-            <div className={styles.attrSearchBox}>
+            <div className={styles.attrSearchBoxCompact} title="Cari atribut...">
               <Search size={12} className={styles.attrSearchIcon} />
               <input
                 type="text"
-                placeholder="Cari atribut..."
+                placeholder=""
                 value={attrSearchQuery}
                 onChange={(e) => setAttrSearchQuery(e.target.value)}
-                className={styles.attrSearchInput}
+                className={styles.attrSearchInputCompact}
               />
               {attrSearchQuery && (
                 <X size={11} style={{ cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => setAttrSearchQuery('')} />

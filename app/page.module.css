@@ -3882,23 +3882,70 @@
   flex-shrink: 0;
 }
 
-.searchBox {
+.searchBoxCompact {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.05);
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--glass-border);
-  border-radius: 20px;
-  padding: 6px 12px;
+  border-radius: 18px;
+  padding: 5px 8px;
   flex-shrink: 0;
-  width: 180px;
   transition: all 0.2s ease;
 }
 
-.searchBox:focus-within {
+.searchBoxCompact:focus-within {
   border-color: #818cf8;
-  box-shadow: 0 0 12px rgba(99, 102, 241, 0.3);
-  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.searchInputCompact {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-size: 0.78rem;
+  width: 20px;
+  transition: width 0.2s ease;
+}
+
+.searchBoxCompact:focus-within .searchInputCompact,
+.searchInputCompact:focus {
+  width: 95px;
+}
+
+.attrSearchBoxCompact {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 4px 8px;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.attrSearchBoxCompact:focus-within {
+  border-color: #818cf8;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.attrSearchInputCompact {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-size: 0.75rem;
+  width: 20px;
+  transition: width 0.2s ease;
+}
+
+.attrSearchBoxCompact:focus-within .attrSearchInputCompact,
+.attrSearchInputCompact:focus {
+  width: 85px;
 }
 
 .searchIcon {
