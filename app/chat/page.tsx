@@ -1316,7 +1316,21 @@ export default function EmployeeChatPage() {
                             className={styles.messageImageWrapper}
                             onClick={() => setActiveLightboxImage(msg.imageUrl || null)}
                           >
-                            <img src={msg.imageUrl} alt="Lampiran foto" className={styles.messageImage} />
+                            <img 
+                              src={msg.imageUrl} 
+                              alt="Lampiran foto" 
+                              className={styles.messageImage} 
+                              onError={(e) => {
+                                const img = e.currentTarget;
+                                img.style.display = 'none';
+                                const fallback = img.nextElementSibling as HTMLElement;
+                                if (fallback) fallback.style.display = 'flex';
+                              }}
+                            />
+                            <div className={styles.imageFallbackBadge} style={{ display: 'none' }}>
+                              <Image size={14} />
+                              <span>Arsip Foto (Storage Supabase Terkunci)</span>
+                            </div>
                           </div>
                         )}
 

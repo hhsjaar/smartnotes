@@ -1166,8 +1166,58 @@
   }
 }
 
+.imageFallbackBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px dashed rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #f87171;
+  font-size: 0.72rem;
+  font-weight: 500;
+  margin-top: 4px;
+}
+
 /* Mobile responsive styles overrides */
 @media (max-width: 768px) {
+  .pageContainer {
+    padding: 0;
+  }
+
+  .chatWrapper {
+    border-radius: 0;
+    border: none;
+    height: 100vh;
+  }
+
+  .header {
+    padding: 12px 14px;
+  }
+
+  .roomTitle {
+    font-size: 0.95rem;
+  }
+
+  .filterContainer {
+    padding: 8px 12px;
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-shrink: 0;
+  }
+
+  .filterChip {
+    padding: 5px 10px;
+    font-size: 0.68rem;
+    flex-shrink: 0;
+  }
+
+  .filterLabel {
+    display: none;
+  }
+
   .messageImage {
     max-height: 180px;
   }
