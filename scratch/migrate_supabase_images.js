@@ -1,12 +1,32 @@
 const path = require('path');
-// Load environment variables from .env.local and .env
-require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') });
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
-
-const { PrismaClient } = require('@prisma/client');
 const fs = require('fs');
 const https = require('https');
 
+// Native environment variable parser without external dependencies
+const loadEnvFile = (filePath) => {
+  if (fs.existsSync(filePath)) {
+    const content = fs.readFileSync(filePath, 'utf8');
+    content.split('\n').forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+        const [key, ...valParts] = trimmed.split('=');
+        let val = valParts.join('=').trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        const cleanKey = key.trim();
+        if (!process.env[cleanKey]) {
+          process.env[cleanKey] = val;
+        }
+      }
+    });
+  }
+};
+
+loadEnvFile(path.join(__dirname, '..', '.env.local'));
+loadEnvFile(path.join(__dirname, '..', '.env'));
+
+const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const downloadFile = (url, dest) => {
