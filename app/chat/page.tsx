@@ -145,7 +145,7 @@ export default function EmployeeChatPage() {
         setTheme(savedTheme);
         document.documentElement.setAttribute('data-theme', savedTheme);
       }
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   const toggleTheme = () => {
@@ -154,7 +154,7 @@ export default function EmployeeChatPage() {
     try {
       localStorage.setItem('smart_voice_notes_theme', newTheme);
       document.documentElement.setAttribute('data-theme', newTheme);
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const [name, setName] = useState('');
@@ -208,18 +208,18 @@ export default function EmployeeChatPage() {
 
   const handleDeleteMessage = async (msgId: string) => {
     if (!confirm('Apakah Anda yakin ingin menghapus pesan ini?')) return;
-    
+
     setErrorMsg('');
     try {
       const res = await fetch(`/api/chat?id=${msgId}&senderName=${encodeURIComponent(name)}&senderRole=employee`, {
         method: 'DELETE',
       });
-      
+
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || 'Gagal menghapus pesan');
       }
-      
+
       setMessages(prev => prev.filter(m => m.id !== msgId));
       if (editingMessage?.id === msgId) {
         handleCancelEdit();
@@ -268,7 +268,7 @@ export default function EmployeeChatPage() {
 
   const handleInstallClick = async () => {
     if (!deferredPrompt.current) return;
-    
+
     // Store launch target in localStorage so PWA starts at /chat
     localStorage.setItem('pwa_launch_target', '/chat');
 
@@ -411,13 +411,13 @@ export default function EmployeeChatPage() {
         const msgs: ChatMessage[] = Array.isArray(data) ? data : (data.messages || []);
         setMessages(prev => {
           const pendingTempMsgs = prev.filter(m => m.id.startsWith('temp-'));
-          
+
           const msgMap = new Map<string, ChatMessage>(prev.map(m => [m.id, m]));
           msgs.forEach(m => msgMap.set(m.id, m));
           pendingTempMsgs.forEach(t => {
             if (!msgMap.has(t.id)) msgMap.set(t.id, t);
           });
-          
+
           const sorted = Array.from(msgMap.values()).sort((a, b) => {
             const dateA = getValidDate(a.createdAt);
             const dateB = getValidDate(b.createdAt);
@@ -440,11 +440,11 @@ export default function EmployeeChatPage() {
     if (messages.length === 0 || loadingOlder || !hasMoreOlder) return;
     setLoadingOlder(true);
     isLoadingOlderRef.current = true;
-    
+
     const chatArea = chatAreaRef.current;
     const oldScrollHeight = chatArea ? chatArea.scrollHeight : 0;
     const oldScrollTop = chatArea ? chatArea.scrollTop : 0;
-    
+
     try {
       const oldestMsg = messages[0];
       const res = await fetch(`/api/chat?limit=150&before=${encodeURIComponent(oldestMsg.createdAt)}`);
@@ -458,7 +458,7 @@ export default function EmployeeChatPage() {
           const uniqueOlder = newOlderMsgs.filter((m: any) => !existingIds.has(m.id));
           return [...uniqueOlder, ...prev];
         });
-        
+
         if (chatArea) {
           setTimeout(() => {
             const newScrollHeight = chatArea.scrollHeight;
@@ -607,11 +607,11 @@ export default function EmployeeChatPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const isPlaceholder = !process.env.NEXT_PUBLIC_SUPABASE_URL || 
-                          process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder') || 
-                          (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY && !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
-                          process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY === 'placeholder-key' || 
-                          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === 'placeholder-key';
+    const isPlaceholder = !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder') ||
+      (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY && !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY === 'placeholder-key' ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === 'placeholder-key';
 
     if (isPlaceholder) {
       console.warn('PERINGATAN: Konfigurasi Supabase Storage belum diset. Fallback Base64 akan digunakan untuk lokal testing.');
@@ -708,11 +708,11 @@ export default function EmployeeChatPage() {
       absenAttr = attributes.find(a => a.name.toLowerCase().includes('absen'));
       if (absenAttr) {
         const opts = Array.isArray(absenAttr.options) ? absenAttr.options : [];
-        matchedOption = opts.find((o: any) => 
+        matchedOption = opts.find((o: any) =>
           textToSend.toLowerCase().includes((o.text || o).toLowerCase())
         );
       }
-      
+
       if (!matchedOption) {
         alert('Tentukan shift absensi Anda di kolom pesan (contoh: tulis "Pagi", "Siang", "Malam") atau klik tombol shift di bawah.');
         return;
@@ -730,49 +730,30 @@ export default function EmployeeChatPage() {
       try {
         let uploadedImageUrl = null;
 
-        // Compress and upload file to Supabase Storage if selected
+        // Compress and upload file to Local VPS Storage if selected
         if (selectedFile) {
-          const isPlaceholder = !process.env.NEXT_PUBLIC_SUPABASE_URL || 
-                                process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder') || 
-                                (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY && !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
-                                process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY === 'placeholder-key' || 
-                                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === 'placeholder-key';
+          try {
+            const compressedBlob = await compressImageToBlob(selectedFile);
+            const fileExt = selectedFile.name.split('.').pop() || 'jpg';
+            const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
 
-          if (isPlaceholder) {
-            // Mock upload by converting to Base64 data URL for local testing
-            uploadedImageUrl = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.onerror = () => reject(new Error('Gagal membaca file gambar'));
-              reader.readAsDataURL(selectedFile);
+            const formData = new FormData();
+            formData.append('file', compressedBlob, fileName);
+
+            const uploadRes = await fetch('/api/upload', {
+              method: 'POST',
+              body: formData,
             });
-          } else {
-            try {
-              const compressedBlob = await compressImageToBlob(selectedFile);
-              const fileExt = selectedFile.name.split('.').pop() || 'jpg';
-              const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-              const filePath = `${fileName}`;
 
-              const { data, error } = await supabase.storage
-                .from('chat-attachments')
-                .upload(filePath, compressedBlob, {
-                  contentType: 'image/jpeg',
-                  cacheControl: '3600',
-                  upsert: false
-                });
-
-              if (error) {
-                throw new Error(`Gagal mengunggah gambar ke storage: ${error.message}`);
-              }
-
-              const { data: urlData } = supabase.storage
-                .from('chat-attachments')
-                .getPublicUrl(filePath);
-
-              uploadedImageUrl = urlData.publicUrl;
-            } catch (err: any) {
-              throw new Error(err.message || 'Gagal memproses gambar');
+            if (!uploadRes.ok) {
+              const errData = await uploadRes.json().catch(() => ({}));
+              throw new Error(errData.error || 'Gagal mengunggah gambar ke storage VPS');
             }
+
+            const uploadData = await uploadRes.json();
+            uploadedImageUrl = uploadData.url;
+          } catch (err: any) {
+            throw new Error(err.message || 'Gagal memproses gambar');
           }
         }
 
@@ -803,24 +784,24 @@ export default function EmployeeChatPage() {
 
         const url = '/api/chat';
         const method = isEditing ? 'PUT' : 'POST';
-        const bodyPayload = isEditing 
+        const bodyPayload = isEditing
           ? {
-              id: editingMessage.id,
-              message: textToSend,
-              attribute: selectedAttribute || null,
-              senderName: name,
-              senderRole: 'employee',
-              imageUrl: editingMessage.imageUrl
-            }
+            id: editingMessage.id,
+            message: textToSend,
+            attribute: selectedAttribute || null,
+            senderName: name,
+            senderRole: 'employee',
+            imageUrl: editingMessage.imageUrl
+          }
           : {
-              senderName: name,
-              senderRole: 'employee',
-              message: textToSend,
-              imageUrl: uploadedImageUrl,
-              attribute: selectedAttribute || null,
-              latitude: lat,
-              longitude: lon
-            };
+            senderName: name,
+            senderRole: 'employee',
+            message: textToSend,
+            imageUrl: uploadedImageUrl,
+            attribute: selectedAttribute || null,
+            latitude: lat,
+            longitude: lon
+          };
 
         const res = await fetch(url, {
           method: method,
@@ -846,7 +827,7 @@ export default function EmployeeChatPage() {
         }
 
         const resultMsg = await res.json();
-        
+
         if (isEditing) {
           setMessages(prev => prev.map(m => m.id === resultMsg.id ? resultMsg : m));
           setEditingMessage(null);
@@ -868,7 +849,7 @@ export default function EmployeeChatPage() {
               assignedTo: name
             })
           });
-          
+
           if (checkInRes.ok) {
             await fetchAttributes(true);
           }
@@ -900,18 +881,18 @@ export default function EmployeeChatPage() {
         async (position) => {
           const lat = position.coords.latitude;
           const lon = position.coords.longitude;
-          
+
           // Haversine distance to Burjo Level Up (-7.1538944, 110.4047934)
           const R = 6371e3; // metres
-          const phi1 = lat * Math.PI/180;
-          const phi2 = -7.1538944 * Math.PI/180;
-          const deltaPhi = (-7.1538944 - lat) * Math.PI/180;
-          const deltaLambda = (110.4047934 - lon) * Math.PI/180;
+          const phi1 = lat * Math.PI / 180;
+          const phi2 = -7.1538944 * Math.PI / 180;
+          const deltaPhi = (-7.1538944 - lat) * Math.PI / 180;
+          const deltaLambda = (110.4047934 - lon) * Math.PI / 180;
 
-          const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
-                    Math.cos(phi1) * Math.cos(phi2) *
-                    Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
-          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+            Math.cos(phi1) * Math.cos(phi2) *
+            Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           const distance = R * c;
 
           if (distance > 100) {
@@ -920,12 +901,12 @@ export default function EmployeeChatPage() {
             setIsUploading(false);
             return;
           }
-          
+
           await proceedWithSendMessage(lat, lon);
         },
         async (error) => {
           let errorMessage = 'Gagal mendeteksi lokasi perangkat. ';
-          switch(error.code) {
+          switch (error.code) {
             case error.PERMISSION_DENIED:
               errorMessage += 'Izin akses lokasi ditolak. Harap izinkan akses lokasi (GPS) pada pengaturan browser Anda.';
               break;
@@ -1055,7 +1036,7 @@ export default function EmployeeChatPage() {
             >
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
-            <button 
+            <button
               onClick={() => setShowReservationsModal(true)}
               style={{
                 display: 'flex',
@@ -1083,7 +1064,7 @@ export default function EmployeeChatPage() {
               <span className={styles.userName}>{name}</span>
               <span className={styles.roleBadge}>Karyawan</span>
             </div>
-            <button 
+            <button
               onClick={handleLogoutName}
               className={styles.logoutBtn}
               title="Ganti Nama"
@@ -1178,24 +1159,24 @@ export default function EmployeeChatPage() {
 
                 let showDivider = false;
                 let dividerText = '';
-                
+
                 const currentDateKey = date.toDateString();
                 const prevMsg = index > 0 ? filteredMessages[index - 1] : null;
                 const prevDate = prevMsg ? getValidDate(prevMsg.createdAt) : null;
                 const prevDateKey = prevDate ? prevDate.toDateString() : null;
-                
+
                 if (currentDateKey !== prevDateKey) {
                   showDivider = true;
-                  
+
                   const today = new Date();
                   today.setHours(0, 0, 0, 0);
-                  
+
                   const yesterday = new Date(today);
                   yesterday.setDate(yesterday.getDate() - 1);
-                  
+
                   const compareDate = new Date(date);
                   compareDate.setHours(0, 0, 0, 0);
-                  
+
                   if (compareDate.getTime() === today.getTime()) {
                     dividerText = 'Hari Ini';
                   } else if (compareDate.getTime() === yesterday.getTime()) {
@@ -1212,10 +1193,10 @@ export default function EmployeeChatPage() {
                         <span className={styles.chatDateDividerText}>{dividerText}</span>
                       </div>
                     )}
-                    <div 
+                    <div
                       className={`${styles.messageRow} ${isMe ? styles.myRow : styles.otherRow}`}
                     >
-                      <div 
+                      <div
                         className={`${styles.bubble} ${isMe ? styles.myBubble : styles.otherBubble} ${copiedMessageId === msg.id ? styles.bubbleCopied : ''}`}
                         onTouchStart={(e) => handleTouchStart(e, msg)}
                         onTouchEnd={handleTouchEnd}
@@ -1234,16 +1215,16 @@ export default function EmployeeChatPage() {
                             <div className={styles.messageActions}>
                               {isMe && (
                                 <>
-                                  <button 
-                                    onClick={() => handleEditClick(msg)} 
+                                  <button
+                                    onClick={() => handleEditClick(msg)}
                                     className={styles.actionBtn}
                                     title="Edit Pesan"
                                     type="button"
                                   >
                                     <Pencil size={11} />
                                   </button>
-                                  <button 
-                                    onClick={() => handleDeleteMessage(msg.id)} 
+                                  <button
+                                    onClick={() => handleDeleteMessage(msg.id)}
                                     className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
                                     title="Hapus Pesan"
                                     type="button"
@@ -1253,8 +1234,8 @@ export default function EmployeeChatPage() {
                                 </>
                               )}
                               {msg.message && (
-                                <button 
-                                  onClick={() => handleCopyMessage(msg.id, msg.message)} 
+                                <button
+                                  onClick={() => handleCopyMessage(msg.id, msg.message)}
                                   className={styles.actionBtn}
                                   title="Salin Pesan"
                                   type="button"
@@ -1268,7 +1249,7 @@ export default function EmployeeChatPage() {
 
                         {/* Attribute tag */}
                         {msg.attribute && (
-                          <div 
+                          <div
                             className={styles.attributeTag}
                             style={{ borderColor: getAttributeColor(msg.attribute), color: getAttributeColor(msg.attribute) }}
                           >
@@ -1279,8 +1260,8 @@ export default function EmployeeChatPage() {
 
                         {/* Image inside bubble */}
                         {msg.imageUrl && (
-                          <div 
-                            className={styles.messageImageWrapper} 
+                          <div
+                            className={styles.messageImageWrapper}
                             onClick={() => setActiveLightboxImage(msg.imageUrl || null)}
                           >
                             <img src={msg.imageUrl} alt="Lampiran foto" className={styles.messageImage} />
@@ -1295,9 +1276,9 @@ export default function EmployeeChatPage() {
                         {/* Location Link if present */}
                         {msg.latitude && msg.longitude && (
                           <div style={{ marginTop: '6px', marginBottom: '4px' }}>
-                            <a 
+                            <a
                               href={`https://www.google.com/maps/search/?api=1&query=${msg.latitude},${msg.longitude}`}
-                              target="_blank" 
+                              target="_blank"
                               rel="noopener noreferrer"
                               style={{
                                 display: 'inline-flex',
@@ -1318,7 +1299,7 @@ export default function EmployeeChatPage() {
                             </a>
                           </div>
                         )}
-                        
+
                         {/* Time */}
                         <span className={styles.timeText}>{timeStr}</span>
                       </div>
@@ -1357,9 +1338,9 @@ export default function EmployeeChatPage() {
               <span className={styles.editText}>
                 <Pencil size={12} style={{ marginRight: '6px' }} /> Sedang mengedit pesan...
               </span>
-              <button 
-                type="button" 
-                onClick={handleCancelEdit} 
+              <button
+                type="button"
+                onClick={handleCancelEdit}
                 className={styles.editCancelBtn}
               >
                 Batal
@@ -1400,7 +1381,7 @@ export default function EmployeeChatPage() {
             const simpleOptions = allOptions.filter(o => !o.hasTimeframe);
             const taskOptions = allOptions.filter(o => o.hasTimeframe);
 
-             const toggleSimpleOption = (optText: string) => {
+            const toggleSimpleOption = (optText: string) => {
               const currentText = newMessageText.trim();
               const items = currentText ? currentText.split('\n').map(item => item.trim()).filter(Boolean) : [];
               const index = items.findIndex(item => item.toLowerCase() === optText.toLowerCase());
@@ -1414,7 +1395,7 @@ export default function EmployeeChatPage() {
             };
 
             return (
-              <div 
+              <div
                 style={{
                   padding: '8px 12px',
                   background: 'var(--bg-secondary)',
@@ -1429,7 +1410,7 @@ export default function EmployeeChatPage() {
                       const isSelected = newMessageText
                         ? newMessageText.split('\n').map(item => item.trim().toLowerCase()).includes(opt.text.toLowerCase())
                         : false;
-                      
+
                       return (
                         <button
                           key={opt.id}
@@ -1440,11 +1421,11 @@ export default function EmployeeChatPage() {
                             borderRadius: '16px',
                             fontSize: '0.78rem',
                             fontWeight: 600,
-                            border: isSelected 
-                              ? '1.5px solid var(--primary)' 
+                            border: isSelected
+                              ? '1.5px solid var(--primary)'
                               : '1.5px solid var(--glass-border)',
-                            background: isSelected 
-                              ? 'var(--primary)' 
+                            background: isSelected
+                              ? 'var(--primary)'
                               : 'var(--glass-bg)',
                             color: isSelected ? '#ffffff' : 'var(--foreground)',
                             cursor: 'pointer',
@@ -1466,7 +1447,7 @@ export default function EmployeeChatPage() {
                     {taskOptions.map((task) => {
                       const isTaken = task.status === 'taken';
                       const isMine = isTaken && task.assignedTo === name;
-                      
+
                       let expiryStr = '';
                       if (task.expiryDate) {
                         expiryStr = formatTime(task.expiryDate) + ' ' + formatDateShort(task.expiryDate);
@@ -1543,9 +1524,9 @@ export default function EmployeeChatPage() {
           {imagePreview && (
             <div className={styles.imagePreviewContainer}>
               <img src={imagePreview} alt="Upload preview" className={styles.imagePreview} />
-              <button 
-                type="button" 
-                onClick={handleRemovePreview} 
+              <button
+                type="button"
+                onClick={handleRemovePreview}
                 className={styles.removePreviewBtn}
                 title="Hapus gambar"
               >
@@ -1561,7 +1542,7 @@ export default function EmployeeChatPage() {
 
           <form onSubmit={handleSendMessage} className={styles.inputForm}>
             {/* Attachment Button */}
-            <label 
+            <label
               className={`${styles.attachBtn} ${isSubmitting ? styles.disabledAttachBtn : ''}`}
               style={{ cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
               title="Lampirkan foto"
@@ -1591,8 +1572,8 @@ export default function EmployeeChatPage() {
             />
 
             {/* Send Button */}
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className={styles.sendBtn}
               disabled={(!newMessageText.trim() && !selectedFile) || isSubmitting}
             >
@@ -1603,7 +1584,7 @@ export default function EmployeeChatPage() {
       </div>
 
       {showReservationsModal && (
-        <div 
+        <div
           onClick={() => setShowReservationsModal(false)}
           style={{
             position: 'fixed',
@@ -1620,13 +1601,13 @@ export default function EmployeeChatPage() {
             padding: '16px'
           }}
         >
-          <div 
-            onClick={(e) => e.stopPropagation()} 
-            style={{ 
-              maxWidth: '650px', 
-              width: '100%', 
-              maxHeight: '85vh', 
-              display: 'flex', 
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '650px',
+              width: '100%',
+              maxHeight: '85vh',
+              display: 'flex',
               flexDirection: 'column',
               backgroundColor: 'rgba(10, 10, 22, 0.95)',
               border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -1642,7 +1623,7 @@ export default function EmployeeChatPage() {
                 <CalendarIcon size={20} style={{ color: '#6366f1' }} />
                 <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600, color: '#fff' }}>Daftar Reservasi Pelanggan</h3>
               </div>
-              <button 
+              <button
                 onClick={() => setShowReservationsModal(false)}
                 style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
@@ -1692,7 +1673,8 @@ export default function EmployeeChatPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', gap: '12px' }}>
                   <div style={{ width: '32px', height: '32px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                   <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Memuat data reservasi...</span>
-                  <style dangerouslySetInnerHTML={{__html: `
+                  <style dangerouslySetInnerHTML={{
+                    __html: `
                     @keyframes spin { to { transform: rotate(360deg); } }
                   `}} />
                 </div>
@@ -1748,8 +1730,8 @@ export default function EmployeeChatPage() {
                       };
 
                       return (
-                        <div 
-                          key={res.id} 
+                        <div
+                          key={res.id}
                           style={{
                             background: 'rgba(255, 255, 255, 0.02)',
                             border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -1765,7 +1747,7 @@ export default function EmployeeChatPage() {
                               <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#fff' }}>{res.name}</h4>
                               <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{formattedDate}</span>
                             </div>
-                            <span 
+                            <span
                               style={{
                                 fontSize: '0.7rem',
                                 padding: '3px 8px',
@@ -1809,7 +1791,7 @@ export default function EmployeeChatPage() {
               })()}
             </div>
             <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '12px', marginTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button 
+              <button
                 onClick={() => fetchReservationsForModal()}
                 style={{
                   padding: '8px 14px',
@@ -1823,7 +1805,7 @@ export default function EmployeeChatPage() {
               >
                 Segarkan 🔄
               </button>
-              <button 
+              <button
                 onClick={() => setShowReservationsModal(false)}
                 style={{
                   padding: '8px 14px',
@@ -1856,11 +1838,11 @@ export default function EmployeeChatPage() {
       )}
 
       {activeLightboxImage && (
-        <div 
-          className={styles.lightbox} 
+        <div
+          className={styles.lightbox}
           onClick={() => setActiveLightboxImage(null)}
         >
-          <button 
+          <button
             className={styles.lightboxCloseBtn}
             onClick={() => setActiveLightboxImage(null)}
             type="button"
@@ -1874,21 +1856,21 @@ export default function EmployeeChatPage() {
       )}
 
       {activeContextMenu && (
-        <div 
-          className={styles.contextMenuOverlay} 
+        <div
+          className={styles.contextMenuOverlay}
           onClick={() => setActiveContextMenu(null)}
           onTouchStart={() => setActiveContextMenu(null)}
         >
-          <div 
+          <div
             className={`${styles.contextMenu} glass-panel`}
-            style={{ 
-              top: `${Math.min(activeContextMenu.y, typeof window !== 'undefined' ? window.innerHeight - 80 : 300)}px`, 
-              left: `${Math.min(activeContextMenu.x, typeof window !== 'undefined' ? window.innerWidth - 150 : 150)}px` 
+            style={{
+              top: `${Math.min(activeContextMenu.y, typeof window !== 'undefined' ? window.innerHeight - 80 : 300)}px`,
+              left: `${Math.min(activeContextMenu.x, typeof window !== 'undefined' ? window.innerWidth - 150 : 150)}px`
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button 
-              type="button" 
+            <button
+              type="button"
               className={styles.contextMenuItem}
               onClick={() => {
                 handleCopyMessage(activeContextMenu.messageId, activeContextMenu.text);

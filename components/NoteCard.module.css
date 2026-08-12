@@ -1,18 +1,17 @@
 .card {
   border-radius: var(--border-radius-md);
-  padding: 16px;
+  padding: 12px 14px;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
-  gap: 12px;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   position: relative;
 }
 
 .card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   background: var(--glass-bg-hover);
   border-color: var(--glass-border-active);
   box-shadow: var(--glass-shadow);
@@ -32,20 +31,60 @@
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
+  width: 100%;
+}
+
+.titleArea {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.icon {
+  flex-shrink: 0;
+}
+
+.voiceIcon {
+  color: #a855f7;
+}
+
+.newsIcon {
+  color: #f59e0b;
+}
+
+.defaultIcon {
+  color: #6366f1;
 }
 
 .title {
-  font-size: 0.95rem;
+  font-size: 0.81rem;
   font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--foreground);
-  line-height: 1.4;
+  line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  flex: 1;
+  word-break: break-word;
+}
+
+.activeCard .title {
+  color: #818cf8;
+  font-weight: 700;
+}
+
+.rightActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .deleteBtn {

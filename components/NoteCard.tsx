@@ -1,7 +1,7 @@
 'use strict';
 
 import React from 'react';
-import { Trash2, Calendar } from 'lucide-react';
+import { Trash2, Mic, Newspaper, FileText } from 'lucide-react';
 import styles from './NoteCard.module.css';
 
 interface Note {
@@ -27,27 +27,19 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   onClick,
   onDelete,
 }) => {
-  const getTagClass = (tag: string) => {
-    const t = tag.toLowerCase();
-    if (t.includes('rapat') || t.includes('meet')) return 'rapat';
-    if (t.includes('ide') || t.includes('kreatif') || t.includes('concept')) return 'ide';
-    if (t.includes('tugas') || t.includes('todo') || t.includes('kerja')) return 'tugas';
-    if (t.includes('uang') || t.includes('keuangan') || t.includes('finansial')) return 'keuangan';
-    if (t.includes('pribadi') || t.includes('personal')) return 'pribadi';
-    return 'default';
-  };
+  const isVoiceNote = note.tags?.some(t => t.toLowerCase().includes('voice') || t.toLowerCase().includes('suara')) || note.content?.toLowerCase().includes('transkrip');
+  const isNewsNote = note.tags?.some(t => t.toLowerCase().includes('berita') || t.toLowerCase().includes('news'));
 
   const formatDate = (dateStr: string) => {
     try {
       const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return 'Baru saja';
+      if (isNaN(d.getTime())) return '';
       return d.toLocaleDateString('id-ID', {
         day: 'numeric',
         month: 'short',
-        year: 'numeric',
       });
     } catch (e) {
-      return 'Baru saja';
+      return '';
     }
   };
 
@@ -57,34 +49,29 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       onClick={onClick}
     >
       <div className={styles.header}>
-        <h3 className={styles.title}>{note.title || 'Catatan Tanpa Judul'}</h3>
-        <button
-          className={styles.deleteBtn}
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(e);
-          }}
-          title="Hapus Catatan"
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
-
-      <p className={styles.summary}>
-        {note.summary || (note.content ? note.content.substring(0, 80) + '...' : 'Tidak ada ringkasan.')}
-      </p>
-
-      <div className={styles.footer}>
-        <div className={styles.tagsContainer}>
-          {note.tags && note.tags.slice(0, 2).map((tag, idx) => (
-            <span key={idx} className={`tag-badge ${getTagClass(tag)}`}>
-              {tag}
-            </span>
-          ))}
+        <div className={styles.titleArea}>
+          {isNewsNote ? (
+            <Newspaper size={15} className={`${styles.icon} ${styles.newsIcon}`} />
+          ) : isVoiceNote ? (
+            <Mic size={15} className={`${styles.icon} ${styles.voiceIcon}`} />
+          ) : (
+            <FileText size={15} className={`${styles.icon} ${styles.defaultIcon}`} />
+          )}
+          <h3 className={styles.title}>{note.title || 'Catatan Tanpa Judul'}</h3>
         </div>
-        <span className={styles.date}>
-          {formatDate(note.created_at)}
-        </span>
+        <div className={styles.rightActions}>
+          <span className={styles.date}>{formatDate(note.created_at)}</span>
+          <button
+            className={styles.deleteBtn}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(e);
+            }}
+            title="Hapus Catatan"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
       </div>
     </div>
   );

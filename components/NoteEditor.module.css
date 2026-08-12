@@ -1019,8 +1019,12 @@
 /* Formatting Cards Section */
 .inlineFormatSection {
   margin-top: 4px;
-  text-align: left;
+  text-align: center;
   width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .inlineFormatLabel {
@@ -1030,6 +1034,8 @@
   margin-bottom: 10px;
   text-transform: uppercase;
   letter-spacing: 0.8px;
+  text-align: center;
+  width: 100%;
 }
 
 .inlineFormatGrid {
@@ -1037,6 +1043,7 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .inlineFormatCard {

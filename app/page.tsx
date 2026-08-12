@@ -1313,49 +1313,30 @@ function DashboardContent() {
       try {
         let uploadedImageUrl = null;
 
-        // Compress and upload file to Supabase Storage if selected
+        // Compress and upload file to Local VPS Storage if selected
         if (adminSelectedFile) {
-          const isPlaceholder = !process.env.NEXT_PUBLIC_SUPABASE_URL || 
-                                process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder') || 
-                                (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY && !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
-                                process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY === 'placeholder-key' || 
-                                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === 'placeholder-key';
+          try {
+            const compressedBlob = await compressImageToBlob(adminSelectedFile);
+            const fileExt = adminSelectedFile.name.split('.').pop() || 'jpg';
+            const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
 
-          if (isPlaceholder) {
-            // Mock upload by converting to Base64 data URL for local testing
-            uploadedImageUrl = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.onerror = () => reject(new Error('Gagal membaca file gambar'));
-              reader.readAsDataURL(adminSelectedFile);
+            const formData = new FormData();
+            formData.append('file', compressedBlob, fileName);
+
+            const uploadRes = await fetch('/api/upload', {
+              method: 'POST',
+              body: formData,
             });
-          } else {
-            try {
-              const compressedBlob = await compressImageToBlob(adminSelectedFile);
-              const fileExt = adminSelectedFile.name.split('.').pop() || 'jpg';
-              const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-              const filePath = `${fileName}`;
 
-              const { data, error } = await supabase.storage
-                .from('chat-attachments')
-                .upload(filePath, compressedBlob, {
-                  contentType: 'image/jpeg',
-                  cacheControl: '3600',
-                  upsert: false
-                });
-
-              if (error) {
-                throw new Error(`Gagal mengunggah gambar ke storage: ${error.message}`);
-              }
-
-              const { data: urlData } = supabase.storage
-                .from('chat-attachments')
-                .getPublicUrl(filePath);
-
-              uploadedImageUrl = urlData.publicUrl;
-            } catch (err: any) {
-              throw new Error(err.message || 'Gagal memproses gambar');
+            if (!uploadRes.ok) {
+              const errData = await uploadRes.json().catch(() => ({}));
+              throw new Error(errData.error || 'Gagal mengunggah gambar ke storage VPS');
             }
+
+            const uploadData = await uploadRes.json();
+            uploadedImageUrl = uploadData.url;
+          } catch (err: any) {
+            throw new Error(err.message || 'Gagal memproses gambar');
           }
         }
 
@@ -3837,16 +3818,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                             <h4 className={styles.mobileGroupHeader}>{groupName}</h4>
                             <div className={styles.mobileGroupList}>
                               {groupNotes.map((note) => {
-                                // Count todos progress
-                                let totalTodos = 0;
-                                let completedTodos = 0;
-                                if (note.todo_list && Array.isArray(note.todo_list)) {
-                                  totalTodos = note.todo_list.length;
-                                  completedTodos = note.todo_list.filter((t: any) => typeof t === 'object' ? t.completed : false).length;
-                                }
-
-                                // Check note type
-                                const isVoiceNote = !!note.summary && (note.tags?.some(tag => tag.toLowerCase().includes('voice') || tag.toLowerCase().includes('suara')) || note.content.toLowerCase().includes('transkrip'));
+                                const isVoiceNote = note.tags?.some(tag => tag.toLowerCase().includes('voice') || tag.toLowerCase().includes('suara')) || note.content?.toLowerCase().includes('transkrip');
                                 const isNewsNote = note.tags?.some(tag => tag.toLowerCase().includes('berita') || tag.toLowerCase().includes('news'));
 
                                 return (
@@ -3858,73 +3830,19 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                       setMobileView('editor');
                                     }}
                                   >
-                                    <div className={styles.mobileNoteCardHeader}>
+                                    <div className={styles.mobileNoteTitleArea}>
+                                      {isNewsNote ? (
+                                        <Newspaper size={15} className={`${styles.noteIcon} ${styles.newsIcon}`} />
+                                      ) : isVoiceNote ? (
+                                        <Mic size={15} className={`${styles.noteIcon} ${styles.voiceIcon}`} />
+                                      ) : (
+                                        <FileText size={15} className={`${styles.noteIcon} ${styles.defaultIcon}`} />
+                                      )}
                                       <div className={styles.mobileNoteTitle}>
                                         {note.title || 'Catatan Tanpa Judul'}
                                       </div>
-                                      <span className={styles.mobileNoteDate}>
-                                        {formatDateShort(note.created_at)}
-                                      </span>
                                     </div>
-
-                                    {note.summary && (
-                                      <div className={styles.mobileNoteSummary}>
-                                        {note.summary}
-                                      </div>
-                                    )}
-
-                                    <div className={styles.mobileNoteFooter}>
-                                      <div className={styles.mobileNoteMeta}>
-                                        {/* Display source icon */}
-                                        {isNewsNote ? (
-                                          <span className={styles.sourceIndicator} title="Sumber Berita">
-                                            <Newspaper size={12} style={{ color: 'var(--accent)' }} />
-                                          </span>
-                                        ) : isVoiceNote ? (
-                                          <span className={styles.sourceIndicator} title="Sumber Suara">
-                                            <Mic size={12} style={{ color: 'var(--secondary)' }} />
-                                          </span>
-                                        ) : (
-                                          <span className={styles.sourceIndicator} title="Manual">
-                                            <FileText size={12} style={{ color: 'var(--text-dark)' }} />
-                                          </span>
-                                        )}
-
-                                        {/* Display folder name if folder exists */}
-                                        {note.folder_id && folders.find(f => f.id === note.folder_id) && (
-                                          <span className={styles.folderBadgeSmall}>
-                                            📂 {folders.find(f => f.id === note.folder_id)?.name}
-                                          </span>
-                                        )}
-
-                                        {/* Render tags */}
-                                        {note.tags?.slice(0, 2).map((tag, idx) => {
-                                          const t = tag.toLowerCase();
-                                          let tagClass = 'default';
-                                          if (t.includes('rapat') || t.includes('meet')) tagClass = 'rapat';
-                                          else if (t.includes('ide') || t.includes('kreatif') || t.includes('concept')) tagClass = 'ide';
-                                          else if (t.includes('tugas') || t.includes('todo') || t.includes('kerja')) tagClass = 'tugas';
-                                          else if (t.includes('uang') || t.includes('keuangan') || t.includes('finansial')) tagClass = 'keuangan';
-                                          else if (t.includes('pribadi') || t.includes('personal')) tagClass = 'pribadi';
-
-                                          return (
-                                            <span key={idx} className={`tag-badge ${tagClass}`} style={{ fontSize: '0.62rem', padding: '2px 8px' }}>
-                                              {tag}
-                                            </span>
-                                          );
-                                        })}
-                                      </div>
-
-                                      {/* Todo progress count */}
-                                      {totalTodos > 0 && (
-                                        <div className={styles.todoProgressIndicator} title="Progress Tugas">
-                                          <CheckSquare size={11} />
-                                          <span>
-                                            {completedTodos}/{totalTodos}
-                                          </span>
-                                        </div>
-                                      )}
-                                    </div>
+                                    <span className={styles.mobileNoteDate}>{formatDateShort(note.created_at)}</span>
                                   </button>
                                 );
                               })}
@@ -7327,16 +7245,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                         <h4 className={styles.groupHeader}>{groupName}</h4>
                         <div className={styles.groupList}>
                           {groupNotes.map((note) => {
-                            // Count todos progress
-                            let totalTodos = 0;
-                            let completedTodos = 0;
-                            if (note.todo_list && Array.isArray(note.todo_list)) {
-                              totalTodos = note.todo_list.length;
-                              completedTodos = note.todo_list.filter((t: any) => typeof t === 'object' ? t.completed : false).length;
-                            }
-
-                            // Check note type
-                            const isVoiceNote = !!note.summary && (note.tags?.some(tag => tag.toLowerCase().includes('voice') || tag.toLowerCase().includes('suara')) || note.content.toLowerCase().includes('transkrip'));
+                            const isVoiceNote = note.tags?.some(tag => tag.toLowerCase().includes('voice') || tag.toLowerCase().includes('suara')) || note.content?.toLowerCase().includes('transkrip');
                             const isNewsNote = note.tags?.some(tag => tag.toLowerCase().includes('berita') || tag.toLowerCase().includes('news'));
 
                             return (
@@ -7349,65 +7258,17 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                 }}
                               >
                                 <div className={styles.noteCardHeader}>
-                                  <span className={styles.noteCardTitle}>{note.title || 'Catatan Tanpa Judul'}</span>
-                                  <span className={styles.noteCardDate}>
-                                    {formatDateShort(note.created_at)}
-                                  </span>
-                                </div>
-
-                                {note.summary && (
-                                  <div className={styles.noteCardSummary}>
-                                    {note.summary}
-                                  </div>
-                                )}
-
-                                <div className={styles.noteCardFooter}>
-                                  <div className={styles.noteCardMeta}>
+                                  <div className={styles.noteTitleArea}>
                                     {isNewsNote ? (
-                                      <span className={styles.sourceIndicator} title="Sumber Berita">
-                                        <Newspaper size={12} style={{ color: 'var(--accent)' }} />
-                                      </span>
+                                      <Newspaper size={15} className={`${styles.noteIcon} ${styles.newsIcon}`} />
                                     ) : isVoiceNote ? (
-                                      <span className={styles.sourceIndicator} title="Sumber Suara">
-                                        <Mic size={12} style={{ color: 'var(--secondary)' }} />
-                                      </span>
+                                      <Mic size={15} className={`${styles.noteIcon} ${styles.voiceIcon}`} />
                                     ) : (
-                                      <span className={styles.sourceIndicator} title="Manual">
-                                        <FileText size={12} style={{ color: 'var(--text-dark)' }} />
-                                      </span>
+                                      <FileText size={15} className={`${styles.noteIcon} ${styles.defaultIcon}`} />
                                     )}
-
-                                    {note.folder_id && folders.find(f => f.id === note.folder_id) && (
-                                      <span className={styles.folderBadgeSmall}>
-                                        📂 {folders.find(f => f.id === note.folder_id)?.name}
-                                      </span>
-                                    )}
-
-                                    {note.tags?.slice(0, 1).map((tag, idx) => {
-                                      const t = tag.toLowerCase();
-                                      let tagClass = 'default';
-                                      if (t.includes('rapat') || t.includes('meet')) tagClass = 'rapat';
-                                      else if (t.includes('ide') || t.includes('kreatif') || t.includes('concept')) tagClass = 'ide';
-                                      else if (t.includes('tugas') || t.includes('todo') || t.includes('kerja')) tagClass = 'tugas';
-                                      else if (t.includes('uang') || t.includes('keuangan') || t.includes('finansial')) tagClass = 'keuangan';
-                                      else if (t.includes('pribadi') || t.includes('personal')) tagClass = 'pribadi';
-
-                                      return (
-                                        <span key={idx} className={`tag-badge ${tagClass}`} style={{ fontSize: '0.62rem', padding: '2px 8px' }}>
-                                          {tag}
-                                        </span>
-                                      );
-                                    })}
+                                    <span className={styles.noteCardTitle}>{note.title || 'Catatan Tanpa Judul'}</span>
                                   </div>
-
-                                  {totalTodos > 0 && (
-                                    <div className={styles.todoProgressIndicator} title="Progress Tugas">
-                                      <CheckSquare size={11} />
-                                      <span>
-                                        {completedTodos}/{totalTodos}
-                                      </span>
-                                    </div>
-                                  )}
+                                  <span className={styles.noteCardDate}>{formatDateShort(note.created_at)}</span>
                                 </div>
                               </button>
                             );
@@ -7532,7 +7393,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
               ) : (
                 <div className={styles.calendarNotesScrollList}>
                   {filteredNotes.map((note) => {
-                    const isVoiceNote = !!note.summary && (note.tags?.some(tag => tag.toLowerCase().includes('voice') || tag.toLowerCase().includes('suara')) || note.content.toLowerCase().includes('transkrip'));
+                    const isVoiceNote = note.tags?.some(tag => tag.toLowerCase().includes('voice') || tag.toLowerCase().includes('suara')) || note.content?.toLowerCase().includes('transkrip');
                     const isNewsNote = note.tags?.some(tag => tag.toLowerCase().includes('berita') || tag.toLowerCase().includes('news'));
 
                     return (
@@ -7546,29 +7407,17 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                             setWorkspaceView('editor');
                           }}
                         >
-                          <div className={styles.calendarNoteTitleArea}>
-                            <span className={styles.calendarNoteTitle}>{note.title || 'Catatan Tanpa Judul'}</span>
+                          <div className={styles.noteTitleArea}>
                             {isNewsNote ? (
-                              <Newspaper size={12} style={{ color: 'var(--accent)' }} />
+                              <Newspaper size={15} className={`${styles.noteIcon} ${styles.newsIcon}`} />
                             ) : isVoiceNote ? (
-                              <Mic size={12} style={{ color: 'var(--secondary)' }} />
+                              <Mic size={15} className={`${styles.noteIcon} ${styles.voiceIcon}`} />
                             ) : (
-                              <FileText size={12} style={{ color: 'var(--text-dark)' }} />
+                              <FileText size={15} className={`${styles.noteIcon} ${styles.defaultIcon}`} />
                             )}
+                            <span className={styles.calendarNoteTitle}>{note.title || 'Catatan Tanpa Judul'}</span>
                           </div>
-                          {note.summary && <div className={styles.calendarNoteSummary}>{note.summary}</div>}
-                          <div className={styles.calendarNoteMeta}>
-                            {note.folder_id && folders.find(f => f.id === note.folder_id) && (
-                              <span className={styles.folderBadgeSmall}>
-                                📂 {folders.find(f => f.id === note.folder_id)?.name}
-                              </span>
-                            )}
-                            {note.tags?.slice(0, 1).map((tag, idx) => (
-                              <span key={idx} className={`tag-badge default`} style={{ fontSize: '0.6rem', padding: '1px 6px' }}>
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
+                          <span className={styles.noteCardDate}>{formatDateShort(note.created_at)}</span>
                         </button>
                       </div>
                     );

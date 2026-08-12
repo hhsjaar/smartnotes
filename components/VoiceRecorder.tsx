@@ -860,7 +860,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
               )}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', width: '100%', marginTop: '16px' }}>
               <GlowButton
                 variant="outline"
                 onClick={() => {
@@ -868,11 +868,10 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
                   setStatusMsg('');
                   accumulatedTextRef.current = '';
                   currentFinalRef.current = '';
-                  setFile(null);
                 }}
-                disabled={isLoading}
+                style={{ fontSize: '0.8rem', padding: '8px 16px' }}
               >
-                <Trash2 size={16} /> Reset & Hapus Rekaman
+                🗑️ Reset & Hapus Rekaman
               </GlowButton>
             </div>
           </div>

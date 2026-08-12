@@ -1,18 +1,7 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-function cleanTargetNumber(target: string) {
-  let cleaned = target.replace(/[^0-9]/g, '');
-  if (cleaned.startsWith('0')) {
-    cleaned = '62' + cleaned.substring(1);
-  }
-  return cleaned;
-}
-
-function formatWibTime(date: Date): string {
+function formatWibTime(date) {
   const timeStr = date.toLocaleTimeString('id-ID', {
     timeZone: 'Asia/Jakarta',
     hour: '2-digit',
@@ -22,7 +11,7 @@ function formatWibTime(date: Date): string {
   return timeStr.replace(':', '.');
 }
 
-function normalizeAttributeName(attrName?: string | null): string {
+function normalizeAttributeName(attrName) {
   if (!attrName) return 'Belanja Lain-lain';
   let cleaned = attrName.replace(/["']/g, '').trim();
   const lower = cleaned.toLowerCase();
@@ -32,17 +21,18 @@ function normalizeAttributeName(attrName?: string | null): string {
   if (lower.includes('superindo')) return 'Belanja Superindo';
   if (lower.includes('online')) return 'Belanja Online';
   
+  // Capitalize each word
   return cleaned.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
 }
 
-function getCategoryIcon(attrName?: string | null): string {
+function getCategoryIcon(attrName) {
   const lower = (attrName || '').toLowerCase();
   if (lower.includes('superindo') || lower.includes('lain')) return '🛍️';
   if (lower.includes('online')) return '📦';
   return '🛒';
 }
 
-function formatItemText(text: string): string {
+function formatItemText(text) {
   if (!text) return '';
   let cleaned = text.trim();
   // Strip leading bullet symbols like -, *, •, 1., etc.
@@ -63,25 +53,13 @@ function formatItemText(text: string): string {
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }
 
-export async function sendDailyShoppingReport() {
-  const token = process.env.FONNTE_API_TOKEN;
-  const targetNumber = '+62 878-6333-1042';
-
+async function testReportFormatting() {
   const now = new Date();
   const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  // 1. Find all attributes related to Belanja
+  // 1. Find all ChatAttributes
   const allAttributes = await prisma.chatAttribute.findMany();
-  let targetAttrNames: string[] = [];
-
-  let belanjaanAllAttr = allAttributes.find(a => a.name.toLowerCase() === 'belanjaan all' || a.name.toLowerCase() === 'belanjaan');
-
-  if (belanjaanAllAttr) {
-    targetAttrNames.push(belanjaanAllAttr.name);
-    if (belanjaanAllAttr.isGroup && Array.isArray(belanjaanAllAttr.groupAttributes)) {
-      targetAttrNames.push(...(belanjaanAllAttr.groupAttributes as string[]));
-    }
-  }
+  let targetAttrNames = [];
 
   allAttributes.forEach(attr => {
     if (attr.name.toLowerCase().includes('belanja') && !targetAttrNames.includes(attr.name)) {
@@ -89,7 +67,7 @@ export async function sendDailyShoppingReport() {
     }
   });
 
-  // 2. Fetch Chat Messages strictly from last 24 hours
+  // 2. Fetch ChatMessages from last 24 hours under shopping attributes
   const shoppingMessages = await prisma.chatMessage.findMany({
     where: {
       createdAt: {
@@ -113,9 +91,9 @@ export async function sendDailyShoppingReport() {
     messageText += `Belum ada daftar belanjaan yang dicatat dalam 24 jam terakhir.\n`;
   } else {
     // Group messages by senderName
-    const senderGroups = new Map<string, { senderName: string; senderRole: string; messages: any[] }>();
+    const senderGroups = new Map();
 
-    shoppingMessages.forEach((msg: any) => {
+    shoppingMessages.forEach(msg => {
       const senderKey = (msg.senderName || 'Karyawan').trim();
       if (!senderGroups.has(senderKey)) {
         senderGroups.set(senderKey, {
@@ -124,26 +102,26 @@ export async function sendDailyShoppingReport() {
           messages: []
         });
       }
-      senderGroups.get(senderKey)!.messages.push(msg);
+      senderGroups.get(senderKey).messages.push(msg);
     });
 
-    const senderBlocks: string[] = [];
+    const senderBlocks = [];
 
     for (const [senderName, group] of senderGroups.entries()) {
       const senderNameUpper = senderName.toUpperCase();
       const roleLabel = group.senderRole === 'admin' ? 'Admin' : 'Karyawan';
-
+      
       let senderBlock = `👤 *${senderNameUpper} - ${roleLabel}*\n\n`;
 
-      const msgBlocks: string[] = [];
-      group.messages.forEach((msg: any) => {
+      const msgBlocks = [];
+      group.messages.forEach(msg => {
         const normAttr = normalizeAttributeName(msg.attribute);
         const icon = getCategoryIcon(normAttr);
         const timeStr = formatWibTime(new Date(msg.createdAt));
 
         const rawLines = (msg.message || '').split(/\r?\n/);
-        const itemLines: string[] = [];
-        rawLines.forEach((line: string) => {
+        const itemLines = [];
+        rawLines.forEach(line => {
           const formatted = formatItemText(line);
           if (formatted) {
             itemLines.push(`- ${formatted}`);
@@ -165,61 +143,9 @@ export async function sendDailyShoppingReport() {
     messageText += senderBlocks.join('\n\n');
   }
 
-  // Send WhatsApp if token exists
-  let waSent = false;
-  let waResponse: any = null;
-
-  if (token) {
-    const cleanedTarget = cleanTargetNumber(targetNumber);
-    try {
-      const waRes = await fetch('https://api.fonnte.com/send', {
-        method: 'POST',
-        headers: {
-          'Authorization': token,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          target: cleanedTarget,
-          message: messageText,
-          countryCode: '62',
-        }),
-      });
-
-      waResponse = await waRes.json();
-      waSent = waRes.ok && waResponse.status;
-    } catch (err: any) {
-      console.error('Error sending WhatsApp shopping report:', err);
-      waResponse = { error: err.message };
-    }
-  } else {
-    console.warn('FONNTE_API_TOKEN is not configured for WhatsApp shopping report.');
-  }
-
-  return {
-    success: waSent,
-    targetNumber,
-    messagesCount: shoppingMessages.length,
-    messageText,
-    waResponse
-  };
+  console.log('=== GENERATED WHATSAPP MESSAGE ===\n');
+  console.log(messageText);
+  console.log('\n==================================');
 }
 
-export async function GET() {
-  try {
-    const result = await sendDailyShoppingReport();
-    return NextResponse.json(result);
-  } catch (error: any) {
-    console.error('Error executing shopping report API:', error);
-    return NextResponse.json({ error: error.message || 'Gagal mengirim laporan belanjaan' }, { status: 500 });
-  }
-}
-
-export async function POST() {
-  try {
-    const result = await sendDailyShoppingReport();
-    return NextResponse.json(result);
-  } catch (error: any) {
-    console.error('Error executing shopping report API:', error);
-    return NextResponse.json({ error: error.message || 'Gagal mengirim laporan belanjaan' }, { status: 500 });
-  }
-}
+testReportFormatting().finally(() => prisma.$disconnect());

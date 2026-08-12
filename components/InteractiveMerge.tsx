@@ -115,28 +115,8 @@ export const InteractiveMerge: React.FC<InteractiveMergeProps> = ({
                     >
                       <div className={styles.noteCardHeader}>
                         <span className={styles.noteTitleText}>{note.title || 'Catatan Tanpa Judul'}</span>
-                        <span className={styles.noteTime}>{timeStr}</span>
-                      </div>
-                      
-                      {note.content && (
-                        <p className={styles.noteSnippet}>
-                          {note.content.substring(0, 120)}{note.content.length > 120 ? '...' : ''}
-                        </p>
-                      )}
-                      
-                      <div className={styles.noteMetaRow}>
-                        <div className={styles.leftMeta}>
-                          {note.folder_id && (
-                            <span className={styles.folderTag}>
-                              📂 {folders.find(f => f.id === note.folder_id)?.name || 'Folder'}
-                            </span>
-                          )}
-                          {note.tags && note.tags.slice(0, 2).map((t: string, idx: number) => (
-                            <span key={idx} className={styles.tagBadge}>{t}</span>
-                          ))}
-                        </div>
                         <span className={styles.actionIndicator}>
-                          Buka Catatan <ChevronRight size={14} />
+                          Buka <ChevronRight size={14} />
                         </span>
                       </div>
                     </button>
