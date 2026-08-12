@@ -280,7 +280,7 @@ export default function Home({ hideManifest = false }: { hideManifest?: boolean 
         <div className="spinner" />
       </div>
     }>
-      {!hideManifest && <link rel="manifest" href="/manifest.json?v=2" />}
+      {!hideManifest && <link rel="manifest" href="/manifest.json?v=3" />}
       <HomeContentWrapper />
     </Suspense>
   );
@@ -7808,6 +7808,23 @@ function CustomerReservation() {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
 
+  const brandClickCountRef = useRef(0);
+  const brandClickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleBrandClick = () => {
+    brandClickCountRef.current += 1;
+    if (brandClickTimeoutRef.current) clearTimeout(brandClickTimeoutRef.current);
+
+    if (brandClickCountRef.current >= 5) {
+      window.location.href = '/?admin=true';
+      return;
+    }
+
+    brandClickTimeoutRef.current = setTimeout(() => {
+      brandClickCountRef.current = 0;
+    }, 2000);
+  };
+
   const handleSubmitReservation = async (e: React.FormEvent) => {
     e.preventDefault();
     setResStatus('submitting');
@@ -7856,7 +7873,12 @@ function CustomerReservation() {
       </div>
 
       <div className={styles.custHeader}>
-        <div className={styles.custBrand}>
+        <div 
+          className={styles.custBrand} 
+          onClick={handleBrandClick} 
+          style={{ cursor: 'pointer', userSelect: 'none' }}
+          title="Klik 5x untuk masuk ke Admin"
+        >
           <Sparkles size={24} className={styles.brandIcon} />
           <h1>Reservasi Meja Restoran</h1>
         </div>
