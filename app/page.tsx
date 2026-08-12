@@ -370,8 +370,18 @@ function DashboardContent() {
   };
 
   // Chat Room States
+  const DEFAULT_CHAT_ATTRIBUTES = [
+    { id: 'def-1', name: 'Absen', isGroup: false },
+    { id: 'def-2', name: 'Barang ketinggalan', isGroup: false },
+    { id: 'def-3', name: 'Belanja Lain"', isGroup: false },
+    { id: 'def-4', name: 'Pemasukan', isGroup: false },
+    { id: 'def-5', name: 'Reservasi', isGroup: false },
+    { id: 'def-6', name: 'Umum', isGroup: false },
+    { id: 'def-7', name: 'Bon Karyawan', isGroup: false }
+  ];
+
   const [chatMessages, setChatMessages] = useState<any[]>([]);
-  const [chatAttributes, setChatAttributes] = useState<any[]>([]);
+  const [chatAttributes, setChatAttributes] = useState<any[]>(DEFAULT_CHAT_ATTRIBUTES);
   const [newChatMessage, setNewChatMessage] = useState('');
   const [selectedChatAttribute, setSelectedChatAttribute] = useState('Umum');
   const [chatFilterAttribute, setChatFilterAttribute] = useState('Semua');
@@ -4451,64 +4461,53 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
             {/* Filter Bar */}
             <div className={styles.filterContainer}>
+              <div className={styles.searchBox}>
+                <Search size={14} className={styles.searchIcon} />
+                <input
+                  type="text"
+                  placeholder="Cari chat..."
+                  value={filterAttrSearchQuery}
+                  onChange={(e) => setFilterAttrSearchQuery(e.target.value)}
+                  className={styles.searchInput}
+                />
+                {filterAttrSearchQuery && (
+                  <button 
+                    type="button" 
+                    onClick={() => setFilterAttrSearchQuery('')} 
+                    className={styles.searchClearBtn}
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+
               <span className={styles.filterLabel}>
                 <Filter size={12} style={{ marginRight: '4px' }} /> Filter:
               </span>
 
-              {!showFilterSearch ? (
-                <button
-                  type="button"
-                  onClick={() => setShowFilterSearch(true)}
-                  className={styles.filterSearchToggleBtn}
-                  title="Cari filter"
-                >
-                  <Search size={12} />
-                </button>
-              ) : (
-                <div className={styles.attrSearchWrapper}>
-                  <Search size={11} className={styles.attrSearchIcon} />
-                  <input
-                    type="text"
-                    placeholder="Cari filter..."
-                    className={styles.attrSearchInput}
-                    value={filterAttrSearchQuery}
-                    onChange={(e) => setFilterAttrSearchQuery(e.target.value)}
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    className={styles.attrSearchClearBtn}
-                    onClick={() => {
-                      setFilterAttrSearchQuery('');
-                      setShowFilterSearch(false);
-                    }}
-                  >
-                    <X size={10} />
-                  </button>
-                </div>
-              )}
-
-              {['Semua', ...chatAttributes.map(a => a.name)]
-                .filter(name => name === 'Semua' || name.toLowerCase().includes(filterAttrSearchQuery.toLowerCase()))
-                .map((attrName) => {
-                  const isActive = chatFilterAttribute === attrName;
-                  const color = attrName === 'Semua' ? '#6366f1' : getChatAttributeColor(attrName);
-                  return (
-                    <button
-                      key={attrName}
-                      type="button"
-                      className={`${styles.filterChip} ${isActive ? styles.filterChipActive : ''}`}
-                      onClick={() => setChatFilterAttribute(attrName)}
-                      style={{
-                        borderColor: isActive ? color : 'var(--glass-border)',
-                        color: isActive ? '#fff' : 'var(--text-muted)',
-                        background: isActive ? color : 'rgba(255, 255, 255, 0.03)',
-                      }}
-                    >
-                      {attrName}
-                    </button>
-                  );
-                })}
+              <div className={styles.filterChipsScroll}>
+                {['Semua', ...Array.from(new Set(chatAttributes.map(a => a.name)))]
+                  .filter(name => !filterAttrSearchQuery.trim() || name.toLowerCase().includes(filterAttrSearchQuery.toLowerCase().trim()))
+                  .map((attrName) => {
+                    const isActive = chatFilterAttribute === attrName;
+                    const color = attrName === 'Semua' ? '#6366f1' : getChatAttributeColor(attrName);
+                    return (
+                      <button
+                        key={attrName}
+                        type="button"
+                        className={`${styles.filterChip} ${isActive ? styles.filterChipActive : ''}`}
+                        onClick={() => setChatFilterAttribute(attrName)}
+                        style={{
+                          borderColor: isActive ? color : 'var(--glass-border)',
+                          color: isActive ? '#fff' : 'var(--text-muted)',
+                          background: isActive ? color : 'rgba(255, 255, 255, 0.03)',
+                        }}
+                      >
+                        {attrName}
+                      </button>
+                    );
+                  })}
+              </div>
             </div>
 
             <div className={styles.adminChatArea} ref={adminChatAreaRef} onScroll={handleAdminChatScroll}>
@@ -4762,76 +4761,56 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 </div>
               )}
 
-              <div className={styles.attributeSelectRow}>
-                {!showSelectSearch ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowSelectSearch(true)}
-                    className={styles.attributeSearchToggleBtn}
-                    title="Cari kategori"
-                  >
-                    <Search size={12} />
-                  </button>
-                ) : (
-                  <div className={`${styles.attrSearchWrapper} ${styles.attrSearchWrapperSelect}`}>
-                    <Search size={11} className={styles.attrSearchIcon} />
-                    <input
-                      type="text"
-                      placeholder="Cari..."
-                      className={styles.attrSearchInput}
-                      value={selectAttrSearchQuery}
-                      onChange={(e) => setSelectAttrSearchQuery(e.target.value)}
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      className={styles.attrSearchClearBtn}
-                      onClick={() => {
-                        setSelectAttrSearchQuery('');
-                        setShowSelectSearch(false);
-                      }}
-                    >
-                      <X size={10} />
-                    </button>
-                  </div>
-                )}
-
-                <div className={styles.attributeChipsContainer}>
-                  {chatAttributes
-                    .filter(attr => !attr.isGroup)
-                    .filter(attr => !showSelectSearch || attr.name.toLowerCase().includes(selectAttrSearchQuery.toLowerCase()))
-                    .map((attr) => {
-                      const isActive = selectedChatAttribute === attr.name;
-                      const color = getChatAttributeColor(attr.name);
-                      return (
-                        <button
-                          key={attr.id}
-                          type="button"
-                          className={`${styles.attributeChip} ${isActive ? styles.attributeChipActive : ''}`}
-                          onClick={() => {
-                            setSelectedChatAttribute(attr.name);
-                            if (attr.quickText && attr.quickText.trim()) {
-                              setNewChatMessage(prev => {
-                                if (!prev.trim()) return attr.quickText;
-                                return prev + '\n\n' + attr.quickText;
-                              });
-                              if (adminChatInputRef.current) {
-                                adminChatInputRef.current.focus();
-                              }
-                            }
-                          }}
-                          style={{
-                            borderColor: isActive ? color : 'var(--glass-border)',
-                            color: isActive ? '#fff' : 'var(--text-muted)',
-                            background: isActive ? color : 'rgba(255, 255, 255, 0.03)',
-                          }}
-                        >
-                          <Tag size={10} style={{ marginRight: '4px' }} />
-                          {attr.name}
-                        </button>
-                      );
-                    })}
+              <div className={styles.attributeChipsContainer}>
+                <div className={styles.attrSearchBox}>
+                  <Search size={12} className={styles.attrSearchIcon} />
+                  <input
+                    type="text"
+                    placeholder="Cari atribut..."
+                    value={selectAttrSearchQuery}
+                    onChange={(e) => setSelectAttrSearchQuery(e.target.value)}
+                    className={styles.attrSearchInput}
+                  />
+                  {selectAttrSearchQuery && (
+                    <X size={11} style={{ cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => setSelectAttrSearchQuery('')} />
+                  )}
                 </div>
+
+                {chatAttributes
+                  .filter(attr => !attr.isGroup)
+                  .filter(attr => !selectAttrSearchQuery.trim() || attr.name.toLowerCase().includes(selectAttrSearchQuery.toLowerCase().trim()))
+                  .map((attr) => {
+                    const isActive = selectedChatAttribute === attr.name;
+                    const color = getChatAttributeColor(attr.name);
+                    return (
+                      <button
+                        key={attr.id}
+                        type="button"
+                        className={`${styles.attributeChip} ${isActive ? styles.attributeChipActive : ''}`}
+                        onClick={() => {
+                          setSelectedChatAttribute(attr.name);
+                          if (attr.quickText && attr.quickText.trim()) {
+                            setNewChatMessage(prev => {
+                              if (!prev.trim()) return attr.quickText;
+                              return prev + '\n\n' + attr.quickText;
+                            });
+                            if (adminChatInputRef.current) {
+                              adminChatInputRef.current.focus();
+                            }
+                          }
+                        }}
+                        style={{
+                          borderColor: isActive ? color : 'var(--glass-border)',
+                          color: isActive ? '#fff' : 'var(--text-muted)',
+                          background: isActive ? color : 'rgba(255, 255, 255, 0.03)',
+                        }}
+                      >
+                        <Tag size={10} style={{ marginRight: '4px' }} />
+                        {attr.name}
+                      </button>
+                    );
+                  })
+                }
               </div>
 
               {/* Quick Options for Admin (Pesan Cepat / Pilihan Ganda) */}
