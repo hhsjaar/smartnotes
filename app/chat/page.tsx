@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2, Calendar as CalendarIcon, X, Image, Copy, Check, ArrowDown, Sun, Moon, Camera, Search } from 'lucide-react';
+import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2, Calendar as CalendarIcon, X, Image, Copy, Check, ArrowDown, Sun, Moon, Camera, Search, Download, Smartphone } from 'lucide-react';
 import styles from './page.module.css';
 import { supabase } from '@/lib/supabase';
 import { formatForWhatsApp } from '@/lib/whatsappFormatter';
@@ -265,6 +265,7 @@ export default function EmployeeChatPage() {
   const [reservationsLoading, setReservationsLoading] = useState(false);
   const [resListFilter, setResListFilter] = useState('upcoming');
   const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const [showPwaGuideModal, setShowPwaGuideModal] = useState(false);
   const deferredPrompt = useRef<any>(null);
 
   const chatAreaRef = useRef<HTMLDivElement | null>(null);
@@ -294,16 +295,16 @@ export default function EmployeeChatPage() {
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt.current) return;
-
-    // Store launch target in localStorage so PWA starts at /chat
-    localStorage.setItem('pwa_launch_target', '/chat');
-
-    deferredPrompt.current.prompt();
-    const { outcome } = await deferredPrompt.current.userChoice;
-    console.log(`PWA install outcome: ${outcome}`);
-    deferredPrompt.current = null;
-    setShowInstallBanner(false);
+    if (deferredPrompt.current) {
+      localStorage.setItem('pwa_launch_target', '/chat');
+      deferredPrompt.current.prompt();
+      const { outcome } = await deferredPrompt.current.userChoice;
+      console.log(`PWA install outcome: ${outcome}`);
+      deferredPrompt.current = null;
+      setShowInstallBanner(false);
+    } else {
+      setShowPwaGuideModal(true);
+    }
   };
 
   // Check if name is already set in localStorage
@@ -1080,13 +1081,36 @@ export default function EmployeeChatPage() {
                 fontSize: '0.8rem',
                 fontWeight: 600,
                 transition: 'all 0.2s',
-                marginRight: '12px'
+                marginRight: '8px'
               }}
               title="Daftar Reservasi"
               type="button"
             >
               <CalendarIcon size={14} />
               <span className={styles.btnText}>Reservasi</span>
+            </button>
+            <button
+              onClick={handleInstallClick}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                background: 'rgba(99, 102, 241, 0.15)',
+                border: '1px solid rgba(99, 102, 241, 0.4)',
+                color: '#818cf8',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                transition: 'all 0.2s',
+                marginRight: '12px'
+              }}
+              title="Instal Aplikasi PWA ke Layar HP"
+              type="button"
+            >
+              <Download size={14} />
+              <span className={styles.btnText}>Instal App</span>
             </button>
             <div className={styles.userInfo}>
               <User className={styles.userIcon} />
@@ -1946,6 +1970,63 @@ export default function EmployeeChatPage() {
               <button className={styles.installBtn} onClick={handleInstallClick}>Instal Sekarang</button>
               <button className={styles.closeInstallBtn} onClick={() => setShowInstallBanner(false)}>Tutup</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showPwaGuideModal && (
+        <div className={styles.modalOverlay} onClick={() => setShowPwaGuideModal(false)}>
+          <div className={`${styles.modalCard} glass-panel`} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Smartphone size={22} style={{ color: '#818cf8' }} />
+                <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#fff' }}>Cara Instal Aplikasi Chat</h3>
+              </div>
+              <button type="button" onClick={() => setShowPwaGuideModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '16px', lineHeight: '1.5' }}>
+              Instal aplikasi <strong>Chat Burjolevelup</strong> di layar utama HP Anda agar bisa dibuka kapan saja tanpa membuka browser!
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px solid var(--glass-border)', borderRadius: '10px', padding: '12px 14px' }}>
+                <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#818cf8', marginBottom: '4px' }}>📱 HP Android (Google Chrome)</div>
+                <div style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.4' }}>
+                  1. Klik <strong>titik 3 (⋮)</strong> di pojok kanan atas Chrome.<br/>
+                  2. Pilih <strong>"Instal Aplikasi"</strong> atau <strong>"Tambahkan ke Layar Utama"</strong>.
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px solid var(--glass-border)', borderRadius: '10px', padding: '12px 14px' }}>
+                <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#38bdf8', marginBottom: '4px' }}>🍎 iPhone / iPad (Safari)</div>
+                <div style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.4' }}>
+                  1. Klik tombol <strong>Bagikan (Share)</strong> di bagian bawah Safari.<br/>
+                  2. Pilih <strong>"Tambah ke Layar Utama" (Add to Home Screen)</strong>.
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowPwaGuideModal(false)}
+              style={{
+                width: '100%',
+                marginTop: '20px',
+                padding: '10px',
+                background: 'var(--primary)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                cursor: 'pointer'
+              }}
+            >
+              Saya Mengerti
+            </button>
           </div>
         </div>
       )}
