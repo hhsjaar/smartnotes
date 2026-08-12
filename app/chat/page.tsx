@@ -1718,13 +1718,13 @@ export default function EmployeeChatPage() {
             {/* Chat Text Input */}
             <textarea
               ref={chatInputRef}
-              placeholder="Tulis laporan atau pesan penting..."
+              placeholder="Tulis pesan..."
               value={newMessageText}
               onChange={(e) => setNewMessageText(e.target.value)}
               className={styles.chatInput}
               disabled={isSubmitting}
               required={!selectedFile}
-              rows={2}
+              rows={1}
               style={{ resize: 'none', fontFamily: 'inherit' }}
             />
 
