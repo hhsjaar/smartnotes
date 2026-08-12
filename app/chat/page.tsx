@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2, Calendar as CalendarIcon, X, Image, Copy, Check, ArrowDown, Sun, Moon } from 'lucide-react';
+import { Send, MessageSquare, AlertCircle, User, LogOut, Tag, ArrowRight, Filter, Pencil, Trash2, Calendar as CalendarIcon, X, Image, Copy, Check, ArrowDown, Sun, Moon, Camera } from 'lucide-react';
 import styles from './page.module.css';
 import { supabase } from '@/lib/supabase';
 import { formatForWhatsApp } from '@/lib/whatsappFormatter';
@@ -169,6 +169,8 @@ export default function EmployeeChatPage() {
 
   // Image Upload and Lightbox States & Refs
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -1541,22 +1543,69 @@ export default function EmployeeChatPage() {
           )}
 
           <form onSubmit={handleSendMessage} className={styles.inputForm}>
-            {/* Attachment Button */}
-            <label
-              className={`${styles.attachBtn} ${isSubmitting ? styles.disabledAttachBtn : ''}`}
-              style={{ cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
-              title="Lampirkan foto"
-            >
-              <Image size={20} />
+            {/* Attachment Button & Popover */}
+            <div className={styles.attachMenuWrapper}>
+              {showAttachMenu && (
+                <div className={styles.attachMenuPopover}>
+                  <button
+                    type="button"
+                    className={styles.attachMenuItem}
+                    onClick={() => {
+                      setShowAttachMenu(false);
+                      cameraInputRef.current?.click();
+                    }}
+                  >
+                    <Camera size={16} />
+                    <span>Ambil Foto (Kamera)</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.attachMenuItem}
+                    onClick={() => {
+                      setShowAttachMenu(false);
+                      fileInputRef.current?.click();
+                    }}
+                  >
+                    <Image size={16} />
+                    <span>Pilih dari Galeri</span>
+                  </button>
+                </div>
+              )}
+
+              <button
+                type="button"
+                className={`${styles.attachBtn} ${isSubmitting ? styles.disabledAttachBtn : ''}`}
+                onClick={() => setShowAttachMenu(prev => !prev)}
+                title="Lampirkan foto"
+                disabled={isSubmitting}
+              >
+                <Image size={20} />
+              </button>
+
+              <input
+                type="file"
+                ref={cameraInputRef}
+                onChange={(e) => {
+                  setShowAttachMenu(false);
+                  handleFileChange(e);
+                }}
+                style={{ display: 'none' }}
+                accept="image/*"
+                capture="environment"
+                disabled={isSubmitting}
+              />
               <input
                 type="file"
                 ref={fileInputRef}
-                onChange={handleFileChange}
+                onChange={(e) => {
+                  setShowAttachMenu(false);
+                  handleFileChange(e);
+                }}
                 style={{ display: 'none' }}
                 accept="image/*"
                 disabled={isSubmitting}
               />
-            </label>
+            </div>
 
             {/* Chat Text Input */}
             <textarea

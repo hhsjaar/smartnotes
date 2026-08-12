@@ -917,7 +917,50 @@
   color: #ef4444;
 }
 
-/* Attachment Button */
+/* Attachment Button & Popover Menu */
+.attachMenuWrapper {
+  position: relative;
+}
+
+.attachMenuPopover {
+  position: absolute;
+  bottom: 54px;
+  left: 0;
+  background: var(--bg-card, #1e1b4b);
+  border: 1px solid var(--glass-border, rgba(99, 102, 241, 0.3));
+  border-radius: 12px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  z-index: 50;
+  min-width: 175px;
+  backdrop-filter: blur(12px);
+}
+
+.attachMenuItem {
+  background: transparent;
+  border: none;
+  color: var(--text-main, #e2e8f0);
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.attachMenuItem:hover {
+  background: rgba(99, 102, 241, 0.25);
+  color: #ffffff;
+}
+
 .attachBtn {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--glass-border);
