@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, Square, Upload, Trash2, Sparkles, FileAudio, AlertCircle, FileText, Folder, FolderCheck, List, Shield, Clock } from 'lucide-react';
+import { Mic, Square, Upload, Trash2, Sparkles, FileAudio, AlertCircle, FileText, Folder, FolderCheck, List, Shield, Clock, Pause, Play } from 'lucide-react';
 import { GlowButton } from './ui/GlowButton';
 import styles from './VoiceRecorder.module.css';
 
@@ -53,6 +53,12 @@ function mergeTranscripts(accumulated: string, current: string): string {
   return `${accClean} ${currClean}`;
 }
 
+const formatDuration = (totalSeconds: number): string => {
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+};
+
 interface Folder {
   id: string;
   name: string;
@@ -98,6 +104,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'record' | 'upload'>('record');
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [language, setLanguage] = useState('id-ID');
   const [transcript, setTranscript] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -106,6 +113,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   const [statusMsg, setStatusMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [checkedFolderIds, setCheckedFolderIds] = useState<string[]>([]);
+  const [isPausedDraft, setIsPausedDraft] = useState(false);
 
   // Sync initialCheckedFolderIds prop to state
   useEffect(() => {
@@ -130,8 +138,34 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   const isRecordingRef = useRef(false);
   const accumulatedTextRef = useRef('');
   const currentFinalRef = useRef('');
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [isPausedDraft, setIsPausedDraft] = useState(false);
+  const startTimer = () => {
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    recordingTimerRef.current = setInterval(() => {
+      setRecordingSeconds(prev => prev + 1);
+    }, 1000);
+  };
+
+  const stopTimer = () => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  };
+
+  const saveDraftToStorage = (t: string, s: number, f: string[], p: boolean) => {
+    if (!t || !t.trim()) return;
+    try {
+      localStorage.setItem('smart_voice_notes_recorder_draft', JSON.stringify({
+        transcript: t,
+        seconds: s,
+        checkedFolderIds: f,
+        isPaused: p,
+        timestamp: Date.now()
+      }));
+    } catch (e) {}
+  };
 
   // Load temporary recording draft on mount if available
   useEffect(() => {
@@ -142,6 +176,9 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         if (parsed.transcript && parsed.transcript.trim()) {
           setTranscript(parsed.transcript);
           accumulatedTextRef.current = parsed.transcript;
+          if (typeof parsed.seconds === 'number') {
+            setRecordingSeconds(parsed.seconds);
+          }
           if (parsed.checkedFolderIds && Array.isArray(parsed.checkedFolderIds) && parsed.checkedFolderIds.length > 0) {
             setCheckedFolderIds(parsed.checkedFolderIds);
           }
@@ -155,43 +192,70 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   // Save temporary draft whenever transcript changes
   useEffect(() => {
     if (transcript && transcript.trim().length > 0) {
-      try {
-        localStorage.setItem('smart_voice_notes_recorder_draft', JSON.stringify({
-          transcript,
-          checkedFolderIds,
-          timestamp: Date.now()
-        }));
-      } catch (e) {}
+      saveDraftToStorage(transcript, recordingSeconds, checkedFolderIds, isPausedDraft || !isRecording);
     }
-  }, [transcript, checkedFolderIds]);
+  }, [transcript, recordingSeconds, checkedFolderIds, isPausedDraft, isRecording]);
 
-  // Handle auto-pause when user switches menu, tab, window blur or opens voice assistant
+  // Handle auto-pause when user switches menu, tab, window blur or leaves/refreshes the page
   useEffect(() => {
-    const handlePauseEvent = () => {
+    const handleAutoPause = () => {
       if (isRecordingRef.current) {
         isRecordingRef.current = false;
         setIsRecording(false);
+        stopTimer();
         if (recognitionRef.current) {
           try { recognitionRef.current.stop(); } catch (e) {}
         }
         setIsPausedDraft(true);
-        setStatusMsg('⏸️ Perekaman dipause & tersimpan sementara.');
+        setStatusMsg('⏸️ Perekaman otomatis dipause & tersimpan aman.');
+        
+        const finalAccum = mergeTranscripts(accumulatedTextRef.current, currentFinalRef.current);
+        accumulatedTextRef.current = finalAccum;
+        currentFinalRef.current = '';
+        if (finalAccum) {
+          setTranscript(finalAccum);
+          saveDraftToStorage(finalAccum, recordingSeconds, checkedFolderIds, true);
+        }
       }
     };
 
-    window.addEventListener('pause-voice-recording', handlePauseEvent);
-    window.addEventListener('blur', handlePauseEvent);
-    const handleVisibility = () => {
-      if (document.hidden) handlePauseEvent();
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        handleAutoPause();
+      }
     };
-    document.addEventListener('visibilitychange', handleVisibility);
+
+    window.addEventListener('pause-voice-recording', handleAutoPause);
+    window.addEventListener('pagehide', handleAutoPause);
+    window.addEventListener('beforeunload', handleAutoPause);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      window.removeEventListener('pause-voice-recording', handlePauseEvent);
-      window.removeEventListener('blur', handlePauseEvent);
-      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('pause-voice-recording', handleAutoPause);
+      window.removeEventListener('pagehide', handleAutoPause);
+      window.removeEventListener('beforeunload', handleAutoPause);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      stopTimer();
     };
-  }, []);
+  }, [recordingSeconds, checkedFolderIds]);
+
+  const pauseRecording = () => {
+    setIsRecording(false);
+    isRecordingRef.current = false;
+    setIsPausedDraft(true);
+    stopTimer();
+    
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) {}
+    }
+    
+    const finalAccum = mergeTranscripts(accumulatedTextRef.current, currentFinalRef.current);
+    accumulatedTextRef.current = finalAccum;
+    currentFinalRef.current = '';
+    setTranscript(finalAccum);
+    saveDraftToStorage(finalAccum, recordingSeconds, checkedFolderIds, true);
+    setStatusMsg('⏸️ Perekaman dijeda (tersimpan sementara).');
+  };
 
   const handleResumeRecording = () => {
     setIsPausedDraft(false);
@@ -207,6 +271,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     try {
       setIsRecording(true);
       isRecordingRef.current = true;
+      startTimer();
       setStatusMsg('Melanjutkan perekaman suara...');
       recognitionRef.current.start();
     } catch (err) {
@@ -219,10 +284,12 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       localStorage.removeItem('smart_voice_notes_recorder_draft');
     } catch (e) {}
     setTranscript('');
+    setRecordingSeconds(0);
     accumulatedTextRef.current = '';
     currentFinalRef.current = '';
     setIsPausedDraft(false);
     setStatusMsg('');
+    stopTimer();
   };
 
   // Synchronize isRecording state to ref
@@ -358,8 +425,10 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   const startRecording = async () => {
     setErrorMsg('');
     setTranscript('');
+    setRecordingSeconds(0);
     accumulatedTextRef.current = '';
     currentFinalRef.current = '';
+    setIsPausedDraft(false);
     
     if (!recognitionRef.current) {
       setErrorMsg('Fitur perekaman suara langsung tidak didukung oleh browser Anda. Harap gunakan browser Chrome, Safari, atau Edge, atau gunakan opsi Unggah File.');
@@ -368,23 +437,39 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 
     try {
       setIsRecording(true);
+      isRecordingRef.current = true;
+      startTimer();
       setStatusMsg('Mendengarkan suara Anda...');
       recognitionRef.current.start();
     } catch (err) {
       console.error('Speech recognition start failed:', err);
       setErrorMsg('Gagal memulai perekaman suara. Pastikan Anda telah memberikan izin perekaman.');
       setIsRecording(false);
+      isRecordingRef.current = false;
+      stopTimer();
     }
   };
 
   const stopRecording = () => {
     setIsRecording(false);
-    setStatusMsg('Perekaman selesai. Siap diproses.');
+    isRecordingRef.current = false;
+    setIsPausedDraft(false);
+    stopTimer();
+    
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
       } catch (e) {}
     }
+
+    const finalAccum = mergeTranscripts(accumulatedTextRef.current, currentFinalRef.current);
+    accumulatedTextRef.current = finalAccum;
+    currentFinalRef.current = '';
+    if (finalAccum) {
+      setTranscript(finalAccum);
+      saveDraftToStorage(finalAccum, recordingSeconds, checkedFolderIds, false);
+    }
+    setStatusMsg('Perekaman selesai. Silakan pilih format AI di bawah.');
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -489,6 +574,9 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       const formattedNote = await res.json();
       onFormatted(formattedNote, checkedFolderIds);
       setTranscript('');
+      setRecordingSeconds(0);
+      accumulatedTextRef.current = '';
+      currentFinalRef.current = '';
       setFile(null);
       setIsPausedDraft(false);
       try { localStorage.removeItem('smart_voice_notes_recorder_draft'); } catch (e) {}
@@ -590,59 +678,73 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 
         {activeTab === 'record' ? (
           <>
-            {isPausedDraft && transcript && !isRecording && (
-              <div style={{
-                backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                border: '1px solid rgba(245, 158, 11, 0.4)',
-                borderRadius: '12px',
-                padding: '12px 14px',
-                marginBottom: '15px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f59e0b', fontSize: '0.85rem', fontWeight: 600 }}>
-                  <Clock size={16} />
-                  Perekaman Dipause & Tersimpan Sementara
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--foreground)', opacity: 0.9 }}>
-                  Transkrip rekaman Anda aman tersimpan saat Anda berpindah menu atau AI Assistant.
-                </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
-                  <GlowButton
-                    variant="primary"
-                    onClick={handleResumeRecording}
-                    style={{ padding: '6px 12px', fontSize: '0.8rem' }}
-                  >
-                    ▶️ Lanjutkan Rekaman
-                  </GlowButton>
-                  <GlowButton
-                    variant="secondary"
-                    onClick={() => processFormatting(transcript, 'standard')}
-                    disabled={isLoading}
-                    style={{ padding: '6px 12px', fontSize: '0.8rem' }}
-                  >
-                    ✨ Selesaikan & Format
-                  </GlowButton>
-                  <GlowButton
-                    variant="outline"
-                    onClick={handleClearDraft}
-                    style={{ padding: '6px 12px', fontSize: '0.8rem', color: 'var(--error)' }}
-                  >
-                    🗑️ Hapus Draft
-                  </GlowButton>
-                </div>
-              </div>
-            )}
-
             <div className={styles.recordButtonContainer}>
-              <button
-                className={`${styles.recordBtn} ${isRecording ? styles.recordBtnRecording : ''}`}
-                onClick={isRecording ? stopRecording : startRecording}
-                disabled={isLoading}
-              >
-                {isRecording ? <Square size={36} fill="white" /> : <Mic size={40} />}
-              </button>
+              {isRecording ? (
+                <>
+                  <div className={`${styles.timerBadge} ${styles.timerBadgeRecording}`}>
+                    <span className={styles.pulseDot} />
+                    <span>{formatDuration(recordingSeconds)}</span>
+                  </div>
+
+                  <div className={styles.recordingControlsContainer}>
+                    <button
+                      type="button"
+                      className={`${styles.controlActionBtn} ${styles.pauseBtn}`}
+                      onClick={pauseRecording}
+                      title="Jeda Rekaman"
+                    >
+                      <Pause size={18} fill="currentColor" />
+                      <span>Jeda</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.controlActionBtn} ${styles.stopBtn}`}
+                      onClick={stopRecording}
+                      title="Selesaikan Rekaman"
+                    >
+                      <Square size={18} fill="currentColor" />
+                      <span>Selesai</span>
+                    </button>
+                  </div>
+                </>
+              ) : isPausedDraft ? (
+                <>
+                  <div className={`${styles.timerBadge} ${styles.timerBadgePaused}`}>
+                    <Pause size={14} fill="currentColor" />
+                    <span>{formatDuration(recordingSeconds)} (Dijeda)</span>
+                  </div>
+
+                  <div className={styles.recordingControlsContainer}>
+                    <button
+                      type="button"
+                      className={`${styles.controlActionBtn} ${styles.resumeBtn}`}
+                      onClick={handleResumeRecording}
+                      title="Lanjutkan Rekaman"
+                    >
+                      <Play size={18} fill="currentColor" />
+                      <span>Lanjutkan</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.controlActionBtn} ${styles.stopBtn}`}
+                      onClick={stopRecording}
+                      title="Selesaikan Rekaman"
+                    >
+                      <Square size={18} fill="currentColor" />
+                      <span>Selesai</span>
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <button
+                  className={styles.recordBtn}
+                  onClick={startRecording}
+                  disabled={isLoading}
+                  title="Mulai Merekam"
+                >
+                  <Mic size={40} />
+                </button>
+              )}
             </div>
 
             {/* Waveform visualizer */}
@@ -658,7 +760,11 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
               {isRecording ? (
                 <span className={styles.statusActive}>
                   <span className={styles.pulseDot} />
-                  Perekaman Sedang Berlangsung...
+                  Mendengarkan suara Anda... (Bicara sekarang)
+                </span>
+              ) : isPausedDraft ? (
+                <span style={{ color: '#fbbf24', fontWeight: 500 }}>
+                  Perekaman dijeda. Klik &quot;Lanjutkan&quot; untuk meneruskan atau &quot;Selesai&quot; untuk memformat.
                 </span>
               ) : (
                 statusMsg || 'Tekan tombol mikrofon di atas untuk berbicara'
