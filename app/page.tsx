@@ -375,9 +375,10 @@ function DashboardContent() {
     { id: 'def-2', name: 'Barang ketinggalan', isGroup: false },
     { id: 'def-3', name: 'Belanja Lain"', isGroup: false },
     { id: 'def-4', name: 'Pemasukan', isGroup: false },
-    { id: 'def-5', name: 'Reservasi', isGroup: false },
-    { id: 'def-6', name: 'Umum', isGroup: false },
-    { id: 'def-7', name: 'Bon Karyawan', isGroup: false }
+    { id: 'def-5', name: 'Progres', isGroup: false },
+    { id: 'def-6', name: 'Reservasi', isGroup: false },
+    { id: 'def-7', name: 'Umum', isGroup: false },
+    { id: 'def-8', name: 'Bon Karyawan', isGroup: false }
   ];
 
   const [chatMessages, setChatMessages] = useState<any[]>([]);

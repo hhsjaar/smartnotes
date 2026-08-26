@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import webpush from 'web-push';
 import { sendDailyShoppingReport } from '@/app/api/whatsapp/shopping-report/route';
+import { sendDailyProgressReport } from '@/app/api/whatsapp/progress-report/route';
 
 if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
@@ -364,6 +365,14 @@ export async function GET(request: Request) {
       });
     }
 
+    if (triggerParam === 'progress_report' || triggerParam === 'progress' || triggerParam === 'progres') {
+      const progressReportResult = await sendDailyProgressReport();
+      return NextResponse.json({
+        message: 'Laporan Progres 24 jam terakhir berhasil dipicu.',
+        result: progressReportResult
+      });
+    }
+
     const now = new Date();
 
     // Process Reminders first
@@ -402,6 +411,36 @@ export async function GET(request: Request) {
           data: {
             command: 'daily_shopping_report',
             actionType: 'daily_shopping_report',
+            runAt: now,
+            status: 'completed',
+            payload: reportRes as any
+          }
+        });
+      }
+    }
+
+    // Process Daily Progres Report at 8 AM (Asia/Jakarta)
+    let progressReportResult = null;
+    if (nowJkt.getHours() >= 8) {
+      const existingProgressJob = await prisma.scheduledJob.findFirst({
+        where: {
+          actionType: 'daily_progress_report',
+          created_at: {
+            gte: startOfDayUTC,
+            lte: endOfDayUTC
+          },
+          status: 'completed'
+        }
+      });
+
+      if (!existingProgressJob) {
+        const reportRes = await sendDailyProgressReport();
+        progressReportResult = reportRes;
+
+        await prisma.scheduledJob.create({
+          data: {
+            command: 'daily_progress_report',
+            actionType: 'daily_progress_report',
             runAt: now,
             status: 'completed',
             payload: reportRes as any

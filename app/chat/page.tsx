@@ -33,9 +33,10 @@ const DEFAULT_ATTRIBUTES: ChatAttribute[] = [
   { id: '2', name: 'Barang ketinggalan' },
   { id: '3', name: 'Belanja Lain"' },
   { id: '4', name: 'Pemasukan' },
-  { id: '5', name: 'Reservasi' },
-  { id: '6', name: 'Umum' },
-  { id: '7', name: 'Bon Karyawan' },
+  { id: '5', name: 'Progres' },
+  { id: '6', name: 'Reservasi' },
+  { id: '7', name: 'Umum' },
+  { id: '8', name: 'Bon Karyawan' },
 ];
 
 function formatBoldText(text: string) {
