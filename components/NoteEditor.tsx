@@ -142,6 +142,85 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
     isRecordingRef.current = isRecording;
   }, [isRecording]);
 
+  // Auto-Save States & Tracking Refs
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'error' | null>('saved');
+
+  const initialNoteRef = useRef<Note | null>(note);
+  const noteRef = useRef<Note | null>(note);
+  const titleRef = useRef(title);
+  const contentRef = useRef(content);
+  const summaryRef = useRef(summary);
+  const tagsRef = useRef(tags);
+  const todosRef = useRef(todos);
+  const folderIdRef = useRef(folderId);
+  const isDirtyRef = useRef(false);
+  const isSavingRef = useRef(false);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    titleRef.current = title;
+    contentRef.current = content;
+    summaryRef.current = summary;
+    tagsRef.current = tags;
+    todosRef.current = todos;
+    folderIdRef.current = folderId;
+  }, [title, content, summary, tags, todos, folderId]);
+
+  const saveCurrentNoteSilently = async (useKeepAlive = false) => {
+    const currentNote = noteRef.current;
+    if (!currentNote?.id || !isDirtyRef.current || isSavingRef.current) return;
+
+    isSavingRef.current = true;
+    setAutoSaveStatus('saving');
+
+    const parsedTodos = parseTodosFromContent(contentRef.current);
+    const originalHasMarkdownTodos = parseTodosFromContent(initialNoteRef.current?.content || '').length > 0;
+    const finalTodos = (parsedTodos.length > 0 || originalHasMarkdownTodos) ? parsedTodos : todosRef.current;
+
+    const payload = {
+      id: currentNote.id,
+      title: titleRef.current,
+      content: contentRef.current,
+      summary: summaryRef.current,
+      tags: tagsRef.current,
+      todo_list: finalTodos,
+      folder_id: folderIdRef.current,
+    };
+
+    try {
+      if (useKeepAlive && typeof fetch !== 'undefined') {
+        fetch('/api/notes', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          keepalive: true,
+        }).catch(() => {});
+      } else {
+        await onSave(payload);
+      }
+      isDirtyRef.current = false;
+      setAutoSaveStatus('saved');
+    } catch (err) {
+      console.error('Auto-save failed:', err);
+      setAutoSaveStatus('error');
+    } finally {
+      isSavingRef.current = false;
+    }
+  };
+
+  const markDirtyAndScheduleAutoSave = () => {
+    isDirtyRef.current = true;
+    setAutoSaveStatus('saving');
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      saveCurrentNoteSilently();
+    }, 1500);
+  };
+
   // Speech Recognition hook
   useEffect(() => {
     if (!SpeechRecognition) return;
@@ -420,15 +499,38 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
     }
   }, [isEditing]);
 
-  // Sync state with note prop changes
+  // Debounced auto-save effect
   useEffect(() => {
+    if (!isDirtyRef.current) return;
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      saveCurrentNoteSilently();
+    }, 1500);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [title, content, summary, tags, todos, folderId]);
+
+  // Sync state with note prop changes & save previous note before switching
+  useEffect(() => {
+    if (noteRef.current && noteRef.current.id !== note?.id && isDirtyRef.current) {
+      saveCurrentNoteSilently(true);
+    }
+
+    initialNoteRef.current = note;
+    noteRef.current = note;
+
     if (note) {
       setTitle(note.title || '');
       setContent(note.content || '');
       setSummary(note.summary || '');
       setTags(note.tags || []);
 
-      // Parse todo list to ensure {text, completed} format (markdown content checklist takes precedence if present)
       let parsedTodos: { text: string; completed: boolean }[] = [];
       const markdownTodos = parseTodosFromContent(note.content || '');
       
@@ -447,9 +549,53 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
       setTargetMoveFolderId(note.folder_id || null);
       setIsMoving(false);
       setIsEditing(false);
-      setActiveSubTab('content'); // Reset sub-tab on note switch
+      setActiveSubTab('content');
+
+      isDirtyRef.current = false;
+      setAutoSaveStatus('saved');
     }
   }, [note]);
+
+  // Save on unmount (tab switch / navigating away)
+  useEffect(() => {
+    return () => {
+      if (isDirtyRef.current) {
+        saveCurrentNoteSilently(true);
+      }
+    };
+  }, []);
+
+  // Save on window visibilitychange / pagehide / beforeunload (app close / backgrounding / PWA switch)
+  useEffect(() => {
+    const handleVisibilityOrPageHide = () => {
+      if (document.visibilityState === 'hidden' && isDirtyRef.current) {
+        saveCurrentNoteSilently(true);
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      if (isDirtyRef.current) {
+        saveCurrentNoteSilently(true);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrPageHide);
+    window.addEventListener('pagehide', handleVisibilityOrPageHide);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityOrPageHide);
+      window.removeEventListener('pagehide', handleVisibilityOrPageHide);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
+
+  const handleBackWithAutoSave = async () => {
+    if (isDirtyRef.current) {
+      await saveCurrentNoteSilently();
+    }
+    if (onBack) onBack();
+  };
 
   const handleConfirmMove = () => {
     if (note && onMove) {
@@ -496,6 +642,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
 
     const newText = currentText.substring(0, start) + insertText + currentText.substring(end);
     setContent(newText);
+    markDirtyAndScheduleAutoSave();
 
     setTimeout(() => {
       textarea.focus();
@@ -701,11 +848,13 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
     if (newTag.trim() && !tags.includes(newTag.trim())) {
       setTags([...tags, newTag.trim()]);
       setNewTag('');
+      markDirtyAndScheduleAutoSave();
     }
   };
 
   const removeTag = (tagToRemove: string) => {
     setTags(tags.filter((t) => t !== tagToRemove));
+    markDirtyAndScheduleAutoSave();
   };
 
   const formatDate = (dateStr: string) => {
@@ -880,7 +1029,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
       <div className={styles.header}>
         <div className={styles.headerMainRow}>
           {onBack && (
-            <button className={styles.backBtn} onClick={onBack} title="Kembali ke Daftar">
+            <button className={styles.backBtn} onClick={handleBackWithAutoSave} title="Kembali ke Daftar">
               <ArrowLeft size={20} />
             </button>
           )}
@@ -890,7 +1039,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
                 type="text"
                 className={styles.titleInput}
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  markDirtyAndScheduleAutoSave();
+                }}
                 placeholder="Judul Catatan..."
               />
             ) : (
@@ -969,7 +1121,11 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
               <select
                 className={styles.folderSelect}
                 value={folderId || ''}
-                onChange={(e) => setFolderId(e.target.value || null)}
+                onChange={(e) => {
+                  const val = e.target.value || null;
+                  setFolderId(val);
+                  markDirtyAndScheduleAutoSave();
+                }}
               >
                 <option value="">Tanpa Folder (Umum)</option>
                 {getSortedFolderTree(folders).map((f) => (
@@ -988,6 +1144,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
                       const newFolder = await onCreateFolder(name.trim());
                       if (newFolder) {
                         setFolderId(newFolder.id);
+                        markDirtyAndScheduleAutoSave();
                       }
                     }
                   }}
@@ -1004,6 +1161,28 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
               </span>
             )
           )}
+
+          {/* Auto Save Status Indicator */}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginLeft: 'auto' }}>
+            {autoSaveStatus === 'saving' && (
+              <span style={{ fontSize: '0.72rem', color: '#818cf8', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(99, 102, 241, 0.12)', padding: '2px 8px', borderRadius: '12px' }}>
+                <div className="spinner" style={{ width: '10px', height: '10px', borderWidth: '1.5px' }} />
+                <span>Menyimpan...</span>
+              </span>
+            )}
+            {autoSaveStatus === 'saved' && (
+              <span style={{ fontSize: '0.72rem', color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(16, 185, 129, 0.12)', padding: '2px 8px', borderRadius: '12px' }}>
+                <Check size={12} />
+                <span>Tersimpan otomatis</span>
+              </span>
+            )}
+            {autoSaveStatus === 'error' && (
+              <span style={{ fontSize: '0.72rem', color: '#ef4444', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(239, 68, 68, 0.12)', padding: '2px 8px', borderRadius: '12px' }}>
+                <AlertCircle size={12} />
+                <span>Gagal menyimpan</span>
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1436,7 +1615,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
                     ref={textareaRef}
                     className={styles.textarea}
                     value={content}
-                    onChange={(e) => setContent(e.target.value)}
+                    onChange={(e) => {
+                      setContent(e.target.value);
+                      markDirtyAndScheduleAutoSave();
+                    }}
                     placeholder="Tulis catatan Anda di sini (mendukung Markdown)..."
                   />
                 </div>
