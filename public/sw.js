@@ -1,6 +1,5 @@
-const CACHE_NAME = 'catatanpintar-cache-v2';
+const CACHE_NAME = 'catatanpintar-cache-v3';
 const ASSETS_TO_CACHE = [
-  '/',
   '/manifest.json',
   '/favicon.ico',
   '/icons/icon-192.png',
@@ -35,62 +34,84 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  const { request } = event;
+
   // Only handle GET requests
-  if (event.request.method !== 'GET') return;
+  if (request.method !== 'GET') return;
 
-  // Disable cache in local development to prevent Next.js HMR loop
-  if (self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1') {
-    return;
-  }
+  const url = new URL(request.url);
 
-  // Let browser extensions and Next.js hot-reloads/APIs bypass the SW cache
-  const url = event.request.url;
+  // Only handle same-origin requests
+  if (url.origin !== self.location.origin) return;
+
+  // Never touch the service worker file, APIs, Next.js data or HMR
   if (
-    url.includes('/api/') || 
-    url.includes('/_next/webpack-hmr') || 
-    url.startsWith('chrome-extension:') || 
-    url.includes('extension')
+    url.pathname === '/sw.js' ||
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/_next/data/') ||
+    url.pathname.includes('/_next/webpack-hmr')
   ) {
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Serve from cache and update the cache in the background
-        fetch(event.request)
-          .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(event.request, networkResponse);
-              });
-            }
-          })
-          .catch(() => {});
-        return cachedResponse;
-      }
+  // Disable cache entirely in local development
+  if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+    return;
+  }
 
-      // Fetch from network if not in cache
-      return fetch(event.request)
-        .then((networkResponse) => {
-          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-            return networkResponse;
+  // Anything else under /_next/ (dev chunks, build manifests, dev-only assets)
+  // must always come from the network -- caching these causes stale-chunk loops.
+  if (url.pathname.startsWith('/_next/') && !url.pathname.startsWith('/_next/static/chunks/') && !url.pathname.startsWith('/_next/static/media/')) {
+    return;
+  }
+
+  // Hashed, immutable build assets -> cache-first (filenames change per build)
+  if (url.pathname.startsWith('/_next/static/chunks/') || url.pathname.startsWith('/_next/static/media/')) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) return cached;
+        return fetch(request).then((res) => {
+          if (res && res.status === 200) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           }
-
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-
-          return networkResponse;
-        })
-        .catch((err) => {
-          console.error('[Service Worker] Fetch failed:', err);
-          // If offline and request is for a document, return root app shell as fallback
-          if (event.request.mode === 'navigate') {
-            return caches.match('/');
-          }
+          return res;
         });
+      })
+    );
+    return;
+  }
+
+  // HTML navigations -> network-first so a new deploy is always picked up.
+  // Fall back to the cached page only when offline.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((res) => {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          return res;
+        })
+        .catch(() =>
+          caches.match(request).then((cached) => cached || caches.match('/'))
+        )
+    );
+    return;
+  }
+
+  // Everything else (images, fonts, manifest, icons) -> stale-while-revalidate
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      const network = fetch(request)
+        .then((res) => {
+          if (res && res.status === 200) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return res;
+        })
+        .catch(() => cached);
+      return cached || network;
     })
   );
 });
@@ -150,4 +171,3 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
-
