@@ -136,6 +136,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
   const isRecordingRef = useRef(false);
   const accumulatedTextRef = useRef('');
   const currentFinalRef = useRef('');
+  // Consecutive transient speech-recognition errors — lets us keep
+  // auto-restarting through Chrome's periodic network cutoffs instead of
+  // dying after a few minutes.
+  const speechErrorCountRef = useRef(0);
 
   // Synchronize isRecording state to ref
   useEffect(() => {
@@ -249,6 +253,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
         finalTranscript = finalTranscript.trim();
         currentFinalRef.current = finalTranscript;
 
+        // Results flowing again → service is healthy
+        speechErrorCountRef.current = 0;
+
         const totalFinal = mergeTranscripts(accumulatedTextRef.current, finalTranscript);
         const display = (totalFinal + ' ' + interimTranscript).trim();
         
@@ -258,16 +265,23 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
       rec.onerror = (event: any) => {
         if (recognitionRef.current !== rec) return;
         console.error('Speech recognition error:', event.error);
-        if (event.error === 'not-allowed') {
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
           setErrorMsg('Izin mikrofon ditolak. Silakan aktifkan izin mikrofon di pengaturan browser Anda.');
           setIsRecording(false);
           isRecordingRef.current = false;
-        } else if (event.error === 'no-speech') {
-          // Ignore silence cuts
+          speechErrorCountRef.current = 0;
         } else {
-          setErrorMsg(`Error perekaman: ${event.error}. Silakan coba lagi.`);
-          setIsRecording(false);
-          isRecordingRef.current = false;
+          // Transient errors (network / aborted / no-speech / audio-capture).
+          // Chrome drops the speech connection periodically — keep recording
+          // alive and let onend restart it. This is what used to cap
+          // recordings at a few minutes.
+          speechErrorCountRef.current += 1;
+          if (speechErrorCountRef.current >= 30) {
+            setErrorMsg('Perekaman terhenti karena koneksi ke layanan suara bermasalah. Silakan mulai lagi.');
+            setIsRecording(false);
+            isRecordingRef.current = false;
+            speechErrorCountRef.current = 0;
+          }
         }
       };
 
@@ -279,7 +293,11 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
           const currentFinal = currentFinalRef.current;
           accumulatedTextRef.current = mergeTranscripts(prevAccumulated, currentFinal);
           currentFinalRef.current = '';
-          
+
+          // Back off when recovering from network errors.
+          const restartDelay = speechErrorCountRef.current > 0
+            ? Math.min(300 * speechErrorCountRef.current, 5000)
+            : 100;
           setTimeout(() => {
             if (isRecordingRef.current) {
               try {
@@ -293,7 +311,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
                 console.error('Failed to restart speech recognition:', e);
               }
             }
-          }, 100);
+          }, restartDelay);
         }
       };
 
@@ -316,7 +334,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
     setTranscript('');
     accumulatedTextRef.current = '';
     currentFinalRef.current = '';
-    
+    speechErrorCountRef.current = 0;
+
     if (!recognitionRef.current) {
       setErrorMsg('Fitur perekaman suara langsung tidak didukung oleh browser Anda.');
       return;

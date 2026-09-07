@@ -139,20 +139,32 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   const accumulatedTextRef = useRef('');
   const currentFinalRef = useRef('');
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Counts consecutive transient speech-recognition errors so we can keep
+  // auto-restarting through Chrome's periodic network/aborted cutoffs
+  // (which is what used to kill long recordings after a few minutes).
+  const speechErrorCountRef = useRef(0);
+  // Live mirrors of state so the auto-pause listeners can stay mounted once
+  // (previously they re-subscribed every second, which also cleared the timer).
+  const recordingSecondsRef = useRef(0);
+  const checkedFolderIdsRef = useRef<string[]>([]);
 
-  const startTimer = () => {
-    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
-    recordingTimerRef.current = setInterval(() => {
+  useEffect(() => { recordingSecondsRef.current = recordingSeconds; }, [recordingSeconds]);
+  useEffect(() => { checkedFolderIdsRef.current = checkedFolderIds; }, [checkedFolderIds]);
+
+  // Duration counter — driven purely by isRecording so it can never be left
+  // running or get cleared by an unrelated effect re-render.
+  useEffect(() => {
+    if (!isRecording) return;
+    const id = setInterval(() => {
       setRecordingSeconds(prev => prev + 1);
     }, 1000);
-  };
+    return () => clearInterval(id);
+  }, [isRecording]);
 
-  const stopTimer = () => {
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
-  };
+  // Timer is now driven by the isRecording effect above. These remain as
+  // harmless no-ops so the existing call sites don't need to change.
+  const startTimer = () => {};
+  const stopTimer = () => {};
 
   const saveDraftToStorage = (t: string, s: number, f: string[], p: boolean) => {
     if (!t || !t.trim()) return;
@@ -214,7 +226,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         currentFinalRef.current = '';
         if (finalAccum) {
           setTranscript(finalAccum);
-          saveDraftToStorage(finalAccum, recordingSeconds, checkedFolderIds, true);
+          saveDraftToStorage(finalAccum, recordingSecondsRef.current, checkedFolderIdsRef.current, true);
         }
       }
     };
@@ -237,7 +249,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       stopTimer();
     };
-  }, [recordingSeconds, checkedFolderIds]);
+  }, []);
 
   const pauseRecording = () => {
     setIsRecording(false);
@@ -262,6 +274,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     setErrorMsg('');
     accumulatedTextRef.current = transcript;
     currentFinalRef.current = '';
+    speechErrorCountRef.current = 0;
     
     if (!recognitionRef.current) {
       setErrorMsg('Fitur perekaman suara langsung tidak didukung oleh browser Anda.');
@@ -331,6 +344,9 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         finalTranscript = finalTranscript.trim();
         currentFinalRef.current = finalTranscript;
 
+        // Got results back → the recognition service is healthy again
+        speechErrorCountRef.current = 0;
+
         // Combine previously accumulated text with current session's final and interim text using overlap resolution
         const totalFinal = mergeTranscripts(accumulatedTextRef.current, finalTranscript);
         const display = (totalFinal + ' ' + interimTranscript).trim();
@@ -342,16 +358,33 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         if (recognitionRef.current !== rec) return;
 
         console.error('Speech recognition error:', event.error);
-        if (event.error === 'not-allowed') {
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          // Permission genuinely denied — stop for real.
           setErrorMsg('Izin mikrofon ditolak. Silakan aktifkan izin mikrofon di pengaturan browser Anda.');
           setIsRecording(false);
           isRecordingRef.current = false;
-        } else if (event.error === 'no-speech') {
-          // Don't show critical error for silent breaks, just restart in onend
+          speechErrorCountRef.current = 0;
         } else {
-          setErrorMsg(`Error perekaman: ${event.error}. Silakan coba lagi.`);
-          setIsRecording(false);
-          isRecordingRef.current = false;
+          // Transient errors (network, aborted, no-speech, audio-capture).
+          // Chrome's speech service drops the connection periodically — this is
+          // what previously capped recordings at a few minutes. Keep the
+          // recording alive and let onend restart it automatically.
+          speechErrorCountRef.current += 1;
+          if (speechErrorCountRef.current >= 30) {
+            // Something is persistently wrong — give up gracefully.
+            setErrorMsg('Perekaman terhenti karena koneksi ke layanan suara bermasalah. Silakan lanjutkan kembali.');
+            setIsRecording(false);
+            isRecordingRef.current = false;
+            setIsPausedDraft(true);
+            speechErrorCountRef.current = 0;
+            const finalAccum = mergeTranscripts(accumulatedTextRef.current, currentFinalRef.current);
+            accumulatedTextRef.current = finalAccum;
+            currentFinalRef.current = '';
+            if (finalAccum) {
+              setTranscript(finalAccum);
+              saveDraftToStorage(finalAccum, recordingSeconds, checkedFolderIds, true);
+            }
+          }
         }
       };
 
@@ -368,6 +401,10 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
           
           // Use a small timeout to let the SpeechRecognition instance fully clean up before starting again.
           // This prevents InvalidStateError on Android Chrome when restarting.
+          // Back off progressively when recovering from network errors so we don't hammer the service.
+          const restartDelay = speechErrorCountRef.current > 0
+            ? Math.min(300 * speechErrorCountRef.current, 5000)
+            : 100;
           setTimeout(() => {
             if (isRecordingRef.current) {
               try {
@@ -384,7 +421,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
                 console.error('Failed to restart speech recognition:', e);
               }
             }
-          }, 100);
+          }, restartDelay);
         }
       };
 
@@ -428,8 +465,9 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     setRecordingSeconds(0);
     accumulatedTextRef.current = '';
     currentFinalRef.current = '';
+    speechErrorCountRef.current = 0;
     setIsPausedDraft(false);
-    
+
     if (!recognitionRef.current) {
       setErrorMsg('Fitur perekaman suara langsung tidak didukung oleh browser Anda. Harap gunakan browser Chrome, Safari, atau Edge, atau gunakan opsi Unggah File.');
       return;
