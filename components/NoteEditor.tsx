@@ -192,6 +192,17 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
       folder_id: folderIdRef.current,
     };
 
+    // Snapshot of exactly what we're about to persist. If the user keeps typing
+    // while the request is in flight, the refs will have moved past this and we
+    // must NOT mark the note clean — otherwise those keystrokes never get saved.
+    const savedSnapshot = JSON.stringify([
+      payload.title,
+      payload.content,
+      payload.summary,
+      payload.tags,
+      payload.folder_id,
+    ]);
+
     try {
       if (useKeepAlive && typeof fetch !== 'undefined') {
         fetch('/api/notes', {
@@ -203,8 +214,28 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
       } else {
         await onSave(payload);
       }
-      isDirtyRef.current = false;
-      setAutoSaveStatus('saved');
+
+      const currentSnapshot = JSON.stringify([
+        titleRef.current,
+        contentRef.current,
+        summaryRef.current,
+        tagsRef.current,
+        folderIdRef.current,
+      ]);
+
+      if (currentSnapshot === savedSnapshot) {
+        isDirtyRef.current = false;
+        setAutoSaveStatus('saved');
+      } else {
+        // More edits landed mid-save — stay dirty and reschedule so the
+        // newest text is written on the next debounce tick.
+        isDirtyRef.current = true;
+        setAutoSaveStatus('saving');
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = setTimeout(() => {
+          saveCurrentNoteSilently();
+        }, 1500);
+      }
     } catch (err) {
       console.error('Auto-save failed:', err);
       setAutoSaveStatus('error');
@@ -535,44 +566,68 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
     };
   }, [title, content, summary, tags, todos, folderId]);
 
-  // Sync state with note prop changes & save previous note before switching
+  // Sync state with note prop changes & save previous note before switching.
+  //
+  // IMPORTANT: only do a full state re-sync when we've actually switched to a
+  // DIFFERENT note (id changed). The parent calls setSelectedNote(data) with a
+  // fresh object after every auto-save, so this effect also fires on the note
+  // we're currently editing — if we blindly re-ran the resync there, it would
+  // yank the user out of edit mode and overwrite the textarea (losing anything
+  // typed while the save was in flight). While the id is unchanged we leave all
+  // editor state alone so the user can keep typing straight through an autosave.
   useEffect(() => {
-    if (noteRef.current && noteRef.current.id !== note?.id && isDirtyRef.current) {
+    const prevNote = noteRef.current;
+    const isDifferentNote = prevNote?.id !== note?.id;
+
+    if (prevNote && isDifferentNote && isDirtyRef.current) {
       saveCurrentNoteSilently(true);
     }
 
-    initialNoteRef.current = note;
     noteRef.current = note;
 
-    if (note) {
-      setTitle(note.title || '');
-      setContent(note.content || '');
-      setSummary(note.summary || '');
-      setTags(note.tags || []);
-
-      let parsedTodos: { text: string; completed: boolean }[] = [];
-      const markdownTodos = parseTodosFromContent(note.content || '');
-      
-      if (markdownTodos.length > 0) {
-        parsedTodos = markdownTodos;
-      } else if (note.todo_list) {
-        parsedTodos = (note.todo_list as any[]).map((item) => {
-          if (typeof item === 'string') {
-            return { text: item, completed: false };
-          }
-          return { text: item.text || '', completed: !!item.completed };
-        });
-      }
-      setTodos(parsedTodos);
-      setFolderId(note.folder_id || null);
-      setTargetMoveFolderId(note.folder_id || null);
-      setIsMoving(false);
-      setIsEditing(false);
-      setActiveSubTab('content');
-
-      isDirtyRef.current = false;
-      setAutoSaveStatus('saved');
+    if (!note) {
+      initialNoteRef.current = note;
+      return;
     }
+
+    if (!isDifferentNote) {
+      // Same note, re-emitted by the parent (typically right after our own
+      // autosave). Refresh the diff baseline only when we have no pending
+      // local edits; never touch editing mode, the textarea, sub-tab, etc.
+      if (!isDirtyRef.current) {
+        initialNoteRef.current = note;
+      }
+      return;
+    }
+
+    initialNoteRef.current = note;
+    setTitle(note.title || '');
+    setContent(note.content || '');
+    setSummary(note.summary || '');
+    setTags(note.tags || []);
+
+    let parsedTodos: { text: string; completed: boolean }[] = [];
+    const markdownTodos = parseTodosFromContent(note.content || '');
+
+    if (markdownTodos.length > 0) {
+      parsedTodos = markdownTodos;
+    } else if (note.todo_list) {
+      parsedTodos = (note.todo_list as any[]).map((item) => {
+        if (typeof item === 'string') {
+          return { text: item, completed: false };
+        }
+        return { text: item.text || '', completed: !!item.completed };
+      });
+    }
+    setTodos(parsedTodos);
+    setFolderId(note.folder_id || null);
+    setTargetMoveFolderId(note.folder_id || null);
+    setIsMoving(false);
+    setIsEditing(false);
+    setActiveSubTab('content');
+
+    isDirtyRef.current = false;
+    setAutoSaveStatus('saved');
   }, [note]);
 
   // Save on unmount (tab switch / navigating away)
@@ -1435,7 +1490,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
                       ref={textareaRef}
                       className={styles.textarea}
                       value={content}
-                      onChange={(e) => setContent(e.target.value)}
+                      onChange={(e) => {
+                        setContent(e.target.value);
+                        markDirtyAndScheduleAutoSave();
+                      }}
                       placeholder="Tulis catatan Anda di sini (mendukung Markdown)..."
                     />
                   </div>
