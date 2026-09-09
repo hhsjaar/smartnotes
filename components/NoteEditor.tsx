@@ -159,6 +159,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
   const folderIdRef = useRef(folderId);
   const isDirtyRef = useRef(false);
   const isSavingRef = useRef(false);
+  const isEditingRef = useRef(isEditing);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Keep refs in sync with state
@@ -169,7 +170,22 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
     tagsRef.current = tags;
     todosRef.current = todos;
     folderIdRef.current = folderId;
-  }, [title, content, summary, tags, todos, folderId]);
+    isEditingRef.current = isEditing;
+  }, [title, content, summary, tags, todos, folderId, isEditing]);
+
+  // Turn a note's stored todo_list / markdown checkboxes into editor todo state.
+  const deriveTodos = (n: Note): { text: string; completed: boolean }[] => {
+    const markdownTodos = parseTodosFromContent(n.content || '');
+    if (markdownTodos.length > 0) return markdownTodos;
+    if (n.todo_list) {
+      return (n.todo_list as any[]).map((item) =>
+        typeof item === 'string'
+          ? { text: item, completed: false }
+          : { text: item.text || '', completed: !!item.completed }
+      );
+    }
+    return [];
+  };
 
   const saveCurrentNoteSilently = async (useKeepAlive = false) => {
     const currentNote = noteRef.current;
@@ -566,15 +582,18 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
     };
   }, [title, content, summary, tags, todos, folderId]);
 
-  // Sync state with note prop changes & save previous note before switching.
+  // Sync editor state with the `note` prop.
   //
-  // IMPORTANT: only do a full state re-sync when we've actually switched to a
-  // DIFFERENT note (id changed). The parent calls setSelectedNote(data) with a
-  // fresh object after every auto-save, so this effect also fires on the note
-  // we're currently editing — if we blindly re-ran the resync there, it would
-  // yank the user out of edit mode and overwrite the textarea (losing anything
-  // typed while the save was in flight). While the id is unchanged we leave all
-  // editor state alone so the user can keep typing straight through an autosave.
+  // Three cases, because the parent calls setSelectedNote(data) with a fresh
+  // object on every save AND on background list refreshes — so this effect
+  // fires far more often than "the user opened another note":
+  //
+  //  1. Different note (id changed)  -> full reset, drop out of edit mode.
+  //  2. Same note, NOT editing       -> refresh the displayed content from the
+  //     new object (this is how a note's body shows up once the list finishes
+  //     loading, and how external edits appear while you're just viewing).
+  //  3. Same note, currently editing -> leave every editor field untouched so
+  //     an autosave round-trip can't yank the textarea or the cursor.
   useEffect(() => {
     const prevNote = noteRef.current;
     const isDifferentNote = prevNote?.id !== note?.id;
@@ -590,41 +609,34 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
       return;
     }
 
-    if (!isDifferentNote) {
-      // Same note, re-emitted by the parent (typically right after our own
-      // autosave). Refresh the diff baseline only when we have no pending
-      // local edits; never touch editing mode, the textarea, sub-tab, etc.
-      if (!isDirtyRef.current) {
-        initialNoteRef.current = note;
-      }
+    // Case 3: mid-edit re-emit of the same note — do nothing.
+    if (!isDifferentNote && isEditingRef.current) {
+      if (!isDirtyRef.current) initialNoteRef.current = note;
       return;
     }
 
+    // Case 3b: same note, not editing, but we still have an unsaved local
+    // change queued (e.g. a tag/folder tweak). Don't clobber it.
+    if (!isDifferentNote && isDirtyRef.current) {
+      return;
+    }
+
+    // Cases 1 & 2: safe to pull content in from the prop.
     initialNoteRef.current = note;
     setTitle(note.title || '');
     setContent(note.content || '');
     setSummary(note.summary || '');
     setTags(note.tags || []);
-
-    let parsedTodos: { text: string; completed: boolean }[] = [];
-    const markdownTodos = parseTodosFromContent(note.content || '');
-
-    if (markdownTodos.length > 0) {
-      parsedTodos = markdownTodos;
-    } else if (note.todo_list) {
-      parsedTodos = (note.todo_list as any[]).map((item) => {
-        if (typeof item === 'string') {
-          return { text: item, completed: false };
-        }
-        return { text: item.text || '', completed: !!item.completed };
-      });
-    }
-    setTodos(parsedTodos);
+    setTodos(deriveTodos(note));
     setFolderId(note.folder_id || null);
     setTargetMoveFolderId(note.folder_id || null);
-    setIsMoving(false);
-    setIsEditing(false);
-    setActiveSubTab('content');
+
+    if (isDifferentNote) {
+      // Only a real note switch resets view-level UI.
+      setIsMoving(false);
+      setIsEditing(false);
+      setActiveSubTab('content');
+    }
 
     isDirtyRef.current = false;
     setAutoSaveStatus('saved');
