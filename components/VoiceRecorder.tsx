@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, Square, Upload, Trash2, Sparkles, FileAudio, AlertCircle, FileText, Folder, FolderCheck, List, Shield, Clock, Pause, Play } from 'lucide-react';
+import { Mic, Square, Upload, Trash2, Sparkles, FileAudio, AlertCircle, FileText, Folder, FolderCheck, List, Shield, Clock, Pause, Play, Type, ClipboardPaste } from 'lucide-react';
 import { GlowButton } from './ui/GlowButton';
 import styles from './VoiceRecorder.module.css';
 
@@ -102,11 +102,14 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   autoStart, 
   onAutoStartTriggered 
 }) => {
-  const [activeTab, setActiveTab] = useState<'record' | 'upload'>('record');
+  const [activeTab, setActiveTab] = useState<'record' | 'upload' | 'text'>('record');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [language, setLanguage] = useState('id-ID');
   const [transcript, setTranscript] = useState('');
+  // Raw text pasted/typed in the "Input Teks" tab — a separate source from the
+  // voice transcript so switching tabs never mixes the two up.
+  const [pastedText, setPastedText] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingType, setLoadingType] = useState<'standard' | 'laporan' | 'intel' | 'poin' | null>(null);
@@ -533,6 +536,29 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     }
   };
 
+  // Reads the system clipboard and drops its raw text into the "Input Teks"
+  // box. navigator.clipboard.readText() needs a user gesture + clipboard-read
+  // permission and isn't available on every browser (notably some mobile
+  // browsers) — falls back to a clear message telling the user to paste
+  // manually (Ctrl+V / long-press → Tempel) into the textarea instead.
+  const handlePasteFromClipboard = async () => {
+    setErrorMsg('');
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.readText) {
+        throw new Error('Browser ini tidak mendukung tempel otomatis dari clipboard. Silakan tempel manual (Ctrl+V, atau tekan lama lalu pilih Tempel) di kotak teks di bawah.');
+      }
+      const clipboardText = await navigator.clipboard.readText();
+      if (!clipboardText || !clipboardText.trim()) {
+        setErrorMsg('Clipboard kosong atau tidak berisi teks.');
+        return;
+      }
+      setPastedText((prev) => (prev.trim() ? `${prev}\n\n${clipboardText}` : clipboardText));
+      setStatusMsg('Teks dari clipboard berhasil ditempel.');
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Gagal membaca clipboard. Coba tempel manual (Ctrl+V) di kotak teks.');
+    }
+  };
+
   const processTranscription = async (formatType: 'standard' | 'laporan' | 'intel' | 'poin' = 'standard') => {
     if (!file) return;
     
@@ -612,6 +638,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       const formattedNote = await res.json();
       onFormatted(formattedNote, checkedFolderIds);
       setTranscript('');
+      setPastedText('');
       setRecordingSeconds(0);
       accumulatedTextRef.current = '';
       currentFinalRef.current = '';
@@ -675,6 +702,14 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
             style={{ flex: 1, padding: '8px 12px', fontSize: '0.8rem' }}
           >
             Unggah File Audio
+          </GlowButton>
+          <GlowButton
+            variant={activeTab === 'text' ? 'primary' : 'outline'}
+            onClick={() => setActiveTab('text')}
+            disabled={isRecording || isLoading}
+            style={{ flex: 1, padding: '8px 12px', fontSize: '0.8rem' }}
+          >
+            Input Teks
           </GlowButton>
         </div>
 
@@ -809,7 +844,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
               )}
             </div>
           </>
-        ) : (
+        ) : activeTab === 'upload' ? (
           <>
             {!file ? (
               <div
@@ -846,10 +881,49 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
             )}
             <div className={styles.statusText}>{statusMsg || 'Pilih berkas audio Anda lalu klik Format AI'}</div>
           </>
+        ) : (
+          <>
+            <div className={styles.textInputToolbar}>
+              <span className={styles.textInputCount}>
+                {pastedText.trim() ? `${pastedText.trim().split(/\s+/).length} kata · ${pastedText.length} karakter` : 'Belum ada teks'}
+              </span>
+              <div className={styles.textInputActions}>
+                <button
+                  type="button"
+                  className={styles.pasteClipboardBtn}
+                  onClick={handlePasteFromClipboard}
+                  disabled={isLoading}
+                  title="Tempel teks dari clipboard"
+                >
+                  <ClipboardPaste size={14} />
+                  <span>Tempel dari Clipboard</span>
+                </button>
+                {pastedText && (
+                  <button
+                    type="button"
+                    className={styles.clearTextBtn}
+                    onClick={() => setPastedText('')}
+                    disabled={isLoading}
+                    title="Kosongkan teks"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+            <textarea
+              className={styles.textInputTextarea}
+              value={pastedText}
+              onChange={(e) => setPastedText(e.target.value)}
+              disabled={isLoading}
+              placeholder="Tempel (Ctrl+V) atau ketik teks mentah di sini — mendukung teks yang sangat panjang, nanti diparafrase AI di dalam aplikasi..."
+            />
+            <div className={styles.statusText}>{statusMsg || 'Tempel/tulis teks lalu pilih gaya parafrase AI di bawah'}</div>
+          </>
         )}
 
-        {/* Real-time transcript preview */}
-        {transcript && (
+        {/* Real-time transcript preview (voice tab only — text tab already shows its own textarea above) */}
+        {activeTab !== 'text' && transcript && (
           <div className={styles.transcriptArea}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-dark)', marginBottom: '5px', fontWeight: 'bold' }}>
               TRANSKRIP SEMENTARA (MENTAH):
@@ -879,15 +953,15 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         )}
 
         {/* Bottom Actions */}
-        {transcript && !isRecording && (
+        {((activeTab === 'text' ? pastedText : transcript) && !isRecording) && (
           <div className={styles.formatPanel}>
             <div className={styles.formatPanelTitle}>PILIH GAYA PARAFRASE AI</div>
             <div className={styles.formatGrid}>
-              {activeTab === 'record' ? (
+              {activeTab !== 'upload' ? (
                 <>
                   <button
                     className={`${styles.formatCard} ${loadingType === 'standard' ? styles.formatCardLoading : ''}`}
-                    onClick={() => processFormatting('', 'standard')}
+                    onClick={() => processFormatting(activeTab === 'text' ? pastedText : '', 'standard')}
                     disabled={isLoading}
                   >
                     <div className={styles.formatIcon} style={{ background: 'rgba(236, 72, 153, 0.15)', color: '#ec4899' }}>
@@ -901,7 +975,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 
                   <button
                     className={`${styles.formatCard} ${loadingType === 'poin' ? styles.formatCardLoading : ''}`}
-                    onClick={() => processFormatting('', 'poin')}
+                    onClick={() => processFormatting(activeTab === 'text' ? pastedText : '', 'poin')}
                     disabled={isLoading}
                   >
                     <div className={styles.formatIcon} style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' }}>
@@ -915,7 +989,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 
                   <button
                     className={`${styles.formatCard} ${loadingType === 'laporan' ? styles.formatCardLoading : ''}`}
-                    onClick={() => processFormatting('', 'laporan')}
+                    onClick={() => processFormatting(activeTab === 'text' ? pastedText : '', 'laporan')}
                     disabled={isLoading}
                   >
                     <div className={styles.formatIcon} style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>
@@ -929,7 +1003,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 
                   <button
                     className={`${styles.formatCard} ${loadingType === 'intel' ? styles.formatCardLoading : ''}`}
-                    onClick={() => processFormatting('', 'intel')}
+                    onClick={() => processFormatting(activeTab === 'text' ? pastedText : '', 'intel')}
                     disabled={isLoading}
                   >
                     <div className={styles.formatIcon} style={{ background: 'rgba(249, 115, 22, 0.15)', color: '#f97316' }}>
@@ -1009,13 +1083,14 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
                 variant="outline"
                 onClick={() => {
                   setTranscript('');
+                  setPastedText('');
                   setStatusMsg('');
                   accumulatedTextRef.current = '';
                   currentFinalRef.current = '';
                 }}
                 style={{ fontSize: '0.8rem', padding: '8px 16px' }}
               >
-                🗑️ Reset & Hapus Rekaman
+                {activeTab === 'text' ? '🗑️ Reset & Hapus Teks' : '🗑️ Reset & Hapus Rekaman'}
               </GlowButton>
             </div>
           </div>
