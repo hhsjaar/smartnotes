@@ -935,6 +935,22 @@ function DashboardContent() {
     }
   };
 
+  // fetch ke API yang dilindungi admin: menyertakan token, dan minta login ulang bila ditolak (401)
+  const adminFetch = async (url: string, init: RequestInit = {}) => {
+    const token = localStorage.getItem('admin_token') || '';
+    const res = await fetch(url, {
+      ...init,
+      headers: { ...(init.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 401) {
+      localStorage.removeItem('admin_authorized');
+      localStorage.removeItem('admin_token');
+      setIsAdminAuthorized(false);
+      setPasscodeInput('');
+    }
+    return res;
+  };
+
   const handleVerifyPasscode = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasscodeError('');
@@ -947,6 +963,7 @@ function DashboardContent() {
       const data = await res.json();
       if (res.ok && data.success) {
         localStorage.setItem('admin_authorized', 'true');
+        if (data.token) localStorage.setItem('admin_token', data.token);
         setIsAdminAuthorized(true);
       } else {
         setPasscodeError(data.error || 'Passcode salah!');
@@ -959,6 +976,7 @@ function DashboardContent() {
   const handleAdminLogout = () => {
     if (confirm('Apakah Anda yakin ingin keluar dari Panel Admin?')) {
       localStorage.removeItem('admin_authorized');
+      localStorage.removeItem('admin_token');
       setIsAdminAuthorized(false);
       setPasscodeInput('');
       window.location.href = '/chat';
@@ -1728,9 +1746,14 @@ function DashboardContent() {
       const isAdminParam = urlParams.get('admin') === 'true';
       const isAssistantPath = window.location.pathname === '/assistant';
       const auth = localStorage.getItem('admin_authorized') === 'true';
+      const hasToken = !!localStorage.getItem('admin_token');
 
-      if (auth) {
+      if (auth && hasToken) {
         setIsAdminAuthorized(true);
+        setAuthChecking(false);
+      } else if (auth) {
+        // sesi lama tanpa token: minta login ulang agar mendapat token
+        setIsAdminAuthorized(false);
         setAuthChecking(false);
       } else if (isAdminParam || isAssistantPath) {
         setIsAdminAuthorized(false);
@@ -3369,7 +3392,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
   const fetchAdminReservations = async () => {
     setAdminResLoading(true);
     try {
-      const res = await fetch('/api/reservations');
+      const res = await adminFetch('/api/reservations');
       if (res.ok) {
         const data = await res.json();
         setAdminReservations(data);
@@ -3404,7 +3427,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
     e.preventDefault();
     setEditIsSaving(true);
     try {
-      const res = await fetch('/api/reservations', {
+      const res = await adminFetch('/api/reservations', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -6232,7 +6255,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
 
     const handlePatchReservation = async (id: string, patch: Record<string, any>) => {
       try {
-        const res = await fetch('/api/reservations', {
+        const res = await adminFetch('/api/reservations', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, ...patch }),
@@ -6251,7 +6274,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
     const handleDeleteRes = async (id: string) => {
       if (!confirm('Apakah Anda yakin ingin menghapus reservasi ini?')) return;
       try {
-        const res = await fetch(`/api/reservations?id=${id}`, {
+        const res = await adminFetch(`/api/reservations?id=${id}`, {
           method: 'DELETE',
         });
         if (res.ok) {

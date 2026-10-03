@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
+import { createAdminToken, getAdminPasscode } from '@/lib/adminAuth';
 
 export async function POST(request: Request) {
   try {
     const { passcode } = await request.json();
-    const serverPasscode = process.env.ADMIN_PASSCODE || 'admin123';
+    const serverPasscode = getAdminPasscode();
 
     if (passcode === serverPasscode) {
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true, token: createAdminToken() });
     } else {
       return NextResponse.json({ success: false, error: 'Passcode Admin salah!' }, { status: 401 });
     }

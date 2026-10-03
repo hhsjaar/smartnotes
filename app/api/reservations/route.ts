@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { isAdminRequest } from '@/lib/adminAuth';
+
+const unauthorized = () => NextResponse.json({ error: 'Akses admin diperlukan' }, { status: 401 });
 
 // Helper function to parse dateTime string as WIB (UTC+7) if no timezone offset is present
 function parseDateTimeAsWIB(dateTimeStr: string): Date {
@@ -32,14 +35,16 @@ async function generateBookingCode(): Promise<string> {
 }
 
 // GET: Ambil semua data reservasi untuk admin
-export async function GET() {
+// Tanpa token admin (cth: chat room karyawan) nomor WhatsApp customer disembunyikan.
+export async function GET(request: Request) {
   try {
     const reservations = await prisma.reservation.findMany({
       orderBy: {
         dateTime: 'asc',
       },
     });
-    return NextResponse.json(reservations);
+    if (isAdminRequest(request)) return NextResponse.json(reservations);
+    return NextResponse.json(reservations.map(({ phone: _phone, ...rest }) => rest));
   } catch (error: any) {
     console.error('Error fetching reservations:', error);
     return NextResponse.json({ error: 'Gagal mengambil data reservasi' }, { status: 500 });
@@ -112,6 +117,7 @@ export async function POST(request: Request) {
 
 // PUT: Memperbarui status / detail reservasi oleh admin
 export async function PUT(request: Request) {
+  if (!isAdminRequest(request)) return unauthorized();
   try {
     const { id, status, dpAmount, name, dateTime, tableInfo, partySize, menuList, phone, dpPaid, timeNote } = await request.json();
 
@@ -153,6 +159,7 @@ export async function PUT(request: Request) {
 
 // DELETE: Menghapus data reservasi oleh admin
 export async function DELETE(request: Request) {
+  if (!isAdminRequest(request)) return unauthorized();
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
