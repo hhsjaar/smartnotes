@@ -12,6 +12,7 @@ import { Calendar } from '@/components/Calendar';
 import { WhatsappChat } from '@/components/WhatsappChat';
 import { VoiceAssistant } from '@/components/VoiceAssistant';
 import { InteractiveMerge } from '@/components/InteractiveMerge';
+import { WhatsAppFab, PublicReservationCalendar, AdminReservationChecks, buildCustomerConfirmLink } from '@/components/ReservationExtras';
 import styles from './page.module.css';
 import { supabase } from '@/lib/supabase';
 import { formatForWhatsApp } from '@/lib/whatsappFormatter';
@@ -351,6 +352,8 @@ function DashboardContent() {
   const [editDp, setEditDp] = useState('');
   const [editMenu, setEditMenu] = useState('');
   const [editStatus, setEditStatus] = useState('pending');
+  const [editPhone, setEditPhone] = useState('');
+  const [editTimeNote, setEditTimeNote] = useState('');
   const [editIsSaving, setEditIsSaving] = useState(false);
 
   const getChatAttributeColor = (attr: string | null) => {
@@ -3393,6 +3396,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
     setEditDp(r.dpAmount.toLocaleString('id-ID'));
     setEditMenu(r.menuList);
     setEditStatus(r.status);
+    setEditPhone(r.phone || '');
+    setEditTimeNote(r.timeNote || '');
   };
 
   const handleSaveEdit = async (e: React.FormEvent) => {
@@ -3411,6 +3416,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
           dpAmount: parseFloat(editDp.replace(/\./g, '')) || 0,
           menuList: editMenu,
           status: editStatus,
+          phone: editPhone,
+          timeNote: editTimeNote,
         }),
       });
       if (res.ok) {
@@ -6221,18 +6228,20 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
       return true;
     });
 
-    const handleUpdateStatus = async (id: string, status: string) => {
+    const handleUpdateStatus = (id: string, status: string) => handlePatchReservation(id, { status });
+
+    const handlePatchReservation = async (id: string, patch: Record<string, any>) => {
       try {
         const res = await fetch('/api/reservations', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, status }),
+          body: JSON.stringify({ id, ...patch }),
         });
         if (res.ok) {
           const updated = await res.json();
           setAdminReservations((prev) => prev.map((r) => (r.id === id ? updated : r)));
         } else {
-          alert('Gagal mengupdate status');
+          alert('Gagal menyimpan perubahan');
         }
       } catch (err) {
         alert('Terjadi kesalahan');
@@ -6420,7 +6429,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                   <div key={r.id} className={`${styles.resMobileCard} glass-panel`}>
                     <div className={styles.resMobileCardHeader}>
                       <div>
-                        <h4 className={styles.resMobileClientName}>{r.name}</h4>
+                        <h4 className={styles.resMobileClientName}>{r.name}{r.code ? ` · ${r.code}` : ''}</h4>
                         <span className={styles.resMobileDate}>{formattedDate}</span>
                       </div>
                       <span className={`${styles.statusBadge} ${styles['status_' + r.status]}`}>
@@ -6453,6 +6462,8 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                         </div>
                       )}
                     </div>
+
+                    <AdminReservationChecks r={r} onPatch={handlePatchReservation} />
 
                     <div className={styles.resMobileCardActions}>
                       {r.status === 'pending' && (
@@ -6593,6 +6604,7 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       <th>DP (Down Payment)</th>
                       <th>Daftar Menu</th>
                       <th>Status</th>
+                      <th>Checklist Admin</th>
                       <th>Aksi</th>
                     </tr>
                   </thead>
@@ -6602,7 +6614,10 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                       const formattedDate = formatDateLong(r.dateTime) + ' ' + formatTime(r.dateTime);
                       return (
                         <tr key={r.id}>
-                          <td className={styles.resClientName}>{r.name}</td>
+                          <td className={styles.resClientName}>
+                            {r.name}
+                            {r.code && <div style={{ fontSize: '0.7rem', color: 'var(--text-dark)' }}>{r.code}</div>}
+                          </td>
                           <td>{formattedDate}</td>
                           <td><span className={styles.tableBadge}>{r.tableInfo}</span></td>
                           <td>{r.partySize} orang</td>
@@ -6614,6 +6629,9 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                                 r.status === 'confirmed' ? 'Dikonfirmasi' :
                                   r.status === 'cancelled' ? 'Dibatalkan' : 'Selesai'}
                             </span>
+                          </td>
+                          <td style={{ minWidth: '240px' }}>
+                            <AdminReservationChecks r={r} onPatch={handlePatchReservation} />
                           </td>
                           <td>
                             <div className={styles.actionRow}>
@@ -7666,6 +7684,28 @@ Buatlah sebuah catatan berisi ringkasan mendalam tentang berita ini. Cantumkan t
                 </div>
               </div>
 
+              <div className={styles.custInputRow}>
+                <div className={styles.custInputGroup} style={{ flex: 1 }}>
+                  <label htmlFor="edit-res-phone">Nomor WhatsApp</label>
+                  <input
+                    id="edit-res-phone"
+                    type="tel"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                  />
+                </div>
+                <div className={styles.custInputGroup} style={{ flex: 1 }}>
+                  <label htmlFor="edit-res-timenote">Catatan Jam</label>
+                  <input
+                    id="edit-res-timenote"
+                    type="text"
+                    placeholder="Cth: 19.00 - 21.00"
+                    value={editTimeNote}
+                    onChange={(e) => setEditTimeNote(e.target.value)}
+                  />
+                </div>
+              </div>
+
               <div className={styles.custInputGroup}>
                 <label htmlFor="edit-res-status">Status</label>
                 <select
@@ -7776,6 +7816,8 @@ function HomeContentWrapper() {
 
 function CustomerReservation() {
   const [resName, setResName] = useState('');
+  const [resPhone, setResPhone] = useState('');
+  const [calRefreshKey, setCalRefreshKey] = useState(0);
   const [resDateTime, setResDateTime] = useState('');
   const [resTable, setResTable] = useState('');
   const [resSize, setResSize] = useState(4);
@@ -7816,6 +7858,7 @@ function CustomerReservation() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: resName,
+          phone: resPhone,
           dateTime: resDateTime,
           tableInfo: resTable,
           partySize: resSize,
@@ -7828,7 +7871,9 @@ function CustomerReservation() {
       if (res.ok) {
         setResStatus('success');
         setSubmittedRes(data);
+        setCalRefreshKey((k) => k + 1);
         setResName('');
+        setResPhone('');
         setResDateTime('');
         setResTable('');
         setResSize(4);
@@ -7873,6 +7918,28 @@ function CustomerReservation() {
               <div className={styles.successIconWrapper}>✓</div>
               <h3>Reservasi Berhasil Diajukan!</h3>
               <p className={styles.successSubtitle}>Manajemen kami sedang meninjau reservasi Anda. Berikut ringkasan detail boking Anda:</p>
+
+              {submittedRes.code && (
+                <div className={styles.bookingCodeBox}>
+                  <span>Kode Booking</span>
+                  <strong>{submittedRes.code}</strong>
+                </div>
+              )}
+
+              <div className={styles.waConfirmBox}>
+                <p>
+                  <strong>Langkah terakhir:</strong> reservasi baru dianggap sah setelah dikonfirmasi admin via WhatsApp.
+                  Tekan tombol di bawah, teks konfirmasi sudah terisi otomatis — tinggal tekan <em>Kirim</em>.
+                </p>
+                <a
+                  className={styles.waConfirmBtn}
+                  href={buildCustomerConfirmLink(submittedRes)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Konfirmasi ke Admin via WhatsApp
+                </a>
+              </div>
 
               <div className={styles.summaryDetails}>
                 <div className={styles.summaryItem}>
@@ -7938,6 +8005,21 @@ function CustomerReservation() {
                   onChange={(e) => setResName(e.target.value)}
                   disabled={resStatus === 'submitting'}
                 />
+              </div>
+
+              <div className={styles.custInputGroup}>
+                <label htmlFor="res-phone">Nomor WhatsApp</label>
+                <input
+                  id="res-phone"
+                  type="tel"
+                  inputMode="tel"
+                  required
+                  placeholder="Cth: 0812 3456 7890"
+                  value={resPhone}
+                  onChange={(e) => setResPhone(e.target.value)}
+                  disabled={resStatus === 'submitting'}
+                />
+                <small style={{ color: 'var(--text-dark)', fontSize: '0.7rem' }}>Untuk konfirmasi dari admin</small>
               </div>
 
               <div className={styles.custInputRow}>
@@ -8074,6 +8156,9 @@ function CustomerReservation() {
           </ul>
         </div>
       </div>
+
+      <PublicReservationCalendar refreshKey={calRefreshKey} />
+      <WhatsAppFab />
 
       {showTermsModal && (
         <div className={styles.termsModalOverlay} onClick={() => setShowTermsModal(false)}>

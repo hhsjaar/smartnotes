@@ -109,6 +109,10 @@ model Reservation {
   menuList  String
   status    String   @default("pending")
   createdAt DateTime @default(now())
+  phone     String?
+  code      String?  @unique
+  dpPaid    Boolean  @default(false)
+  timeNote  String?
 
   @@map("reservations")
 }

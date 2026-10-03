@@ -10,6 +10,27 @@ function parseDateTimeAsWIB(dateTimeStr: string): Date {
   return new Date(`${dateTimeStr}+07:00`);
 }
 
+// Normalisasi nomor WA ke format internasional tanpa '+' (cth: 08581234 -> 628581234)
+function normalizePhone(raw: string): string {
+  let digits = (raw || '').replace(/\D/g, '');
+  if (digits.startsWith('0')) digits = '62' + digits.slice(1);
+  else if (digits.startsWith('8')) digits = '62' + digits;
+  return digits;
+}
+
+// Kode booking pendek untuk mencocokkan chat WhatsApp dengan data reservasi
+async function generateBookingCode(): Promise<string> {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // tanpa karakter mirip (0/O, 1/I)
+  for (let attempt = 0; attempt < 5; attempt++) {
+    let suffix = '';
+    for (let i = 0; i < 4; i++) suffix += alphabet[Math.floor(Math.random() * alphabet.length)];
+    const code = `BRJ-${suffix}`;
+    const exists = await prisma.reservation.findUnique({ where: { code } });
+    if (!exists) return code;
+  }
+  return `BRJ-${Date.now().toString(36).toUpperCase().slice(-5)}`;
+}
+
 // GET: Ambil semua data reservasi untuk admin
 export async function GET() {
   try {
@@ -28,7 +49,7 @@ export async function GET() {
 // POST: Membuat reservasi baru oleh customer
 export async function POST(request: Request) {
   try {
-    const { name, dateTime, tableInfo, partySize, dpAmount, menuList } = await request.json();
+    const { name, dateTime, tableInfo, partySize, dpAmount, menuList, phone } = await request.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json({ error: 'Nama reservasi tidak boleh kosong' }, { status: 400 });
@@ -38,6 +59,10 @@ export async function POST(request: Request) {
     }
     if (!tableInfo || !tableInfo.trim()) {
       return NextResponse.json({ error: 'Tempat / Meja harus diisi' }, { status: 400 });
+    }
+    const normalizedPhone = normalizePhone(phone);
+    if (normalizedPhone.length < 10 || normalizedPhone.length > 15) {
+      return NextResponse.json({ error: 'Nomor WhatsApp tidak valid' }, { status: 400 });
     }
     const size = parseInt(partySize);
     if (isNaN(size) || size <= 0) {
@@ -63,8 +88,11 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
+    const code = await generateBookingCode();
     const newReservation = await prisma.reservation.create({
       data: {
+        phone: normalizedPhone,
+        code,
         name: name.trim(),
         dateTime: bookingDate,
         tableInfo: tableInfo.trim(),
@@ -85,7 +113,7 @@ export async function POST(request: Request) {
 // PUT: Memperbarui status / detail reservasi oleh admin
 export async function PUT(request: Request) {
   try {
-    const { id, status, dpAmount, name, dateTime, tableInfo, partySize, menuList } = await request.json();
+    const { id, status, dpAmount, name, dateTime, tableInfo, partySize, menuList, phone, dpPaid, timeNote } = await request.json();
 
     if (!id) {
       return NextResponse.json({ error: 'ID reservasi harus ditentukan' }, { status: 400 });
@@ -107,6 +135,9 @@ export async function PUT(request: Request) {
     if (tableInfo) updateData.tableInfo = tableInfo.trim();
     if (partySize !== undefined) updateData.partySize = parseInt(partySize) || reservation.partySize;
     if (menuList) updateData.menuList = menuList.trim();
+    if (phone) updateData.phone = normalizePhone(phone);
+    if (typeof dpPaid === 'boolean') updateData.dpPaid = dpPaid;
+    if (timeNote !== undefined) updateData.timeNote = (timeNote || '').trim() || null;
 
     const updated = await prisma.reservation.update({
       where: { id },
