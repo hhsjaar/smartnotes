@@ -374,63 +374,128 @@ PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan l
       ],
       generationConfig: {
         responseMimeType: 'application/json',
+        // Kunci bentuk balasan agar selalu { notes: [...] } dengan JSON yang valid
+        responseSchema: {
+          type: 'OBJECT',
+          properties: {
+            notes: {
+              type: 'ARRAY',
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  title: { type: 'STRING' },
+                  content: { type: 'STRING' },
+                  summary: { type: 'STRING' },
+                  tags: { type: 'ARRAY', items: { type: 'STRING' } },
+                  todo_list: { type: 'ARRAY', items: { type: 'STRING' } },
+                  folderId: { type: 'STRING', nullable: true },
+                  folderName: { type: 'STRING', nullable: true },
+                  parentFolderName: { type: 'STRING', nullable: true }
+                },
+                required: ['title', 'content']
+              }
+            }
+          },
+          required: ['notes']
+        },
         thinkingConfig: {
           thinkingBudget: 0
         }
       }
     };
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
+    // Gemini kadang membalas dengan bentuk JSON yang sedikit berbeda (array polos, 'notes' berupa
+    // objek tunggal, kunci lain, dsb). Normalisasi ke array catatan; ulangi sekali bila tetap tidak cocok.
+    const looksLikeNote = (v: any) => v && typeof v === 'object' && !Array.isArray(v) && (v.title || v.content);
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error('Gemini Format Error:', res.status, errText);
-      return NextResponse.json({ error: `Gagal memformat catatan melalui Gemini: ${res.status}` }, { status: 500 });
+    const extractNotes = (parsed: any): any[] | null => {
+      if (Array.isArray(parsed)) {
+        const items = parsed.filter(looksLikeNote);
+        return items.length > 0 ? items : null;
+      }
+      if (!parsed || typeof parsed !== 'object') return null;
+      if (Array.isArray(parsed.notes)) {
+        const items = parsed.notes.filter(looksLikeNote);
+        return items.length > 0 ? items : null;
+      }
+      if (looksLikeNote(parsed.notes)) return [parsed.notes];
+      if (looksLikeNote(parsed)) return [parsed];
+      for (const value of Object.values(parsed)) {
+        if (Array.isArray(value)) {
+          const items = value.filter(looksLikeNote);
+          if (items.length > 0) return items;
+        } else if (looksLikeNote(value)) {
+          return [value];
+        }
+      }
+      return null;
+    };
+
+    const parseModelText = (resultText: string): any => {
+      let cleanedText = resultText.trim();
+      if (cleanedText.startsWith('```')) {
+        cleanedText = cleanedText.replace(/^```(json)?\n?/, '');
+        cleanedText = cleanedText.replace(/\n?```$/, '');
+        cleanedText = cleanedText.trim();
+      }
+      const firstBrace = cleanedText.indexOf('{');
+      const firstBracket = cleanedText.indexOf('[');
+      let start = -1;
+      let end = -1;
+      if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+        start = firstBrace;
+        end = cleanedText.lastIndexOf('}');
+      } else if (firstBracket !== -1) {
+        start = firstBracket;
+        end = cleanedText.lastIndexOf(']');
+      }
+      if (start !== -1 && end !== -1 && start < end) {
+        cleanedText = cleanedText.substring(start, end + 1);
+      }
+      return JSON.parse(cleanedText);
+    };
+
+    const MAX_ATTEMPTS = 2;
+    let finalNotes: any[] | null = null;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS && !finalNotes; attempt++) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('Gemini Format Error:', res.status, errText);
+        return NextResponse.json({ error: `Gagal memformat catatan melalui Gemini: ${res.status}` }, { status: 500 });
+      }
+
+      const data = await res.json();
+      const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!resultText) {
+        if (attempt === MAX_ATTEMPTS) {
+          return NextResponse.json({ error: 'Tidak ada respons dari model AI.' }, { status: 500 });
+        }
+        continue;
+      }
+
+      try {
+        finalNotes = extractNotes(parseModelText(resultText));
+      } catch (parseError) {
+        console.error(`Format parse error (percobaan ${attempt}):`, parseError);
+      }
+
+      if (!finalNotes) {
+        console.error(`Format respon AI tidak valid (percobaan ${attempt}). Cuplikan respons:`, resultText.slice(0, 500));
+      }
     }
 
-    const data = await res.json();
-    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!resultText) {
-      return NextResponse.json({ error: 'Tidak ada respons dari model AI.' }, { status: 500 });
-    }
-
-    let cleanedText = resultText.trim();
-    if (cleanedText.startsWith('```')) {
-      cleanedText = cleanedText.replace(/^```(json)?\n?/, '');
-      cleanedText = cleanedText.replace(/\n?```$/, '');
-      cleanedText = cleanedText.trim();
-    }
-    const firstBrace = cleanedText.indexOf('{');
-    const firstBracket = cleanedText.indexOf('[');
-    let start = -1;
-    let end = -1;
-    if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
-      start = firstBrace;
-      end = cleanedText.lastIndexOf('}');
-    } else if (firstBracket !== -1) {
-      start = firstBracket;
-      end = cleanedText.lastIndexOf(']');
-    }
-    if (start !== -1 && end !== -1 && start < end) {
-      cleanedText = cleanedText.substring(start, end + 1);
-    }
-    const formattedResponse = JSON.parse(cleanedText);
-
-    // If "notes" array is not returned but it returned a single note format, wrap it in notes array
-    let finalNotes = [];
-    if (formattedResponse.notes && Array.isArray(formattedResponse.notes)) {
-      finalNotes = formattedResponse.notes;
-    } else if (formattedResponse.title) {
-      finalNotes = [formattedResponse];
-    } else {
-      throw new Error('Format respon AI tidak valid.');
+    if (!finalNotes) {
+      throw new Error('Format respon AI tidak valid. Silakan coba lagi.');
     }
 
     // Ensure every note in the array has the required attributes
