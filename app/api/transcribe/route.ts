@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getGlossaryPromptBlock } from '@/lib/glossary';
 
 function getMimeType(fileName: string, fileType: string): string {
   const ext = fileName.split('.').pop()?.toLowerCase();
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
     }
 
     // 2. Call generateContent with fileUri
+    const glossaryBlock = await getGlossaryPromptBlock();
     const generateUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
     const payload = {
       contents: [
@@ -79,7 +81,7 @@ export async function POST(request: Request) {
               }
             },
             {
-              text: 'Tolong transkripsikan audio ini secara lengkap kata demi kata (verbatim) dalam bahasa Indonesia tanpa ada penafsiran, pemformatan tambahan, atau penambahan komentar. Tuliskan teks hasil transkripsinya saja secara utuh.'
+              text: `Tolong transkripsikan audio ini secara lengkap kata demi kata (verbatim) dalam bahasa Indonesia tanpa ada penafsiran, pemformatan tambahan, atau penambahan komentar. Tuliskan teks hasil transkripsinya saja secara utuh.\n\n${glossaryBlock}`
             }
           ]
         }

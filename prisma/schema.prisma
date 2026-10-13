@@ -156,3 +156,12 @@ model JobdeskReminder {
 
   @@map("jobdesk_reminders")
 }
+
+// Kamus nama orang, gelar, dan istilah baku untuk mengoreksi hasil transkripsi suara
+model GlossaryTerm {
+  id        String   @id @default(uuid())
+  term      String   @unique
+  createdAt DateTime @default(now())
+
+  @@map("glossary_terms")
+}

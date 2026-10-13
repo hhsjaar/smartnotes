@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getGlossaryPromptBlock } from '@/lib/glossary';
 
 export async function POST(request: Request) {
   try {
@@ -360,6 +361,9 @@ Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
 
 PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan lainnya. Kembalikan HANYA string JSON murni yang valid.`;
     }
+
+    // Panduan ejaan nama/gelar agar salah-dengar dari transkrip diperbaiki saat memformat
+    prompt += `\n\n${await getGlossaryPromptBlock()}`;
 
     const payload = {
       contents: [

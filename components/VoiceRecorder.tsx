@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, Square, Upload, Trash2, Sparkles, FileAudio, AlertCircle, FileText, Folder, FolderCheck, List, Shield, Clock, Pause, Play, Type, ClipboardPaste } from 'lucide-react';
 import { GlowButton } from './ui/GlowButton';
+import { GlossaryManager } from './GlossaryManager';
 import styles from './VoiceRecorder.module.css';
 
 interface FormattedNote {
@@ -596,7 +597,9 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   };
 
   const processFormatting = async (textToFormat: string, formatType: 'standard' | 'laporan' | 'intel' | 'poin' = 'standard') => {
-    const rawText = textToFormat || transcript;
+    let rawText = textToFormat || transcript;
+    // Teks rekam suara langsung (bukan hasil unggah/tempel) rawan salah dengar nama & gelar
+    const isLiveTranscript = !textToFormat && activeTab === 'record';
     if (!rawText.trim()) {
       setErrorMsg('Teks transkripsi kosong. Silakan rekam suara Anda terlebih dahulu atau tulis sesuatu.');
       setIsLoading(false);
@@ -618,6 +621,26 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     setStatusMsg(statusText);
 
     try {
+      if (isLiveTranscript) {
+        setStatusMsg('Mengoreksi nama, gelar, dan istilah...');
+        try {
+          let token = '';
+          try { token = localStorage.getItem('admin_token') || ''; } catch (e) {}
+          const fix = await fetch('/api/transcribe/correct', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ text: rawText }),
+          });
+          if (fix.ok) {
+            const fixed = await fix.json();
+            if (fixed.text) rawText = fixed.text;
+          }
+        } catch (e) {
+          console.warn('Koreksi transkrip dilewati:', e);
+        }
+        setStatusMsg(statusText);
+      }
+
       const res = await fetch('/api/notes/format', {
         method: 'POST',
         headers: {
@@ -951,6 +974,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
             <span>{errorMsg}</span>
           </div>
         )}
+
+        <GlossaryManager />
 
         {/* Bottom Actions */}
         {((activeTab === 'text' ? pastedText : transcript) && !isRecording) && (

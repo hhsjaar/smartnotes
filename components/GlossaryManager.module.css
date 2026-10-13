@@ -1,0 +1,14 @@
+.wrap { width: 100%; margin-top: 16px; border: 1px solid var(--glass-border); border-radius: var(--border-radius-md); background: rgba(255, 255, 255, 0.02); }
+.header { width: 100%; display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: none; border: none; color: var(--foreground); font-size: 0.88rem; font-weight: 600; cursor: pointer; text-align: left; }
+.header span:nth-child(2) { flex: 1; }
+.count { color: var(--text-dark); font-weight: 500; font-size: 0.75rem; flex: 0 !important; white-space: nowrap; }
+.body { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+.hint { margin: 0; font-size: 0.78rem; line-height: 1.5; color: var(--text-muted); }
+.input { width: 100%; box-sizing: border-box; padding: 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--glass-border); color: var(--foreground); font-size: 0.85rem; font-family: inherit; resize: vertical; }
+.addBtn { align-self: flex-start; padding: 8px 14px; border-radius: 8px; background: var(--primary); border: none; color: #fff; font-weight: 600; font-size: 0.82rem; cursor: pointer; }
+.addBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+.error { font-size: 0.8rem; color: #f87171; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 220px; overflow-y: auto; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px 5px 10px; border-radius: 9999px; background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.3); color: var(--foreground); font-size: 0.78rem; }
+.chip button { display: inline-flex; background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0; }
+.empty { font-size: 0.8rem; color: var(--text-dark); }
