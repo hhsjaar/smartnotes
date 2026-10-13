@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Mic, Square, Upload, Trash2, Sparkles, FileAudio, AlertCircle, FileText, Folder, FolderCheck, List, Shield, Clock, Pause, Play, Type, ClipboardPaste } from 'lucide-react';
 import { GlowButton } from './ui/GlowButton';
 import { GlossaryManager } from './GlossaryManager';
+import { AccurateRecorder } from './AccurateRecorder';
 import { dedupeRepeatedSpeech } from '@/lib/transcriptDedupe';
 import styles from './VoiceRecorder.module.css';
 
@@ -119,6 +120,21 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   const [errorMsg, setErrorMsg] = useState('');
   const [checkedFolderIds, setCheckedFolderIds] = useState<string[]>([]);
   const [isPausedDraft, setIsPausedDraft] = useState(false);
+  // Mode rekam: 'fast' = teks langsung (mesin suara browser), 'accurate' = rekam audio lalu transkrip Gemini
+  const [recordMode, setRecordMode] = useState<'fast' | 'accurate'>('fast');
+  const [transcriptSource, setTranscriptSource] = useState<'live' | 'accurate'>('live');
+  const [accurateBusy, setAccurateBusy] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('recorder_mode') === 'accurate') setRecordMode('accurate');
+    } catch (e) {}
+  }, []);
+
+  const changeRecordMode = (mode: 'fast' | 'accurate') => {
+    setRecordMode(mode);
+    try { localStorage.setItem('recorder_mode', mode); } catch (e) {}
+  };
 
   // Sync initialCheckedFolderIds prop to state
   useEffect(() => {
@@ -472,6 +488,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     currentFinalRef.current = '';
     speechErrorCountRef.current = 0;
     setIsPausedDraft(false);
+    setTranscriptSource('live');
 
     if (!recognitionRef.current) {
       setErrorMsg('Fitur perekaman suara langsung tidak didukung oleh browser Anda. Harap gunakan browser Chrome, Safari, atau Edge, atau gunakan opsi Unggah File.');
@@ -600,7 +617,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   const processFormatting = async (textToFormat: string, formatType: 'standard' | 'laporan' | 'intel' | 'poin' = 'standard') => {
     let rawText = textToFormat || transcript;
     // Teks rekam suara langsung (bukan hasil unggah/tempel) rawan salah dengar nama & gelar
-    const isLiveTranscript = !textToFormat && activeTab === 'record';
+    const isLiveTranscript = !textToFormat && activeTab === 'record' && transcriptSource === 'live';
     if (!rawText.trim()) {
       setErrorMsg('Teks transkripsi kosong. Silakan rekam suara Anda terlebih dahulu atau tulis sesuatu.');
       setIsLoading(false);
@@ -776,6 +793,45 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 
         {activeTab === 'record' ? (
           <>
+            <div className={styles.modePills}>
+              <button
+                type="button"
+                className={`${styles.modePill} ${recordMode === 'fast' ? styles.modePillActive : ''}`}
+                onClick={() => changeRecordMode('fast')}
+                disabled={isRecording || accurateBusy}
+              >
+                Cepat<small>Teks tampil saat bicara</small>
+              </button>
+              <button
+                type="button"
+                className={`${styles.modePill} ${recordMode === 'accurate' ? styles.modePillActive : ''}`}
+                onClick={() => changeRecordMode('accurate')}
+                disabled={isRecording || accurateBusy}
+              >
+                Akurat<small>Transkrip muncul setelah selesai</small>
+              </button>
+            </div>
+
+            {recordMode === 'accurate' ? (
+              <AccurateRecorder
+                disabled={isLoading}
+                onBusyChange={setAccurateBusy}
+                onStart={() => {
+                  setErrorMsg('');
+                  setTranscript('');
+                  setTranscriptSource('accurate');
+                  setIsPausedDraft(false);
+                  accumulatedTextRef.current = '';
+                  currentFinalRef.current = '';
+                  setStatusMsg('');
+                }}
+                onTranscribed={(text) => {
+                  setTranscript(text);
+                  setTranscriptSource('accurate');
+                  setStatusMsg('Transkrip akurat selesai. Silakan pilih format AI di bawah.');
+                }}
+              />
+            ) : (<>
             <div className={styles.recordButtonContainer}>
               {isRecording ? (
                 <>
@@ -868,6 +924,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
                 statusMsg || 'Tekan tombol mikrofon di atas untuk berbicara'
               )}
             </div>
+            </>)}
           </>
         ) : activeTab === 'upload' ? (
           <>

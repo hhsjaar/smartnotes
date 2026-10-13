@@ -840,3 +840,14 @@
   }
 }
 
+
+/* Pilihan mode rekam: Cepat (teks langsung) / Akurat (transkrip setelah selesai) */
+.modePills { display: flex; gap: 8px; width: 100%; margin-bottom: 14px; }
+.modePill {
+  flex: 1; padding: 10px 8px; border-radius: 12px; cursor: pointer; text-align: center;
+  background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); color: var(--text-muted);
+  font-size: 0.8rem; font-weight: 600; line-height: 1.3;
+}
+.modePill small { display: block; margin-top: 2px; font-weight: 400; font-size: 0.68rem; color: var(--text-dark); }
+.modePillActive { background: rgba(99, 102, 241, 0.16); border-color: rgba(99, 102, 241, 0.55); color: #fff; }
+.modePillActive small { color: #c7d2fe; }
