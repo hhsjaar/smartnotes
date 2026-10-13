@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Mic, Square, Upload, Trash2, Sparkles, FileAudio, AlertCircle, FileText, Folder, FolderCheck, List, Shield, Clock, Pause, Play, Type, ClipboardPaste } from 'lucide-react';
 import { GlowButton } from './ui/GlowButton';
 import { GlossaryManager } from './GlossaryManager';
+import { dedupeRepeatedSpeech } from '@/lib/transcriptDedupe';
 import styles from './VoiceRecorder.module.css';
 
 interface FormattedNote {
@@ -225,7 +226,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         setIsPausedDraft(true);
         setStatusMsg('⏸️ Perekaman otomatis dipause & tersimpan aman.');
         
-        const finalAccum = mergeTranscripts(accumulatedTextRef.current, currentFinalRef.current);
+        const finalAccum = dedupeRepeatedSpeech(mergeTranscripts(accumulatedTextRef.current, currentFinalRef.current));
         accumulatedTextRef.current = finalAccum;
         currentFinalRef.current = '';
         if (finalAccum) {
@@ -265,7 +266,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       try { recognitionRef.current.stop(); } catch (e) {}
     }
     
-    const finalAccum = mergeTranscripts(accumulatedTextRef.current, currentFinalRef.current);
+    const finalAccum = dedupeRepeatedSpeech(mergeTranscripts(accumulatedTextRef.current, currentFinalRef.current));
     accumulatedTextRef.current = finalAccum;
     currentFinalRef.current = '';
     setTranscript(finalAccum);
@@ -381,7 +382,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
             isRecordingRef.current = false;
             setIsPausedDraft(true);
             speechErrorCountRef.current = 0;
-            const finalAccum = mergeTranscripts(accumulatedTextRef.current, currentFinalRef.current);
+            const finalAccum = dedupeRepeatedSpeech(mergeTranscripts(accumulatedTextRef.current, currentFinalRef.current));
             accumulatedTextRef.current = finalAccum;
             currentFinalRef.current = '';
             if (finalAccum) {
@@ -400,7 +401,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
           // Save the final text of the session that just ended, removing overlaps
           const prevAccumulated = accumulatedTextRef.current;
           const currentFinal = currentFinalRef.current;
-          accumulatedTextRef.current = mergeTranscripts(prevAccumulated, currentFinal);
+          accumulatedTextRef.current = dedupeRepeatedSpeech(mergeTranscripts(prevAccumulated, currentFinal));
           currentFinalRef.current = ''; // Reset for the next session
           
           // Use a small timeout to let the SpeechRecognition instance fully clean up before starting again.
@@ -504,7 +505,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       } catch (e) {}
     }
 
-    const finalAccum = mergeTranscripts(accumulatedTextRef.current, currentFinalRef.current);
+    const finalAccum = dedupeRepeatedSpeech(mergeTranscripts(accumulatedTextRef.current, currentFinalRef.current));
     accumulatedTextRef.current = finalAccum;
     currentFinalRef.current = '';
     if (finalAccum) {
@@ -622,6 +623,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 
     try {
       if (isLiveTranscript) {
+        rawText = dedupeRepeatedSpeech(rawText); // buang kalimat berulang akibat mesin suara
         setStatusMsg('Mengoreksi nama, gelar, dan istilah...');
         try {
           let token = '';
