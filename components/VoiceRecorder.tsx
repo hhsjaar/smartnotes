@@ -1008,7 +1008,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         {activeTab !== 'text' && transcript && (
           <div className={styles.transcriptArea}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-dark)', marginBottom: '5px', fontWeight: 'bold' }}>
-              TRANSKRIP SEMENTARA (MENTAH):
+              {transcriptSource === 'accurate' ? 'TRANSKRIP AKURAT (HASIL AI):' : 'TRANSKRIP SEMENTARA (MENTAH):'}
             </div>
             {transcript}
           </div>
