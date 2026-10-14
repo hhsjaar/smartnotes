@@ -2,6 +2,46 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getGlossaryPromptBlock } from '@/lib/glossary';
 
+
+// Model kadang menulis baris pemisah tabel Markdown tanpa tanda minus (cth: "| | |"),
+// sehingga tabel tidak tampil sebagai tabel. Perbaiki agar selalu valid.
+function repairMarkdownTables(text: string): string {
+  const lines = text.split('\n');
+  const isRowLine = (l: string) => /^\s*\|.*\|\s*$/.test(l);
+  const cellsOf = (l: string) => l.trim().slice(1, -1).split('|');
+
+  for (let i = 0; i < lines.length - 1; i++) {
+    const header = lines[i];
+    const sep = lines[i + 1];
+    if (!isRowLine(header) || !isRowLine(sep)) continue;
+
+    const sepCells = cellsOf(sep);
+    const looksLikeSeparator = sepCells.every((c) => /^:?-*:?$/.test(c.trim()));
+    if (!looksLikeSeparator) continue;
+    if (sepCells.every((c) => /-/.test(c))) continue; // sudah valid
+
+    const headerCells = cellsOf(header);
+    const fixedCells = headerCells.map((_, idx) => {
+      const raw = (sepCells[idx] ?? '').trim();
+      return /-/.test(raw) ? raw : '---';
+    });
+    lines[i + 1] = `| ${fixedCells.join(' | ')} |`;
+  }
+  return lines.join('\n');
+}
+
+// Model kadang menyelipkan teks sisa skema ke dalam todo_list (cth: "folderId_reference_below").
+// Buang item yang bukan tugas sungguhan.
+function cleanTodoList(value: any): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item) => typeof item === 'string')
+    .map((item: string) => item.trim())
+    .filter((item) => item.length >= 3)
+    .filter((item) => !/folderId|folderName|parentFolderName/i.test(item))
+    .filter((item) => !(/^\S+$/.test(item) && item.includes('_')));
+}
+
 export async function POST(request: Request) {
   try {
     const { text, formatType, selectedFolderIds, singleNote } = await request.json();
@@ -234,7 +274,93 @@ Kembalikan hasil pemformatan HANYA dalam format JSON dengan skema array berikut:
   ]
 }
 
-PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan lainnya. Kembalikan HANYA string JSON murni yang valid.`;    } else if (formatType === 'poin' || formatType === 'point') {
+PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan lainnya. Kembalikan HANYA string JSON murni yang valid.`;    } else if (formatType === 'terstruktur') {
+      prompt = `Anda adalah notulis profesional. Ubah transkrip/catatan kegiatan berikut (kemungkinan hasil rekaman suara yang berantakan, banyak salah dengar & pengulangan) menjadi NOTULEN TERSTRUKTUR berbahasa Indonesia baku, rapi, dan ringkas.
+
+ATURAN KERAS:
+1. JANGAN mengarang. Hanya pakai fakta, nama, jabatan, angka, dan pernyataan yang ADA di teks. Bila nama/kata tidak jelas (mungkin salah dengar), tulis apa adanya dan beri tanda "(?)".
+2. Isi sambutan, materi, dan diskusi cukup DIRINGKAS ke garis besar -- jangan menyalin kata per kata, tapi jangan menghilangkan poin penting, usulan, angka, atau keputusan.
+3. Pisahkan jelas per pembicara/pihak. Kaitkan setiap pernyataan dengan siapa yang menyampaikan (nama + jabatan/instansi bila disebut).
+4. Bagian nomor 1-5 yang sama sekali TIDAK ADA di teks: HILANGKAN bagiannya (jangan ditulis kosong). Bagian "Data Kegiatan" tetap selalu ada; field yang tidak disebut diisi "Tidak disebutkan".
+5. Format Markdown. Jangan memakai emoji.
+6. Buat TEPAT 1 catatan (satu notulen utuh). Jangan memecah menjadi beberapa catatan dan jangan membuat Catatan Master.
+
+STRUKTUR isi 'content' (ikuti urutan ini, TANPA judul utama karena nama kegiatan sudah dipakai sebagai 'title'):
+
+**Data Kegiatan**
+| Keterangan | Isi |
+|---|---|
+| Hari, Tanggal | ... |
+| Waktu | ... |
+| Tempat | ... |
+| Jenis Kegiatan | (diskusi / rapat / seminar / sosialisasi / dll) |
+| Sifat Kegiatan | Terbuka atau Tertutup (sebut sesuai teks) |
+| Siaran Langsung | Ada (sebut kanal YouTube bila disebut) / Tidak ada / Tidak disebutkan -- tulis "Tidak disebutkan" bila teks tidak membahasnya |
+| Jumlah Hadir | ... |
+| Penanggung Jawab / Penyelenggara | ... |
+| Moderator | ... |
+
+#### 1. Susunan Acara (Rundown)
+Daftar bernomor urutan acara bila disebut.
+
+#### 2. Tamu Undangan / Yang Hadir
+Daftar nama + jabatan/instansi.
+
+#### 3. Sambutan
+Per pembicara: **Nama (Jabatan)** lalu 2-4 poin ringkas isi sambutannya.
+
+#### 4. Penyampaian & Diskusi
+Per pihak/pembicara: **Nama (Jabatan/Kepentingan)** lalu poin-poin isi materi atau yang disampaikan. Bila kegiatan berupa rapat, tuliskan per pihak: usulan, saran, keluhan, serta kejadian yang merugikan yang mereka sampaikan.
+
+#### 5. Sesi Tanya Jawab
+| No | Penanya | Pertanyaan | Penjawab | Jawaban |
+|---|---|---|---|---|
+(satu baris per pertanyaan, isi ringkas)
+
+Instruksi Tambahan:
+- 'title' berformat: "Notulen: [Nama Kegiatan]" (maksimal 8 kata). Bila nama kegiatan tidak disebut, buat judul netral yang menggambarkan isi (mis. "Notulen: Rapat Koordinasi ...") tanpa menambah detail yang tidak ada.
+- 'tags' harus menyertakan "Notulen", "Terstruktur", serta 1-2 tag tambahan yang relevan.
+- Masukkan keputusan/tindak lanjut konkret yang disebut dalam teks ke 'todo_list'. Jika tidak ada, kembalikan [].
+- Nilai 'summary' harus berupa seluruh teks transkripsi asli (mentah/verbatim) dari "Teks Mentah Transkripsi" secara utuh, tanpa parafrase, perubahan kata, atau ringkasan AI.
+- Jika tanggal kegiatan tidak disebut di teks, isi "Hari, Tanggal" dengan "${currentDateTimeStr} (tanggal pencatatan)".
+
+Teks Mentah Transkripsi:
+"${text}"
+
+Daftar Folder saat ini di database beserta rangkuman isi catatan di dalamnya: ${JSON.stringify(foldersContext)}
+
+Aturan Klasifikasi Folder & Subfolder (Berdasarkan Konteks Isi Catatan):
+Anda WAJIB menaruh catatan baru ke dalam folder/subfolder yang paling relevan berdasarkan acuan utama di bawah ini:
+1. Acuan Awal Klasifikasi adalah menentukan Folder Induk (Parent Folder) terlebih dahulu:
+   - **Perusahaan**: Masukkan ke folder ini jika catatan membahas tentang warung, burjolevelup, cafe, restoran, bisnis kuliner, operasional warung, belanjaan/pembelian bahan makanan, briefing operasional, SOP, laporan kantor, dsb. Setelah menentukan folder "Perusahaan", cocokkan dan pilih subfolder yang paling sesuai di bawahnya (misalnya: 'Belanjaan', 'Briefing Operasional', 'Laporan Kantor', 'Pengembangan Produk', 'SOP', 'Temuan Harian', 'Progres Harian').
+   - **Polsek**: Masukkan ke folder ini jika catatan membahas tentang masyarakat, laporan keamanan, ketertiban umum, kepolisian, tugas intel, pengumpulan informasi intelijen, data teks sambutan tokoh masyarakat, pemberdayaan masyarakat, dsb. Setelah menentukan folder "Polsek", cocokkan dan pilih subfolder yang paling sesuai di bawahnya (misalnya: 'Temuan Harian', 'Progres Harian', 'Laporan Keamanan', 'Pemberdayaan Masyarakat').
+   - **Pribadi**: Masukkan ke folder ini jika catatan membahas tentang wawasan, pengetahuan, pengembangan diri (self-development), catatan pribadi (self-notes), edukasi, keuangan pribadi/personal, diskusi ilmiah/edukatif, dsb. Setelah menentukan folder "Pribadi", cocokkan dan pilih subfolder yang paling sesuai di bawahnya (misalnya: 'Keuangan', 'Diskusi & Edukasi').
+   - **Utuh**: Khusus untuk 'Catatan Master' (Catatan Utuh yang menggabungkan beberapa topik pecahan), wajib dimasukkan ke folder "Utuh" (folderName: "Utuh", folderId: null).
+2. Cara menentukan 'folderId', 'folderName', dan 'parentFolderName' dalam output JSON:
+   - Jika catatan cocok dengan suatu subfolder (misalnya subfolder 'Belanjaan' di bawah parent 'Perusahaan'), isi 'folderId' dengan ID subfolder tersebut dari Daftar Folder, 'folderName' dengan nama subfolder tersebut, dan 'parentFolderName' dengan nama parent foldernya ("Perusahaan").
+   - Jika catatan cocok dengan folder induk namun tidak ada subfolder yang spesifik, isi 'folderId' dengan ID folder induk tersebut, 'folderName' dengan nama folder induk tersebut, dan 'parentFolderName' dengan null.
+   - Jika tidak ada folder/subfolder yang cocok sama sekali di database namun diperlukan kategori baru, buat subfolder/folder baru dengan mengisi 'folderName' sesuai nama kategori baru tersebut, isi 'folderId' dengan null, dan 'parentFolderName' dengan nama folder induknya (misalnya "Perusahaan", "Polsek", atau "Pribadi") jika kategori baru itu merupakan subkategori.
+   - Jika merupakan catatan umum yang tidak memerlukan folder khusus, isi 'folderId': null, 'folderName': null, dan 'parentFolderName': null.
+${folderConstraintPrompt}
+
+Kembalikan hasil HANYA dalam format JSON dengan skema berikut:
+{
+  "notes": [
+    {
+      "title": "Notulen: Nama Kegiatan",
+      "content": "Isi notulen terstruktur dalam Markdown sesuai STRUKTUR di atas (tabel Data Kegiatan, bagian 1-5 yang ada).",
+      "summary": "Seluruh teks transkripsi asli (mentah/verbatim) secara utuh.",
+      "tags": ["Notulen", "Terstruktur", "TagLain"],
+      "todo_list": ["Tindak lanjut 1", "Tindak lanjut 2"],
+      "folderId": "id-folder-yang-cocok-atau-null",
+      "folderName": "NamaFolderBaruAtauNull",
+      "parentFolderName": "NamaFolderIndukJikaSubfolderAtauNull"
+    }
+  ]
+}
+
+PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan lainnya. Kembalikan HANYA string JSON murni yang valid.`;
+    } else if (formatType === 'poin' || formatType === 'point') {
       prompt = `Anda adalah asisten AI editor catatan profesional. Tugas Anda adalah mengambil teks mentah hasil transkripsi suara (Voice-to-Text) di bawah ini, menganalisis kontennya, dan memparafrase catatan tersebut menjadi format ringkasan poin-poin penting yang SANGAT SINGKAT, PADAT, JELAS, dan langsung ke inti permasalahan (to the point) tanpa basa-basi atau bertele-tele.
 PENTING:
 - Hindari kalimat pembuka, pengantar, kesimpulan normatif, atau teks dekoratif.
@@ -505,10 +631,10 @@ PENTING: Jangan menyertakan tag markdown seperti \`\`\`json atau teks tambahan l
     // Ensure every note in the array has the required attributes
     finalNotes = finalNotes.map((note: any) => ({
       title: note.title || 'Catatan Tanpa Judul',
-      content: note.content || '',
+      content: formatType === 'terstruktur' ? repairMarkdownTables(note.content || '') : (note.content || ''),
       summary: note.summary || text.substring(0, 100) + '...',
       tags: note.tags || [],
-      todo_list: note.todo_list || [],
+      todo_list: cleanTodoList(note.todo_list),
       folderId: note.folderId || null,
       folderName: note.folderName || null,
       parentFolderName: note.parentFolderName || null

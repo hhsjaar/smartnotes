@@ -851,3 +851,6 @@
 .modePill small { display: block; margin-top: 2px; font-weight: 400; font-size: 0.68rem; color: var(--text-dark); }
 .modePillActive { background: rgba(99, 102, 241, 0.16); border-color: rgba(99, 102, 241, 0.55); color: #fff; }
 .modePillActive small { color: #c7d2fe; }
+
+/* Kartu format selebar penuh (di tengah, di antara dua baris kartu) */
+.formatCardWide { grid-column: 1 / -1; }

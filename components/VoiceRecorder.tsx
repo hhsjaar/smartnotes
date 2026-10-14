@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, Square, Upload, Trash2, Sparkles, FileAudio, AlertCircle, FileText, Folder, FolderCheck, List, Shield, Clock, Pause, Play, Type, ClipboardPaste } from 'lucide-react';
+import { Mic, Square, Upload, Trash2, Sparkles, FileAudio, AlertCircle, FileText, Folder, FolderCheck, List, Shield, Clock, Pause, Play, Type, ClipboardPaste, ClipboardList } from 'lucide-react';
 import { GlowButton } from './ui/GlowButton';
 import { GlossaryManager } from './GlossaryManager';
 import { AccurateRecorder } from './AccurateRecorder';
@@ -115,7 +115,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   const [pastedText, setPastedText] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingType, setLoadingType] = useState<'standard' | 'laporan' | 'intel' | 'poin' | null>(null);
+  const [loadingType, setLoadingType] = useState<'standard' | 'laporan' | 'intel' | 'poin' | 'terstruktur' | null>(null);
   const [statusMsg, setStatusMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [checkedFolderIds, setCheckedFolderIds] = useState<string[]>([]);
@@ -578,7 +578,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     }
   };
 
-  const processTranscription = async (formatType: 'standard' | 'laporan' | 'intel' | 'poin' = 'standard') => {
+  const processTranscription = async (formatType: 'standard' | 'laporan' | 'intel' | 'poin' | 'terstruktur' = 'standard') => {
     if (!file) return;
     
     setIsLoading(true);
@@ -614,7 +614,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     }
   };
 
-  const processFormatting = async (textToFormat: string, formatType: 'standard' | 'laporan' | 'intel' | 'poin' = 'standard') => {
+  const processFormatting = async (textToFormat: string, formatType: 'standard' | 'laporan' | 'intel' | 'poin' | 'terstruktur' = 'standard') => {
     let rawText = textToFormat || transcript;
     // Teks rekam suara langsung (bukan hasil unggah/tempel) rawan salah dengar nama & gelar
     const isLiveTranscript = !textToFormat && activeTab === 'record' && transcriptSource === 'live';
@@ -635,6 +635,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       statusText = 'AI sedang menyusun Laporan Intel dari catatan suara Anda...';
     } else if (formatType === 'poin') {
       statusText = 'AI sedang merangkum catatan Anda dalam bentuk poin-poin singkat...';
+    } else if (formatType === 'terstruktur') {
+      statusText = 'AI sedang menyusun notulen terstruktur dari catatan Anda...';
     }
     setStatusMsg(statusText);
 
@@ -695,6 +697,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         successText = 'Laporan Intel berhasil dibuat!';
       } else if (formatType === 'poin') {
         successText = 'Ringkasan Poin berhasil dibuat!';
+      } else if (formatType === 'terstruktur') {
+        successText = 'Notulen Terstruktur berhasil dibuat!';
       }
       setStatusMsg(successText);
     } catch (err: any) {
@@ -1072,6 +1076,20 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
                   </button>
 
                   <button
+                    className={`${styles.formatCard} ${styles.formatCardWide} ${loadingType === 'terstruktur' ? styles.formatCardLoading : ''}`}
+                    onClick={() => processFormatting(activeTab === 'text' ? pastedText : '', 'terstruktur')}
+                    disabled={isLoading}
+                  >
+                    <div className={styles.formatIcon} style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+                      <ClipboardList size={20} />
+                    </div>
+                    <div className={styles.formatInfo}>
+                      <div className={styles.formatName}>Parafrase Terstruktur</div>
+                    </div>
+                    {loadingType === 'terstruktur' && <div className={styles.smallSpinner} />}
+                  </button>
+
+                  <button
                     className={`${styles.formatCard} ${loadingType === 'laporan' ? styles.formatCardLoading : ''}`}
                     onClick={() => processFormatting(activeTab === 'text' ? pastedText : '', 'laporan')}
                     disabled={isLoading}
@@ -1128,6 +1146,20 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
                         <div className={styles.formatName}>Transkripsi & Point AI</div>
                       </div>
                       {loadingType === 'poin' && <div className={styles.smallSpinner} />}
+                    </button>
+
+                    <button
+                      className={`${styles.formatCard} ${styles.formatCardWide} ${loadingType === 'terstruktur' ? styles.formatCardLoading : ''}`}
+                      onClick={() => processTranscription('terstruktur')}
+                      disabled={isLoading}
+                    >
+                      <div className={styles.formatIcon} style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+                        <ClipboardList size={20} />
+                      </div>
+                      <div className={styles.formatInfo}>
+                        <div className={styles.formatName}>Transkripsi & Parafrase Terstruktur</div>
+                      </div>
+                      {loadingType === 'terstruktur' && <div className={styles.smallSpinner} />}
                     </button>
 
                     <button
