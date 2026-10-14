@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Edit3, Check, Trash2, Calendar, FileText, CheckSquare, Sparkles, Tag, Plus, X, ArrowLeft, Copy, Mic, FolderInput, Square, Upload, AlertCircle, List, FileAudio, Shield, ChevronUp, ChevronDown } from 'lucide-react';
+import { Edit3, Check, Trash2, Calendar, FileText, CheckSquare, Sparkles, Tag, Plus, X, ArrowLeft, Copy, Mic, FolderInput, Square, Upload, AlertCircle, List, FileAudio, Shield, ChevronUp, ChevronDown, ClipboardList } from 'lucide-react';
 import { GlowButton } from './ui/GlowButton';
 import styles from './NoteEditor.module.css';
 import { formatForWhatsApp } from '../lib/whatsappFormatter';
@@ -126,7 +126,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
   const [transcript, setTranscript] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [isRecordingLoading, setIsRecordingLoading] = useState(false);
-  const [loadingType, setLoadingType] = useState<'standard' | 'laporan' | 'intel' | 'poin' | null>(null);
+  const [loadingType, setLoadingType] = useState<'standard' | 'laporan' | 'intel' | 'poin' | 'terstruktur' | null>(null);
   const [statusMsg, setStatusMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -426,7 +426,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
     }
   };
 
-  const processTranscription = async (formatType: 'standard' | 'laporan' | 'intel' | 'poin' = 'standard') => {
+  const processTranscription = async (formatType: 'standard' | 'laporan' | 'intel' | 'poin' | 'terstruktur' = 'standard') => {
     if (!file) return;
     
     setIsRecordingLoading(true);
@@ -461,7 +461,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
     }
   };
 
-  const processFormatting = async (textToFormat: string, formatType: 'standard' | 'laporan' | 'intel' | 'poin' = 'standard') => {
+  const processFormatting = async (textToFormat: string, formatType: 'standard' | 'laporan' | 'intel' | 'poin' | 'terstruktur' = 'standard') => {
     if (!note) return;
     const rawText = textToFormat || transcript;
     if (!rawText.trim()) {
@@ -481,6 +481,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
       statusText = 'AI sedang menyusun Laporan Intel dari catatan suara Anda...';
     } else if (formatType === 'poin') {
       statusText = 'AI sedang merangkum catatan Anda dalam bentuk poin-poin singkat...';
+    } else if (formatType === 'terstruktur') {
+      statusText = 'AI sedang menyusun notulen terstruktur dari catatan Anda...';
     }
     setStatusMsg(statusText);
 
@@ -1443,6 +1445,16 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onDelete, 
                     <List size={16} className={styles.inlineFormatIconPurple} />
                     <span className={styles.inlineFormatName}>Point AI</span>
                     {loadingType === 'poin' && <div className={styles.inlineSpinner} />}
+                  </button>
+
+                  <button
+                    className={`${styles.inlineFormatCard} ${styles.inlineFormatCardWide} ${loadingType === 'terstruktur' ? styles.inlineFormatCardLoading : ''}`}
+                    onClick={() => file ? processTranscription('terstruktur') : processFormatting('', 'terstruktur')}
+                    disabled={isRecordingLoading}
+                  >
+                    <ClipboardList size={16} style={{ color: '#10b981' }} />
+                    <span className={styles.inlineFormatName}>Parafrase Terstruktur</span>
+                    {loadingType === 'terstruktur' && <div className={styles.inlineSpinner} />}
                   </button>
 
                   <button

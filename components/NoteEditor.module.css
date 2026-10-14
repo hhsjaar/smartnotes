@@ -1354,3 +1354,6 @@
 
 
 
+
+/* Kartu format selebar penuh di tengah (di antara dua baris kartu) */
+.inlineFormatCardWide { grid-column: 1 / -1; }
