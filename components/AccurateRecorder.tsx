@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Mic, Square, Pause, Play, Download, RotateCcw, Trash2 } from 'lucide-react';
 import styles from './AccurateRecorder.module.css';
+import { startSession, appendChunk, loadSession, clearSession, RecoveredSession } from '@/lib/recorderStore';
 
 interface AccurateRecorderProps {
   onStart: () => void;
@@ -43,6 +44,8 @@ export const AccurateRecorder: React.FC<AccurateRecorderProps> = ({ onStart, onT
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [recovery, setRecovery] = useState<RecoveredSession | null>(null);
+  const [notice, setNotice] = useState('');
 
   const streamRef = useRef<MediaStream | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
@@ -54,6 +57,15 @@ export const AccurateRecorder: React.FC<AccurateRecorderProps> = ({ onStart, onT
   const wakeLockRef = useRef<any>(null);
   const mimeRef = useRef('');
   const lastLevelUpdateRef = useRef(0);
+
+  // Cari rekaman yang terputus sebelumnya (telepon masuk, aplikasi ditutup paksa, dsb.)
+  useEffect(() => {
+    let cancelled = false;
+    loadSession().then((session) => {
+      if (!cancelled && session) setRecovery(session);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   // Beri tahu induk saat sedang merekam/mentranskripsi agar pilihan mode dikunci
   useEffect(() => {
@@ -134,8 +146,16 @@ export const AccurateRecorder: React.FC<AccurateRecorderProps> = ({ onStart, onT
   };
 
   const start = async () => {
+    if (recovery && !window.confirm('Ada rekaman sebelumnya yang belum diproses. Hapus rekaman itu dan mulai rekaman baru?')) {
+      return;
+    }
+    if (recovery) {
+      await clearSession();
+      setRecovery(null);
+    }
     setError('');
     setMessage('');
+    setNotice('');
     setAudioFile(null);
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
       setError('Browser ini tidak mendukung perekaman audio. Gunakan Chrome terbaru, atau pakai mode Cepat.');
@@ -170,11 +190,31 @@ export const AccurateRecorder: React.FC<AccurateRecorderProps> = ({ onStart, onT
       chunksRef.current = [];
       peakRef.current = 0;
       recorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
+        if (e.data && e.data.size > 0) {
+          chunksRef.current.push(e.data);
+          appendChunk(e.data); // simpan juga ke perangkat agar bisa dipulihkan bila terputus
+        }
       };
       recorder.onstop = handleStopped;
       recorderRef.current = recorder;
+      await startSession(mime || 'audio/webm');
       recorder.start(1000); // simpan per detik agar tidak hilang bila ada gangguan
+
+      // Mikrofon direbut aplikasi lain (cth: telepon masuk): selesaikan dan simpan rekaman sampai titik ini
+      stream.getAudioTracks().forEach((track) => {
+        track.addEventListener('ended', () => {
+          if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+            setNotice('Mikrofon terputus (mungkin ada panggilan masuk atau aplikasi lain memakainya). Rekaman sampai titik itu disimpan dan diproses.');
+            stop();
+          }
+        });
+      });
+      // Konteks audio bisa dijeda sistem saat ada gangguan; coba lanjutkan
+      ctx.onstatechange = () => {
+        if (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted') {
+          ctx.resume().catch(() => {});
+        }
+      };
 
       startMeter(analyser);
       requestWakeLock();
@@ -245,12 +285,38 @@ export const AccurateRecorder: React.FC<AccurateRecorderProps> = ({ onStart, onT
       setAudioFile(null);
       setMessage('');
       setPhase('idle');
+      clearSession();
       onTranscribed(data.text);
     } catch (e: any) {
       console.error(e);
       setError(`${e?.message || 'Gagal melakukan transkripsi.'} Rekaman Anda masih tersimpan, coba lagi atau unduh audionya.`);
       setPhase('failed');
     }
+  };
+
+  const processRecovered = () => {
+    if (!recovery) return;
+    const file = recovery.file;
+    setRecovery(null);
+    setAudioFile(file);
+    onStart();
+    transcribe(file);
+  };
+
+  const downloadRecovered = () => {
+    if (!recovery) return;
+    const url = URL.createObjectURL(recovery.file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = recovery.file.name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  };
+
+  const discardRecovered = async () => {
+    if (!window.confirm('Hapus rekaman yang belum diproses ini? Tindakan ini tidak bisa dibatalkan.')) return;
+    await clearSession();
+    setRecovery(null);
   };
 
   const downloadAudio = () => {
@@ -264,6 +330,7 @@ export const AccurateRecorder: React.FC<AccurateRecorderProps> = ({ onStart, onT
   };
 
   const discard = () => {
+    clearSession();
     setAudioFile(null);
     setError('');
     setMessage('');
@@ -274,6 +341,29 @@ export const AccurateRecorder: React.FC<AccurateRecorderProps> = ({ onStart, onT
 
   return (
     <div className={styles.wrap}>
+      {recovery && phase === 'idle' && (
+        <div className={styles.recovery}>
+          <strong>Rekaman yang belum selesai ditemukan</strong>
+          <span>
+            Dimulai {new Date(recovery.startedAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
+            {' · '}{(recovery.size / (1024 * 1024)).toFixed(1)} MB. Mungkin terputus karena panggilan telepon atau aplikasi tertutup.
+          </span>
+          <div className={styles.failActions}>
+            <button type="button" className={styles.actionBtn} onClick={processRecovered}>
+              <RotateCcw size={14} /> Proses Rekaman
+            </button>
+            <button type="button" className={styles.actionBtn} onClick={downloadRecovered}>
+              <Download size={14} /> Unduh Audio
+            </button>
+            <button type="button" className={`${styles.actionBtn} ${styles.danger}`} onClick={discardRecovered}>
+              <Trash2 size={14} /> Buang
+            </button>
+          </div>
+        </div>
+      )}
+
+      {notice && <div className={styles.notice}>{notice}</div>}
+
       {phase === 'idle' && (
         <button type="button" className={styles.micBtn} onClick={start} disabled={disabled} title="Mulai merekam">
           <Mic size={40} />

@@ -37,3 +37,6 @@
 .failActions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .actionBtn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.06); border: 1px solid var(--glass-border); color: var(--foreground); font-size: 0.8rem; font-weight: 600; cursor: pointer; }
 .danger { color: #f87171; border-color: rgba(239, 68, 68, 0.35); }
+.recovery { width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: var(--border-radius-md); background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.4); color: var(--foreground); font-size: 0.82rem; text-align: left; }
+.recovery strong { color: #fbbf24; }
+.notice { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: var(--border-radius-md); background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24; font-size: 0.82rem; text-align: left; }
